@@ -4,10 +4,12 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,8 +26,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     /// OsEngine instance (typically headless, on a VPS) over its MCP API, instead of running a local
     /// engine. First slice of the architecture: read-only servers/bots/journal view + server connect
     /// control, polled every few seconds (the remote MCP API has no bot/journal push events yet —
-    /// see D:\ff-research\docs\SERVER_SETUP.md). Trading control (open/close positions, bot params)
-    /// is added incrementally on top of the same RemoteMcpClient.
+    /// see D:\ff-research\docs\SERVER_SETUP.md). This slice adds robot creation, parameter editing
+    /// and connector-tab configuration (incl. emulator mode) on top of the same RemoteMcpClient.
     /// «Роботы. VPS» — удалённый аналог Роботы.Lite: показывает серверы и боты ДРУГОГО экземпляра
     /// OsEngine (обычно headless, на VPS) через его MCP API, вместо запуска локального движка.
     /// </summary>
@@ -38,7 +40,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private readonly ObservableCollection<ServerRow> _servers = new ObservableCollection<ServerRow>();
         private readonly ObservableCollection<BotRow> _bots = new ObservableCollection<BotRow>();
         private readonly ObservableCollection<LogRow> _log = new ObservableCollection<LogRow>();
+        private readonly ObservableCollection<ParamRow> _params = new ObservableCollection<ParamRow>();
         private volatile bool _pollInFlight;
+
+        // выбранная вкладка бота на "Tab config" — храним тип, чтобы Save знал, какой bot_set_config_tab_* звать
+        private TabInfo _selectedTab;
+
+        private static readonly string[] CommonTimeFrames =
+        {
+            "Sec1", "Sec2", "Sec5", "Sec10", "Sec15", "Sec20", "Sec30",
+            "Min1", "Min2", "Min3", "Min5", "Min10", "Min15", "Min20", "Min30", "Min45",
+            "Hour1", "Hour2", "Hour4", "Day"
+        };
 
         public RobotsVpsUi()
         {
@@ -47,6 +60,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             ServersDataGrid.ItemsSource = _servers;
             BotsDataGrid.ItemsSource = _bots;
             LogDataGrid.ItemsSource = _log;
+            ParametersDataGrid.ItemsSource = _params;
+
+            ComboBoxSimpleTimeFrame.ItemsSource = CommonTimeFrames;
+            ComboBoxScreenerTimeFrame.ItemsSource = CommonTimeFrames;
 
             LoadSettings();
 
@@ -164,6 +181,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _servers.Clear();
             _bots.Clear();
+            _params.Clear();
+            TabsComboBox.ItemsSource = null;
+            ShowTabPanel(null);
             ButtonConnect.IsEnabled = true;
             ButtonDisconnect.IsEnabled = false;
             SetStatus("Disconnected", Brushes.Gray);
@@ -295,9 +315,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
+        // SelectionChanged фильтра-неустойчив к обновлению строк по месту (RefreshBotsAsync) — он срабатывает
+        // только когда реально меняется выбранный объект, поэтому опрос раз в 5с не дёргает параметры/вкладки.
         private void BotsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+
             _ = RefreshSelectedBotJournalAsync(_client);
+            _ = LoadParametersAsync(selected);
+            _ = LoadTabsAsync(selected);
         }
 
         private async Task RefreshSelectedBotJournalAsync(RemoteMcpClient client)
@@ -370,6 +396,385 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         #endregion
 
+        #region Create / delete bot (wiki_robots_list, bot_create, bot_delete)
+
+        private async void ButtonCreateBot_Click(object sender, RoutedEventArgs e)
+        {
+            if (_client == null)
+            {
+                MessageBox.Show("Connect first");
+                return;
+            }
+
+            CreateBotDialog dialog = new CreateBotDialog(_client) { Owner = this };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                JsonElement result = await _client.CallToolAsync("bot_create", new
+                {
+                    strategy_name = dialog.SelectedStrategy,
+                    name = string.IsNullOrWhiteSpace(dialog.BotName) ? null : dialog.BotName.Trim()
+                }).ConfigureAwait(true);
+
+                string createdName = GetString(result, "name");
+                AppendLog("Created bot '" + createdName + "' (" + dialog.SelectedStrategy + ")");
+
+                await RefreshBotsAsync(_client).ConfigureAwait(true);
+
+                BotRow createdRow = _bots.FirstOrDefault(b => b.Name == createdName);
+                if (createdRow != null)
+                {
+                    BotsDataGrid.SelectedItem = createdRow;
+                    BotsDataGrid.ScrollIntoView(createdRow);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("bot_create failed: " + ex.Message);
+            }
+        }
+
+        private async void ButtonDeleteBot_Click(object sender, RoutedEventArgs e)
+        {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+
+            if (_client == null || selected == null)
+            {
+                return;
+            }
+
+            if (MessageBox.Show($"Delete bot '{selected.Name}' on the VPS?", "Confirm",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                await _client.CallToolAsync("bot_delete", new { bot_id = selected.Name }).ConfigureAwait(true);
+                AppendLog("Deleted bot '" + selected.Name + "'");
+                await RefreshBotsAsync(_client).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("bot_delete failed: " + ex.Message);
+            }
+        }
+
+        #endregion
+
+        #region Parameters (bot_get_params / bot_set_params / bot_click_param_button)
+
+        private async Task LoadParametersAsync(BotRow bot)
+        {
+            _params.Clear();
+            LabelParametersStatus.Content = "";
+
+            if (_client == null || bot == null)
+            {
+                return;
+            }
+
+            try
+            {
+                JsonElement result = await _client.CallToolAsync("bot_get_params", new { bot_id = bot.Name }).ConfigureAwait(true);
+
+                if (!result.TryGetProperty("parameters", out JsonElement parameters) || parameters.ValueKind != JsonValueKind.Array)
+                {
+                    return;
+                }
+
+                foreach (JsonElement p in parameters.EnumerateArray())
+                {
+                    ParamRow row = ParamRow.FromJson(p);
+                    if (row != null)
+                    {
+                        _params.Add(row);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LabelParametersStatus.Content = "Load failed: " + ex.Message;
+            }
+        }
+
+        private async void ButtonSaveParameters_Click(object sender, RoutedEventArgs e)
+        {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+
+            if (_client == null || selected == null)
+            {
+                return;
+            }
+
+            Dictionary<string, object> toSet = new Dictionary<string, object>();
+
+            foreach (ParamRow row in _params)
+            {
+                try
+                {
+                    object value = row.ToWireValue();
+                    if (value != ParamRow.NotSettable)
+                    {
+                        toSet[row.Name] = value;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LabelParametersStatus.Content = $"'{row.Name}': {ex.Message}";
+                    return;
+                }
+            }
+
+            try
+            {
+                JsonElement result = await _client.CallToolAsync("bot_set_params",
+                    new { bot_id = selected.Name, parameters = toSet }).ConfigureAwait(true);
+
+                int updated = GetInt(result, "updated_count");
+                int notFound = GetInt(result, "not_found_count");
+                LabelParametersStatus.Content = $"Saved: {updated} updated" + (notFound > 0 ? $", {notFound} not found" : "");
+                AppendLog($"bot_set_params '{selected.Name}': {updated} updated");
+            }
+            catch (Exception ex)
+            {
+                LabelParametersStatus.Content = "Save failed: " + ex.Message;
+            }
+        }
+
+        private async void ParamButton_Click(object sender, RoutedEventArgs e)
+        {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+            string paramName = (sender as Button)?.Tag as string;
+
+            if (_client == null || selected == null || paramName == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _client.CallToolAsync("bot_click_param_button",
+                    new { bot_id = selected.Name, param_name = paramName }).ConfigureAwait(true);
+                AppendLog($"Clicked '{paramName}' on '{selected.Name}'");
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"bot_click_param_button '{paramName}' failed: " + ex.Message);
+            }
+        }
+
+        #endregion
+
+        #region Tab config (bot_get_sources + bot_get/set_config_tab_simple|screener — incl. emulator_is_on)
+
+        private async Task LoadTabsAsync(BotRow bot)
+        {
+            TabsComboBox.ItemsSource = null;
+            ShowTabPanel(null);
+
+            if (_client == null || bot == null)
+            {
+                return;
+            }
+
+            try
+            {
+                JsonElement result = await _client.CallToolAsync("bot_get_sources", new { bot_id = bot.Name }).ConfigureAwait(true);
+
+                if (!result.TryGetProperty("sources", out JsonElement sources) || sources.ValueKind != JsonValueKind.Array)
+                {
+                    return;
+                }
+
+                List<TabInfo> tabs = sources.EnumerateArray()
+                    .Select(s => new TabInfo { Name = GetString(s, "name"), Type = GetString(s, "type") })
+                    .Where(t => !string.IsNullOrEmpty(t.Name))
+                    .ToList();
+
+                TabsComboBox.ItemsSource = tabs;
+
+                if (tabs.Count > 0)
+                {
+                    TabsComboBox.SelectedIndex = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                LabelTabConfigStatus.Content = "Load failed: " + ex.Message;
+            }
+        }
+
+        private async void TabsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _selectedTab = TabsComboBox.SelectedItem as TabInfo;
+            await LoadSelectedTabConfigAsync().ConfigureAwait(true);
+        }
+
+        private async void ButtonReloadTabConfig_Click(object sender, RoutedEventArgs e)
+        {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+            await LoadTabsAsync(selected).ConfigureAwait(true);
+        }
+
+        private void ShowTabPanel(string type)
+        {
+            SimpleConfigPanel.Visibility = type == "Simple" ? Visibility.Visible : Visibility.Collapsed;
+            ScreenerConfigPanel.Visibility = type == "Screener" ? Visibility.Visible : Visibility.Collapsed;
+            TextBlockTabUnsupported.Visibility = type != null && type != "Simple" && type != "Screener"
+                ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private async Task LoadSelectedTabConfigAsync()
+        {
+            LabelTabConfigStatus.Content = "";
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+
+            if (_client == null || selected == null || _selectedTab == null)
+            {
+                ShowTabPanel(null);
+                return;
+            }
+
+            ShowTabPanel(_selectedTab.Type);
+
+            try
+            {
+                if (_selectedTab.Type == "Simple")
+                {
+                    JsonElement config = await _client.CallToolAsync("bot_get_config_tab_simple",
+                        new { bot_id = selected.Name, tab_name = _selectedTab.Name }).ConfigureAwait(true);
+
+                    TextBoxSimpleServerType.Text = GetString(config, "server_type");
+                    TextBoxSimpleServerFullName.Text = GetString(config, "server_full_name");
+                    TextBoxSimpleSecurityClass.Text = GetString(config, "security_class");
+                    TextBoxSimpleSecurityName.Text = GetString(config, "security_name");
+                    TextBoxSimplePortfolio.Text = GetString(config, "portfolio_name");
+                    ComboBoxSimpleTimeFrame.Text = GetString(config, "time_frame");
+                    SetComboBoxItem(ComboBoxSimpleCommissionType, GetString(config, "commission_type"));
+                    TextBoxSimpleCommissionValue.Text = GetDecimal(config, "commission_value").ToString(CultureInfo.InvariantCulture);
+                    CheckBoxSimpleEmulator.IsChecked = GetBool(config, "emulator_is_on");
+                }
+                else if (_selectedTab.Type == "Screener")
+                {
+                    JsonElement config = await _client.CallToolAsync("bot_get_config_tab_screener",
+                        new { bot_id = selected.Name, tab_name = _selectedTab.Name }).ConfigureAwait(true);
+
+                    TextBoxScreenerServerType.Text = GetString(config, "server_type");
+                    TextBoxScreenerServerName.Text = GetString(config, "server_name");
+                    TextBoxScreenerPortfolio.Text = GetString(config, "portfolio_name");
+                    ComboBoxScreenerTimeFrame.Text = GetString(config, "time_frame");
+                    SetComboBoxItem(ComboBoxScreenerCommissionType, GetString(config, "commission_type"));
+                    TextBoxScreenerCommissionValue.Text = GetDecimal(config, "commission_value").ToString(CultureInfo.InvariantCulture);
+                    CheckBoxScreenerEmulator.IsChecked = GetBool(config, "emulator_is_on");
+                    int tabsCount = GetInt(config, "tabs_count");
+                    LabelScreenerSecuritiesCount.Content = tabsCount > 0 ? $"{tabsCount} securities (edit list in the terminal)" : "";
+                }
+            }
+            catch (Exception ex)
+            {
+                LabelTabConfigStatus.Content = "Load failed: " + ex.Message;
+            }
+        }
+
+        private async void ButtonSaveTabConfig_Click(object sender, RoutedEventArgs e)
+        {
+            BotRow selected = BotsDataGrid.SelectedItem as BotRow;
+
+            if (_client == null || selected == null || _selectedTab == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_selectedTab.Type == "Simple")
+                {
+                    Dictionary<string, object> args = new Dictionary<string, object>
+                    {
+                        ["bot_id"] = selected.Name,
+                        ["tab_name"] = _selectedTab.Name,
+                        ["emulator_is_on"] = CheckBoxSimpleEmulator.IsChecked == true
+                    };
+                    AddIfNotEmpty(args, "server_type", TextBoxSimpleServerType.Text);
+                    AddIfNotEmpty(args, "server_full_name", TextBoxSimpleServerFullName.Text);
+                    AddIfNotEmpty(args, "security_class", TextBoxSimpleSecurityClass.Text);
+                    AddIfNotEmpty(args, "security_name", TextBoxSimpleSecurityName.Text);
+                    AddIfNotEmpty(args, "portfolio_name", TextBoxSimplePortfolio.Text);
+                    AddIfNotEmpty(args, "time_frame", ComboBoxSimpleTimeFrame.Text);
+                    AddIfNotEmpty(args, "commission_type", (ComboBoxSimpleCommissionType.SelectedItem as ComboBoxItem)?.Content as string);
+                    if (decimal.TryParse(TextBoxSimpleCommissionValue.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal commission)
+                        || decimal.TryParse(TextBoxSimpleCommissionValue.Text, NumberStyles.Any, CultureInfo.CurrentCulture, out commission))
+                    {
+                        args["commission_value"] = commission;
+                    }
+
+                    await _client.CallToolAsync("bot_set_config_tab_simple", args).ConfigureAwait(true);
+                }
+                else if (_selectedTab.Type == "Screener")
+                {
+                    Dictionary<string, object> args = new Dictionary<string, object>
+                    {
+                        ["bot_id"] = selected.Name,
+                        ["tab_name"] = _selectedTab.Name,
+                        ["emulator_is_on"] = CheckBoxScreenerEmulator.IsChecked == true
+                    };
+                    AddIfNotEmpty(args, "server_type", TextBoxScreenerServerType.Text);
+                    AddIfNotEmpty(args, "server_name", TextBoxScreenerServerName.Text);
+                    AddIfNotEmpty(args, "portfolio_name", TextBoxScreenerPortfolio.Text);
+                    AddIfNotEmpty(args, "time_frame", ComboBoxScreenerTimeFrame.Text);
+                    AddIfNotEmpty(args, "commission_type", (ComboBoxScreenerCommissionType.SelectedItem as ComboBoxItem)?.Content as string);
+                    if (decimal.TryParse(TextBoxScreenerCommissionValue.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal commission)
+                        || decimal.TryParse(TextBoxScreenerCommissionValue.Text, NumberStyles.Any, CultureInfo.CurrentCulture, out commission))
+                    {
+                        args["commission_value"] = commission;
+                    }
+
+                    await _client.CallToolAsync("bot_set_config_tab_screener", args).ConfigureAwait(true);
+                }
+                else
+                {
+                    return;
+                }
+
+                LabelTabConfigStatus.Content = "Saved";
+                AppendLog($"Saved tab config '{_selectedTab.Name}' on '{selected.Name}'");
+                await LoadSelectedTabConfigAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                LabelTabConfigStatus.Content = "Save failed: " + ex.Message;
+            }
+        }
+
+        private static void AddIfNotEmpty(Dictionary<string, object> args, string key, string value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                args[key] = value;
+            }
+        }
+
+        private static void SetComboBoxItem(ComboBox box, string content)
+        {
+            foreach (ComboBoxItem item in box.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Content as string, content, StringComparison.OrdinalIgnoreCase))
+                {
+                    box.SelectedItem = item;
+                    return;
+                }
+            }
+        }
+
+        #endregion
+
         #region Small helpers
 
         private void AppendLog(string message)
@@ -396,6 +801,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             e.ValueKind == JsonValueKind.Object && e.TryGetProperty(prop, out JsonElement v) && v.TryGetDecimal(out decimal d)
                 ? d : 0m;
 
+        private static bool GetBool(JsonElement e, string prop) =>
+            e.ValueKind == JsonValueKind.Object && e.TryGetProperty(prop, out JsonElement v)
+            && (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False) && v.GetBoolean();
+
         #endregion
     }
 
@@ -417,5 +826,148 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     {
         public DateTime Time { get; set; }
         public string Message { get; set; }
+    }
+
+    /// <summary>tab from bot_get_sources — combo box item, shown as "Name (Type)".</summary>
+    public class TabInfo
+    {
+        public string Name { get; set; }
+        public string Type { get; set; }
+        public override string ToString() => $"{Name} ({Type})";
+    }
+
+    /// <summary>
+    /// One row of bot_get_params, editable in a WPF DataGrid via visibility-switched controls
+    /// (see RobotsVpsUi.xaml, Parameters tab). Mirrors RobotsApi.SerializeParameter/SetParameterValue
+    /// on the server: types match 1:1, ToWireValue() produces exactly what SetParameterValue expects.
+    /// </summary>
+    public class ParamRow
+    {
+        /// <summary>sentinel returned by ToWireValue() for types bot_set_params does not accept (Button, Label).</summary>
+        public static readonly object NotSettable = new object();
+
+        public string Name { get; set; }
+        public string TypeStr { get; set; }
+
+        /// <summary>enum values for a String parameter with a fixed choice list (ValuesString on the server).</summary>
+        public List<string> Values { get; set; }
+
+        public string StringValue { get; set; }
+        public string TextValue { get; set; }
+        public bool BoolValue { get; set; }
+
+        public bool IsEnumString => TypeStr == "String" && Values != null && Values.Count > 0;
+        public bool IsFreeText => TypeStr == "Int" || TypeStr == "Decimal" || TypeStr == "TimeOfDay"
+                                   || (TypeStr == "String" && !IsEnumString);
+        public bool IsBoolLike => TypeStr == "Bool" || TypeStr == "CheckBox";
+        public bool IsDecimalCheckBox => TypeStr == "DecimalCheckBox";
+        public bool IsButton => TypeStr == "Button";
+
+        public static ParamRow FromJson(JsonElement p)
+        {
+            if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty("type", out JsonElement typeEl))
+            {
+                return null;
+            }
+
+            string type = typeEl.GetString();
+            string name = p.TryGetProperty("name", out JsonElement nameEl) ? nameEl.GetString() : "";
+            ParamRow row = new ParamRow { Name = name, TypeStr = type };
+
+            switch (type)
+            {
+                case "Int":
+                    row.TextValue = GetRawNumber(p, "value");
+                    break;
+
+                case "Decimal":
+                case "DecimalCheckBox":
+                    row.TextValue = GetRawNumber(p, "value");
+                    if (type == "DecimalCheckBox" && p.TryGetProperty("check_state", out JsonElement checkEl))
+                    {
+                        row.BoolValue = string.Equals(checkEl.GetString(), "Checked", StringComparison.OrdinalIgnoreCase);
+                    }
+                    break;
+
+                case "String":
+                    row.StringValue = p.TryGetProperty("value", out JsonElement sv) ? sv.GetString() : "";
+                    row.TextValue = row.StringValue;
+                    if (p.TryGetProperty("values", out JsonElement valuesEl) && valuesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        row.Values = valuesEl.EnumerateArray().Select(v => v.GetString()).ToList();
+                    }
+                    break;
+
+                case "Bool":
+                    row.BoolValue = p.TryGetProperty("value", out JsonElement bv)
+                        && (bv.ValueKind == JsonValueKind.True || bv.ValueKind == JsonValueKind.False) && bv.GetBoolean();
+                    break;
+
+                case "TimeOfDay":
+                    row.TextValue = p.TryGetProperty("value", out JsonElement tv) ? tv.GetString() : "";
+                    break;
+
+                case "CheckBox":
+                    string checkState = p.TryGetProperty("value", out JsonElement cv) ? cv.GetString() : "Unchecked";
+                    row.BoolValue = string.Equals(checkState, "Checked", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case "Button":
+                case "Label":
+                    break;
+
+                default:
+                    return null;
+            }
+
+            return row;
+        }
+
+        private static string GetRawNumber(JsonElement p, string prop) =>
+            p.TryGetProperty(prop, out JsonElement v) ? v.GetRawText() : "0";
+
+        /// <summary>
+        /// Value to send in bot_set_params[Name], in the exact shape RobotsApi.SetParameterValue expects.
+        /// Throws with a message safe to show the user when the typed text does not parse.
+        /// Returns NotSettable for Button/Label (the server rejects them from this endpoint).
+        /// </summary>
+        public object ToWireValue()
+        {
+            switch (TypeStr)
+            {
+                case "Int":
+                    if (!int.TryParse(TextValue, NumberStyles.Any, CultureInfo.InvariantCulture, out int i))
+                    {
+                        throw new FormatException("not a whole number: '" + TextValue + "'");
+                    }
+                    return i;
+
+                case "Decimal":
+                case "DecimalCheckBox":
+                    if (!decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d)
+                        && !decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.CurrentCulture, out d))
+                    {
+                        throw new FormatException("not a number: '" + TextValue + "'");
+                    }
+                    return d;
+
+                case "String":
+                    return StringValue ?? TextValue ?? "";
+
+                case "Bool":
+                case "CheckBox":
+                    return BoolValue;
+
+                case "TimeOfDay":
+                    if (!TimeSpan.TryParse(TextValue, CultureInfo.InvariantCulture, out _))
+                    {
+                        throw new FormatException("expected HH:MM:SS, got '" + TextValue + "'");
+                    }
+                    return TextValue;
+
+                default:
+                    return NotSettable;
+            }
+        }
     }
 }

@@ -1,0 +1,63 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.CreateBotDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OsEngine.OsTrader.Gui.RobotsVps"
+        mc:Ignorable="d"
+        Title="Create robot on VPS" Height="520" Width="700"
+        Style="{StaticResource WindowStyleCanResize}"
+        WindowStartupLocation="CenterOwner"
+        MinWidth="500" MinHeight="350"
+        Icon="/Images/OsLogo.ico">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" Content="Filter" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" Name="TextBoxFilter" Height="26" VerticalAlignment="Center" TextChanged="TextBoxFilter_TextChanged"/>
+        </Grid>
+
+        <DataGrid Grid.Row="1" Name="StrategiesDataGrid"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  SelectionChanged="StrategiesDataGrid_SelectionChanged"
+                  MouseDoubleClick="StrategiesDataGrid_MouseDoubleClick"
+                  Style="{StaticResource DataGridStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Class" Width="220" Binding="{Binding ClassName}"/>
+                <DataGridTextColumn Header="Location" Width="90" Binding="{Binding Location}"/>
+                <DataGridTextColumn Header="Description" Width="*" Binding="{Binding Description}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Label Grid.Row="2" Name="LabelStatus" Content="Loading strategy list..." Margin="0,5,0,0"/>
+
+        <Grid Grid.Row="3" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" Content="Bot name (optional)" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" Name="TextBoxBotName" Height="26" Margin="5,0,10,0" VerticalAlignment="Center"/>
+            <Button Grid.Column="3" Name="ButtonOk" Content="Create" Width="100" Height="28" Margin="0,0,5,0"
+                    IsEnabled="False" Click="ButtonOk_Click"/>
+            <Button Grid.Column="4" Name="ButtonCancel" Content="Cancel" Width="90" Height="28" Click="ButtonCancel_Click"/>
+        </Grid>
+    </Grid>
+</Window>
