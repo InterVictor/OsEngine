@@ -15,6 +15,7 @@ using OsEngine.OsData;
 using OsEngine.OsOptimizer;
 using OsEngine.OsTrader.Gui;
 using OsEngine.OsTrader.Gui.BlockInterface;
+using OsEngine.OsTrader.Gui.RobotsVps;
 using OsEngine.OsTrader.SystemAnalyze;
 using OsEngine.PrimeSettings;
 using System;
@@ -261,6 +262,7 @@ namespace OsEngine
 
             ButtonTesterLight.Content = OsLocalization.MainWindow.OsTesterLiteName;
             ButtonRobotLight.Content = OsLocalization.MainWindow.OsBotStationLiteName;
+            ButtonRobotVps.Content = OsLocalization.MainWindow.OsBotStationVpsName;
 
             ChangeButtonCommits();
 
@@ -982,6 +984,22 @@ namespace OsEngine
                 MessageBox.Show(error.ToString());
             }
             Process.GetCurrentProcess().Kill();
+        }
+
+        // "Роботы. VPS" не запускает локальный движок (нет ServerMaster.RealStarted, нет смены _startProgram) —
+        // это лёгкий просмотрщик/пульт для ДРУГОГО экземпляра OsEngine по MCP API. Поэтому, в отличие от
+        // остальных пунктов меню, окно открывается немодально и не закрывает главное меню/процесс.
+        private void ButtonRobotVps_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                RobotsVpsUi robotsVpsUi = new RobotsVpsUi();
+                robotsVpsUi.Show();
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(error.ToString());
+            }
         }
 
         private void ButtonData_Click(object sender, RoutedEventArgs e)

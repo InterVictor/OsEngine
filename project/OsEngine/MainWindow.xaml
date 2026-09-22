@@ -7,7 +7,7 @@
             <Rectangle Margin="429,7,10,0" Height="205" VerticalAlignment="Top" />
             <Rectangle Margin="222,7,202,0" Height="205" VerticalAlignment="Top" />
             <Rectangle Margin="10,7,409,0" Height="205" VerticalAlignment="Top" />
-            <Button  Name="ButtonRobot" Content="Bot Station" Margin="448,138,0,0" VerticalAlignment="Top" Click="ButtonRobotCandleOne_Click" HorizontalAlignment="Left" Width="146" Height="28" />
+            <Button  Name="ButtonRobot" Content="Bot Station" Margin="448,105,0,0" VerticalAlignment="Top" Click="ButtonRobotCandleOne_Click" HorizontalAlignment="Left" Width="146" Height="28" />
             <Button  Name="ButtonTester" Content="Tester" Margin="248,105,0,0" VerticalAlignment="Top" Click="ButtonTesterCandleOne_Click" HorizontalAlignment="Left" Width="146" Height="28"   />
             <Button  Name="ButtonData" Content="Data" Margin="37,105,0,0" VerticalAlignment="Top" Click="ButtonData_Click" HorizontalAlignment="Left" Width="146" Height="28" />
             <Button  Name="ButtonCandleConverter" Content="Candle Converter" HorizontalAlignment="Left" Margin="37,172,0,0" VerticalAlignment="Top" Width="145" Click="CandleConverter_Click"/>
@@ -28,7 +28,8 @@
                 <Image Name="ImageTheme" Source="/Images/MainWIndow/theme.png" Width="20" Height="20"/>
             </Button>
             <Button  Name="ButtonTesterLight" Content="Tester Light" Margin="249,138,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonTesterLight_Click"   />
-            <Button  Name="ButtonRobotLight" Content="Bot Station Light" Margin="448,171,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonRobotLight_Click" />
+            <Button  Name="ButtonRobotLight" Content="Bot Station Light" Margin="448,138,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonRobotLight_Click" />
+            <Button  Name="ButtonRobotVps" Content="Bot Station VPS" Margin="448,171,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonRobotVps_Click" />
             <Image Name="ImagePadlock" HorizontalAlignment="Left" Source="/Images/padlockClosed.png" Height="60" Margin="292,7,0,0" VerticalAlignment="Top" Width="60"/>
             <Button Name="ButtonLocal_Ru" Margin="518,232,0,0" VerticalAlignment="Top" Height="24" Click="ButtonLocal_Click" HorizontalAlignment="Left" Width="37">
                 <Image Name="ImageFlag_Ru" Height="27" Source="/Images/MainWIndow/flag_ru.png" Width="30"/>

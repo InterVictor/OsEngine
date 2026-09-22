@@ -60,6 +60,10 @@ namespace OsEngine.Language
             "Eng:Bot Station Lite_" +
             "Ru:Роботы. Lite");
 
+        public string OsBotStationVpsName => OsLocalization.ConvertToLocString(
+            "Eng:Bot Station VPS_" +
+            "Ru:Роботы. VPS");
+
         public string Message1 => OsLocalization.ConvertToLocString(
             "Eng:Your operating system does not match the operating parameters of the terminal. Need to use a minimum of Windows 7_" +
             "Ru:Ваша оперативная система не соответствуют рабочим параметрам терминала. Нужно использовать минимум Windows 7_");
