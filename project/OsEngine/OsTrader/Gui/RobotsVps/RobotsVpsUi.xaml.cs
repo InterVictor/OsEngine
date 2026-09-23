@@ -36,6 +36,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private const string SettingsFile = @"Engine\RobotsVpsSettings.txt";
 
         private RemoteMcpClient _client;
+        private SshTunnel _sshTunnel;
         private DispatcherTimer _pollTimer;
         private readonly ObservableCollection<ServerRow> _servers = new ObservableCollection<ServerRow>();
         private readonly ObservableCollection<BotRow> _bots = new ObservableCollection<BotRow>();
@@ -65,6 +66,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             ComboBoxSimpleTimeFrame.ItemsSource = CommonTimeFrames;
             ComboBoxScreenerTimeFrame.ItemsSource = CommonTimeFrames;
 
+            TextBoxSshKeyPath.Text = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "ff_server");
+
             LoadSettings();
 
             Closed += (s, e) => Disconnect();
@@ -92,6 +96,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 {
                     PasswordBoxApiKey.Password = lines[1];
                 }
+
+                if (lines.Length > 2) TextBoxSshHost.Text = lines[2];
+                if (lines.Length > 3) TextBoxSshUser.Text = lines[3];
+                if (lines.Length > 4 && !string.IsNullOrWhiteSpace(lines[4])) TextBoxSshKeyPath.Text = lines[4];
+                if (lines.Length > 5 && !string.IsNullOrWhiteSpace(lines[5])) TextBoxSshLocalPort.Text = lines[5];
+                if (lines.Length > 6 && !string.IsNullOrWhiteSpace(lines[6])) TextBoxSshRemotePort.Text = lines[6];
             }
             catch (Exception ex)
             {
@@ -104,7 +114,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             try
             {
                 Directory.CreateDirectory("Engine");
-                File.WriteAllLines(SettingsFile, new[] { TextBoxUrl.Text.Trim(), PasswordBoxApiKey.Password });
+                File.WriteAllLines(SettingsFile, new[]
+                {
+                    TextBoxUrl.Text.Trim(),
+                    PasswordBoxApiKey.Password,
+                    TextBoxSshHost.Text.Trim(),
+                    TextBoxSshUser.Text.Trim(),
+                    TextBoxSshKeyPath.Text.Trim(),
+                    TextBoxSshLocalPort.Text.Trim(),
+                    TextBoxSshRemotePort.Text.Trim()
+                });
             }
             catch (Exception ex)
             {
@@ -121,28 +140,56 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             string url = TextBoxUrl.Text.Trim();
             string apiKey = PasswordBoxApiKey.Password;
 
-            if (string.IsNullOrEmpty(url))
+            if (string.IsNullOrEmpty(url) && string.IsNullOrWhiteSpace(TextBoxSshHost.Text))
             {
-                MessageBox.Show("MCP URL is required");
+                MessageBox.Show("Enter an MCP URL or SSH host");
                 return;
             }
 
             ButtonConnect.IsEnabled = false;
             SetStatus("Connecting...", Brushes.Orange);
 
-            RemoteMcpClient client = new RemoteMcpClient(url, apiKey);
-            client.EventReceived += Client_EventReceived;
-            client.Disconnected += Client_Disconnected;
+            RemoteMcpClient client = null;
+            SshTunnel tunnel = null;
 
             try
             {
+                SaveSettings();
+
+                if (!string.IsNullOrWhiteSpace(TextBoxSshHost.Text))
+                {
+                    if (!int.TryParse(TextBoxSshLocalPort.Text, out int localPort)
+                        || !int.TryParse(TextBoxSshRemotePort.Text, out int remotePort))
+                    {
+                        throw new FormatException("SSH local and VPS API ports must be whole numbers");
+                    }
+
+                    tunnel = await SshTunnel.StartAsync(
+                        TextBoxSshHost.Text.Trim(),
+                        TextBoxSshUser.Text.Trim(),
+                        TextBoxSshKeyPath.Text,
+                        localPort,
+                        remotePort,
+                        message => Dispatcher.BeginInvoke(new Action(() => AppendLog(message))));
+
+                    url = $"http://127.0.0.1:{localPort}/api/v2/mcp";
+                    TextBoxUrl.Text = url;
+                }
+
+                client = new RemoteMcpClient(url, apiKey);
+                client.EventReceived += Client_EventReceived;
+                client.Disconnected += Client_Disconnected;
                 await client.ConnectAsync().ConfigureAwait(true);
 
                 _client = client;
+                _sshTunnel = tunnel;
+                tunnel = null;
                 SaveSettings();
                 SetStatus("Connected", Brushes.Green);
                 ButtonDisconnect.IsEnabled = true;
-                AppendLog("Connected to " + url);
+                AppendLog("Connected to " + url
+                    + (_sshTunnel?.StartedByThisWindow == true ? " (SSH tunnel started by Robots.VPS)"
+                        : !string.IsNullOrWhiteSpace(TextBoxSshHost.Text) ? " (SSH tunnel already running)" : ""));
 
                 _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
                 _pollTimer.Tick += async (s, args) => await PollAsync().ConfigureAwait(true);
@@ -152,9 +199,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
             catch (Exception ex)
             {
-                client.EventReceived -= Client_EventReceived;
-                client.Disconnected -= Client_Disconnected;
-                client.Dispose();
+                if (client != null)
+                {
+                    client.EventReceived -= Client_EventReceived;
+                    client.Disconnected -= Client_Disconnected;
+                    client.Dispose();
+                }
+                tunnel?.Dispose();
                 ButtonConnect.IsEnabled = true;
                 SetStatus("Disconnected", Brushes.Gray);
                 AppendLog("Connect failed: " + ex.Message);
@@ -177,6 +228,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 _client.Disconnected -= Client_Disconnected;
                 _client.Dispose();
                 _client = null;
+            }
+
+            if (_sshTunnel != null)
+            {
+                bool stoppedTunnel = _sshTunnel.StartedByThisWindow;
+                _sshTunnel.Dispose();
+                _sshTunnel = null;
+                if (stoppedTunnel) AppendLog("SSH tunnel stopped");
             }
 
             _servers.Clear();

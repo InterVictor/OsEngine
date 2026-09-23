@@ -24,6 +24,10 @@
 
         <!-- Строка подключения: адрес удалённого MCP API (обычно через SSH-туннель) и ключ -->
         <Grid Grid.Row="0" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="260"/>
@@ -35,18 +39,48 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <Label Grid.Column="0" Name="LabelUrl" Content="MCP URL" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" Name="TextBoxUrl" VerticalAlignment="Center" Height="26" Margin="0,0,10,0"
+            <Label Grid.Row="0" Grid.Column="0" Name="LabelUrl" Content="MCP URL" VerticalAlignment="Center"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Name="TextBoxUrl" VerticalAlignment="Center" Height="26" Margin="0,0,10,0"
                      Text="http://localhost:6510/api/v2/mcp"/>
 
-            <Label Grid.Column="2" Name="LabelApiKey" Content="API Key" VerticalAlignment="Center"/>
-            <PasswordBox Grid.Column="3" Name="PasswordBoxApiKey" VerticalAlignment="Center" Height="26" Margin="0,0,10,0"/>
+            <Label Grid.Row="0" Grid.Column="2" Name="LabelApiKey" Content="API Key" VerticalAlignment="Center"/>
+            <PasswordBox Grid.Row="0" Grid.Column="3" Name="PasswordBoxApiKey" VerticalAlignment="Center" Height="26" Margin="0,0,10,0"/>
 
-            <Button Grid.Column="4" Name="ButtonConnect" Content="Connect" Width="100" Height="28" Margin="0,0,5,0" Click="ButtonConnect_Click"/>
-            <Button Grid.Column="5" Name="ButtonDisconnect" Content="Disconnect" Width="100" Height="28" Margin="0,0,10,0" Click="ButtonDisconnect_Click" IsEnabled="False"/>
+            <Button Grid.Row="0" Grid.Column="4" Name="ButtonConnect" Content="Connect" Width="100" Height="28" Margin="0,0,5,0" Click="ButtonConnect_Click"/>
+            <Button Grid.Row="0" Grid.Column="5" Name="ButtonDisconnect" Content="Disconnect" Width="100" Height="28" Margin="0,0,10,0" Click="ButtonDisconnect_Click" IsEnabled="False"/>
 
-            <Ellipse Grid.Column="6" Name="EllipseStatus" Width="14" Height="14" Fill="Gray" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <Label Grid.Column="6" Name="LabelStatus" Content="Disconnected" HorizontalAlignment="Left" Margin="20,0,0,0" VerticalAlignment="Center"/>
+            <Ellipse Grid.Row="0" Grid.Column="6" Name="EllipseStatus" Width="14" Height="14" Fill="Gray" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <Label Grid.Row="0" Grid.Column="6" Name="LabelStatus" Content="Disconnected" HorizontalAlignment="Left" Margin="20,0,0,0" VerticalAlignment="Center"/>
+
+            <Grid Grid.Row="1" Grid.ColumnSpan="8" Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="105"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="95"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                    <TextBlock Text="SSH host" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshHost" Height="24" Text="188.130.227.40"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                    <TextBlock Text="SSH user" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshUser" Height="24" Text="root"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                    <TextBlock Text="OpenSSH private key file (passphrase-free key)" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshKeyPath" Height="24"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="0,0,8,0">
+                    <TextBlock Text="Local port" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshLocalPort" Height="24" Text="6510"/>
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="VPS API port" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshRemotePort" Height="24" Text="6500"/>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- Серверы и боты удалённого терминала -->
