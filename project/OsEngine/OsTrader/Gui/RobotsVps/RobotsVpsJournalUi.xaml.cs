@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using System.Windows.Threading;
 using OsEngine.Entity;
+using OsEngine.Journal;
 using OsEngine.Language;
 using OsEngine.MCP.Client;
 
@@ -49,6 +50,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private List<JsonElement> _allClosedPositions = new();
         private readonly HashSet<string> _securityFilter = new(StringComparer.OrdinalIgnoreCase);
         private int _openPageSize = 100, _closedPageSize = 100;
+        private string _lastKnownGroup = string.Empty;
 
         public RobotsVpsJournalUi(RemoteMcpClient client, string botId)
         {
@@ -275,13 +277,22 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // Группа/#/Имя/Класс/Вкл-выкл/Mult %. У нас одно окно = один робот, поэтому группировка не
         // фильтрует список (фильтровать нечего), но колонка есть и реально сохраняется через
         // bot_journal_set_settings — как поле, а не декоративная заглушка.
+        // Группа — DataGridViewComboBoxColumn, 1:1 с оригиналом (GetPanelRowList): список существующих
+        // групп + пункт "new", по которому открывается NewGroupAddInJournalUi (см. ChangeGroup в JournalUi2).
         private static DataGridView CreateBotsGrid()
         {
             DataGridView grid = DataGridFactory.GetDataGridView(DataGridViewSelectionMode.CellSelect, DataGridViewAutoSizeRowsMode.AllCells);
             grid.AllowUserToResizeRows = true;
 
-            AddColumn(grid, OsLocalization.Journal.Label9, 90);   // 0: Группа (editable)
-            grid.Columns[0].ReadOnly = false;
+            DataGridViewComboBoxColumn groupColumn = new DataGridViewComboBoxColumn
+            {
+                HeaderText = OsLocalization.Journal.Label9,
+                Width = 90,
+                FlatStyle = FlatStyle.Flat
+            };
+            groupColumn.DefaultCellStyle.ForeColor = Themes.ThemeManager.GetColorWinForms("GridTextColor");
+            grid.Columns.Add(groupColumn);                        // 0: Группа (dropdown, "new" = create group)
+
             AddColumn(grid, "#", 35);                              // 1: номер
             AddColumn(grid, OsLocalization.Journal.Label10, 110); // 2: Имя
             AddColumn(grid, OsLocalization.Journal.Label11, 110); // 3: Класс
@@ -325,26 +336,42 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             string group = string.Empty;
             decimal mult = 100m;
             bool isOn = true;
+            // Список групп для ComboBox набирается по ВСЕМ ботам сервера (bot_name опущен), как в оригинале
+            // (JournalUi2.GetAllGroups строит список из _botsJournals — всех панелей, не только текущей).
+            List<string> allGroups = new();
 
             try
             {
-                JsonElement settings = await _client.CallToolAsync("bot_journal_get_settings", new { bot_name = _botId });
+                JsonElement settings = await _client.CallToolAsync("bot_journal_get_settings", new { });
                 if (settings.TryGetProperty("robots", out JsonElement robots) && robots.ValueKind == JsonValueKind.Array)
                 {
                     foreach (JsonElement r in robots.EnumerateArray())
                     {
+                        string g = ReadString(r, "group");
+                        if (!string.IsNullOrEmpty(g) && !allGroups.Contains(g, StringComparer.OrdinalIgnoreCase))
+                            allGroups.Add(g);
+
                         if (string.Equals(ReadString(r, "bot_name"), _botId, StringComparison.OrdinalIgnoreCase))
                         {
-                            group = ReadString(r, "group");
+                            group = g;
                             mult = ReadDecimal(r, "mult");
                             if (mult == 0) mult = 100m;
                             isOn = r.TryGetProperty("is_on", out JsonElement onEl) && onEl.ValueKind == JsonValueKind.True;
-                            break;
                         }
                     }
                 }
             }
             catch (Exception ex) { ShowError(ex); }
+
+            // Пустая группа с сервера — тот же случай, что и дефолт "none" в оригинале (BotPanelJournal.BotGroup).
+            if (string.IsNullOrEmpty(group)) group = "none";
+            _lastKnownGroup = group;
+
+            DataGridViewComboBoxColumn groupColumn = (DataGridViewComboBoxColumn)_botsFilterGrid.Columns[0];
+            groupColumn.Items.Clear();
+            if (!allGroups.Contains(group, StringComparer.OrdinalIgnoreCase)) groupColumn.Items.Add(group);
+            foreach (string g in allGroups) groupColumn.Items.Add(g);
+            groupColumn.Items.Add("new");
 
             _botsFilterGrid.CellEndEdit -= BotsFilterGrid_CellEndEdit;
             _botsFilterGrid.Rows.Clear();
@@ -363,9 +390,36 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (e.ColumnIndex != 0 && e.ColumnIndex != 4 && e.ColumnIndex != 5) return;
 
                 DataGridViewRow row = _botsFilterGrid.Rows[0];
+
+                if (e.ColumnIndex == 0)
+                {
+                    string selected = row.Cells[0].Value?.ToString() ?? string.Empty;
+                    if (selected == "new")
+                    {
+                        // 1:1 с JournalUi2.ChangeGroup: выбор "new" открывает тот же диалог создания группы,
+                        // переиспользуем класс вместо дублирования.
+                        DataGridViewComboBoxColumn groupColumn = (DataGridViewComboBoxColumn)_botsFilterGrid.Columns[0];
+                        List<string> existingGroups = groupColumn.Items.Cast<string>().Where(g => g != "new").ToList();
+
+                        NewGroupAddInJournalUi ui = new NewGroupAddInJournalUi(existingGroups);
+                        ui.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                        ui.ShowDialog();
+
+                        if (!ui.IsAccepted || string.IsNullOrEmpty(ui.NewGroupName))
+                        {
+                            row.Cells[0].Value = _lastKnownGroup;
+                            return;
+                        }
+
+                        groupColumn.Items.Insert(groupColumn.Items.Count - 1, ui.NewGroupName);
+                        row.Cells[0].Value = ui.NewGroupName;
+                    }
+                }
+
                 string group = row.Cells[0].Value?.ToString() ?? string.Empty;
                 bool isOn = row.Cells[4].Value is bool b && b;
                 decimal mult = decimal.TryParse(row.Cells[5].Value?.ToString(), NumberStyles.Any, CultureInfo.CurrentCulture, out decimal m) ? m : 100m;
+                _lastKnownGroup = group;
 
                 await _client.CallToolAsync("bot_journal_set_settings", new
                 {
@@ -482,21 +536,22 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             ChartArea AddArea(string name, int index, bool axisXEnabled)
             {
+                // 1:1 с оригиналом (JournalUi2.xaml.cs, PaintProfitOnChart): шкала — справа (Secondary/Y2),
+                // все Equity-серии заведены на AxisType.Secondary, Y2 никак не отключается и не трогается отдельно.
                 ChartArea area = new ChartArea(name) { Position = { Height = layout[index].Height, Width = 100, Y = layout[index].Y } };
                 if (index > 0) area.AlignWithChartArea = "ChartAreaProfit";
                 if (!axisXEnabled) area.AxisX.Enabled = AxisEnabled.False;
-                // шкала — слева (Primary): по явному пожеланию пользователя показывать основной масштаб
-                // слева, а не справа, как было в оригинале (там все Equity-серии заведены на Secondary/Y2).
-                area.AxisY2.Enabled = AxisEnabled.False;
                 area.CursorX.IsUserEnabled = true;
                 area.BackColor = Themes.ThemeManager.GetColorWinForms("JournalChartBackColor");
                 area.BorderColor = Themes.ThemeManager.GetColorWinForms("JournalChartBorderColor");
                 area.CursorX.LineColor = Themes.ThemeManager.GetColorWinForms("JournalChartCursorXColor");
                 area.CursorY.LineColor = Themes.ThemeManager.GetColorWinForms("JournalChartTextColor");
+                area.AxisX.TitleForeColor = Themes.ThemeManager.GetColorWinForms("JournalChartTextColor");
+                area.AxisY.TitleForeColor = Themes.ThemeManager.GetColorWinForms("JournalChartTextColor");
                 foreach (Axis axis in area.Axes)
                 {
-                    axis.TitleForeColor = Themes.ThemeManager.GetColorWinForms("JournalChartTextColor");
                     axis.LabelStyle.ForeColor = Themes.ThemeManager.GetColorWinForms("JournalChartTextColor");
+                    axis.LabelStyle.Font = Themes.ThemeManager.GetChartAxisFont();
                 }
                 _equityChart.ChartAreas.Add(area);
                 return area;
@@ -527,12 +582,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return raw * (mult / 100m);
             }
 
-            Series total = new Series("Total") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 4, Color = Themes.ThemeManager.GetColorWinForms("JournalEquityTotalBrush") };
-            Series longLine = new Series("Long") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalSwatchLongBrush") };
-            Series shortLine = new Series("Short") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalSwatchShortBrush") };
-            Series bar = new Series("PerTrade") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaProfitBar" };
-            Series monthlyBar = withMonthly ? new Series("Monthly") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaMonthlyBar" } : null;
-            Series yearlyBar = withYearly ? new Series("Yearly") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaYearlyBar" } : null;
+            Series total = new Series("Total") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 4, Color = Themes.ThemeManager.GetColorWinForms("JournalEquityTotalBrush"), YAxisType = AxisType.Secondary };
+            Series longLine = new Series("Long") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalSwatchLongBrush"), YAxisType = AxisType.Secondary };
+            Series shortLine = new Series("Short") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalSwatchShortBrush"), YAxisType = AxisType.Secondary };
+            Series bar = new Series("PerTrade") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaProfitBar", YAxisType = AxisType.Secondary };
+            Series monthlyBar = withMonthly ? new Series("Monthly") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaMonthlyBar", YAxisType = AxisType.Secondary } : null;
+            Series yearlyBar = withYearly ? new Series("Yearly") { ChartType = SeriesChartType.Column, ChartArea = "ChartAreaYearlyBar", YAxisType = AxisType.Secondary } : null;
 
             Dictionary<DateTime, decimal> monthlySums = withMonthly
                 ? deals.GroupBy(p => new DateTime(ReadTime(p, "open_time").Year, ReadTime(p, "open_time").Month, 1))
@@ -715,9 +770,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             labels[11] = OsLocalization.Journal.GridRow9;
             labels[13] = OsLocalization.Journal.GridRow10;
             labels[14] = OsLocalization.Journal.GridRow11;
+            labels[15] = OsLocalization.Journal.GridRow6;
+            labels[16] = OsLocalization.Journal.GridRow7;
+            labels[17] = OsLocalization.Journal.GridRow8;
+            labels[18] = OsLocalization.Journal.GridRow9;
             labels[19] = OsLocalization.Journal.GridRow12;
             labels[21] = OsLocalization.Journal.GridRow13;
             labels[22] = OsLocalization.Journal.GridRow14;
+            labels[23] = OsLocalization.Journal.GridRow6;
+            labels[24] = OsLocalization.Journal.GridRow7;
+            labels[25] = OsLocalization.Journal.GridRow8;
+            labels[26] = OsLocalization.Journal.GridRow9;
+            labels[27] = OsLocalization.Journal.GridRow12;
             labels[29] = OsLocalization.Journal.GridRow15;
             labels[30] = OsLocalization.Journal.GridRow16;
             for (int i = 0; i < labels.Length; i++)
@@ -996,8 +1060,17 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             foreach (JsonElement p in positions)
             {
-                int rowIndex = grid.Rows.Add();
-                DataGridViewRow row = grid.Rows[rowIndex];
+                // 1:1 с Journal/Internal/PositionController.GetRow: каждая ячейка — DataGridViewTextBoxCell,
+                // включая колонки 0-4 (в DataGridFactory.GetDataGridPosition это DataGridViewButtonColumn).
+                // Обычный grid.Rows.Add() берёт CellTemplate колонки и создал бы там настоящие
+                // DataGridViewButtonCell — те рисуются системной 3D-кнопкой (светлая рамка), а не темой
+                // грида, из-за чего первые 5 столбцов визуально отличались от остальных.
+                DataGridViewRow row = new DataGridViewRow();
+                for (int c = 0; c < grid.Columns.Count; c++)
+                {
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                }
+                grid.Rows.Add(row);
                 decimal profit = ReadDecimal(p, "profit_abs");
                 string side = ReadString(p, "side");
                 Color rowColor = profit > 0 ? profitColor : lossColor;
