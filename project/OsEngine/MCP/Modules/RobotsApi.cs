@@ -5480,7 +5480,21 @@ namespace OsEngine.MCP.Modules
                     profitable_deals = 0,
                     losing_deals = 0,
                     max_drawdown_percent = 0m,
-                    commission = 0m
+                    commission = 0m,
+                    avg_profit_abs_1_contract = 0m,
+                    avg_profit_percent_1_contract = 0m,
+                    avg_profit_abs_to_deposit = 0m,
+                    avg_profit_percent_to_deposit = 0m,
+                    avg_profit_abs_winning = 0m,
+                    avg_profit_percent_winning = 0m,
+                    avg_profit_abs_winning_to_deposit = 0m,
+                    avg_profit_percent_winning_to_deposit = 0m,
+                    max_win_streak = 0,
+                    avg_loss_abs = 0m,
+                    avg_loss_percent = 0m,
+                    avg_loss_abs_to_deposit = 0m,
+                    avg_loss_percent_to_deposit = 0m,
+                    max_loss_streak = 0
                 };
             }
 
@@ -5498,7 +5512,23 @@ namespace OsEngine.MCP.Modules
                 profitable_deals = PositionStatisticGenerator.GetProfitDeal(dealsArray),
                 losing_deals = deals.Count - PositionStatisticGenerator.GetProfitDeal(dealsArray),
                 max_drawdown_percent = PositionStatisticGenerator.GetMaxDownPercent(dealsArray),
-                commission = PositionStatisticGenerator.GetCommissionAmount(dealsArray)
+                commission = PositionStatisticGenerator.GetCommissionAmount(dealsArray),
+                // средний П/У на 1 контракт / на депозит — раздельно по всем/прибыльным/убыточным сделкам,
+                // как в оригинальном PositionStatisticGenerator.GetStatisticNew (строки 8-11,15-19,23-27)
+                avg_profit_abs_1_contract = PositionStatisticGenerator.GetMiddleProfitInAbsolute(dealsArray),
+                avg_profit_percent_1_contract = PositionStatisticGenerator.GetMiddleProfitInPercentOneContract(dealsArray),
+                avg_profit_abs_to_deposit = PositionStatisticGenerator.GetMiddleProfitInAbsoluteToDeposit(dealsArray),
+                avg_profit_percent_to_deposit = PositionStatisticGenerator.GetMiddleProfitInPercentToDeposit(dealsArray),
+                avg_profit_abs_winning = PositionStatisticGenerator.GetAllMiddleProfitInProfitInAbsolute(dealsArray),
+                avg_profit_percent_winning = PositionStatisticGenerator.GetAllMiddleProfitInProfitInPercent(dealsArray),
+                avg_profit_abs_winning_to_deposit = PositionStatisticGenerator.GetAllMiddleProfitInProfitInAbsoluteOnDeposit(dealsArray),
+                avg_profit_percent_winning_to_deposit = PositionStatisticGenerator.GetAllMiddleProfitInProfitInPercentOnDeposit(dealsArray),
+                max_win_streak = PositionStatisticGenerator.GetMaxProfitSeries(dealsArray),
+                avg_loss_abs = PositionStatisticGenerator.GetAllMiddleLossInLossInAbsolute(dealsArray),
+                avg_loss_percent = PositionStatisticGenerator.GetAllMiddleLossInLossInPercent(dealsArray),
+                avg_loss_abs_to_deposit = PositionStatisticGenerator.GetAllMiddleLossInLossInAbsoluteOnDeposit(dealsArray),
+                avg_loss_percent_to_deposit = PositionStatisticGenerator.GetAllMiddleLossInLossInPercentOnDeposit(dealsArray),
+                max_loss_streak = PositionStatisticGenerator.GetMaxLossSeries(dealsArray)
             };
         }
 
@@ -5846,6 +5876,8 @@ namespace OsEngine.MCP.Modules
                 wait_volume = pos.WaitVolume,
                 profit_abs = pos.ProfitPortfolioAbs,
                 profit_percent = pos.ProfitPortfolioPercent,
+                profit_operation_percent = pos.ProfitOperationPercent,
+                mult_to_journal = pos.MultToJournal,
                 stop_order_red_line = pos.StopOrderRedLine,
                 stop_order_price = pos.StopOrderPrice,
                 profit_order_red_line = pos.ProfitOrderRedLine,

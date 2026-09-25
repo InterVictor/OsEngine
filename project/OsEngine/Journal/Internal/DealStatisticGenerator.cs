@@ -306,7 +306,7 @@ namespace OsEngine.Journal.Internal
             return Math.Round(profit, 6);
         }
 
-        private static decimal GetMiddleProfitInAbsoluteToDeposit(Position[] deals)
+        public static decimal GetMiddleProfitInAbsoluteToDeposit(Position[] deals)
         {
             if (deals.Length == 0)
             {
@@ -333,7 +333,7 @@ namespace OsEngine.Journal.Internal
             return 0;
         }
 
-        private static decimal GetMiddleProfitInPercentToDeposit(Position[] deals)
+        public static decimal GetMiddleProfitInPercentToDeposit(Position[] deals)
         {
             if (deals.Length == 0)
             {
@@ -513,7 +513,7 @@ namespace OsEngine.Journal.Internal
 
         }
 
-        private static decimal GetAllMiddleProfitInProfitInAbsolute(Position[] deals)
+        public static decimal GetAllMiddleProfitInProfitInAbsolute(Position[] deals)
         {
             decimal profit = 0;
 
@@ -542,7 +542,7 @@ namespace OsEngine.Journal.Internal
             return Math.Round(profit / GetProfitDeal(deals), 6);
         }
 
-        private static decimal GetAllMiddleProfitInProfitInPercent(Position[] deals)
+        public static decimal GetAllMiddleProfitInProfitInPercent(Position[] deals)
         {
             decimal profit = 0;
 
@@ -570,7 +570,7 @@ namespace OsEngine.Journal.Internal
             return profit / GetProfitDeal(deals);
         }
 
-        private static decimal GetAllMiddleProfitInProfitInAbsoluteOnDeposit(Position[] deals)
+        public static decimal GetAllMiddleProfitInProfitInAbsoluteOnDeposit(Position[] deals)
         {
             decimal profit = 0;
 
@@ -599,7 +599,7 @@ namespace OsEngine.Journal.Internal
             return Math.Round(profit / GetProfitDeal(deals), 6);
         }
 
-        private static decimal GetAllMiddleProfitInProfitInPercentOnDeposit(Position[] deals)
+        public static decimal GetAllMiddleProfitInProfitInPercentOnDeposit(Position[] deals)
         {
             decimal profit = 0;
 
@@ -627,7 +627,7 @@ namespace OsEngine.Journal.Internal
             return profit / GetProfitDeal(deals);
         }
 
-        private static int GetMaxProfitSeries(Position[] deals)
+        public static int GetMaxProfitSeries(Position[] deals)
         {
             int maxSeries = 0;
 
@@ -706,7 +706,7 @@ namespace OsEngine.Journal.Internal
 
         }
 
-        private static decimal GetAllMiddleLossInLossInAbsolute(Position[] deals)
+        public static decimal GetAllMiddleLossInLossInAbsolute(Position[] deals)
         {
             decimal loss = 0;
 
@@ -731,7 +731,7 @@ namespace OsEngine.Journal.Internal
             return Math.Round(loss / GetLossDial(deals), 6);
         }
 
-        private static decimal GetAllMiddleLossInLossInPercent(Position[] deals)
+        public static decimal GetAllMiddleLossInLossInPercent(Position[] deals)
         {
             decimal loss = 0;
 
@@ -754,7 +754,7 @@ namespace OsEngine.Journal.Internal
             return loss / GetLossDial(deals);
         }
 
-        private static decimal GetAllMiddleLossInLossInAbsoluteOnDeposit(Position[] deals)
+        public static decimal GetAllMiddleLossInLossInAbsoluteOnDeposit(Position[] deals)
         {
             decimal loss = 0;
 
@@ -785,7 +785,7 @@ namespace OsEngine.Journal.Internal
             return Math.Round(loss / lossDeals, 6);
         }
 
-        private static decimal GetAllMiddleLossInLossInPercentOnDeposit(Position[] deals)
+        public static decimal GetAllMiddleLossInLossInPercentOnDeposit(Position[] deals)
         {
             decimal loss = 0;
 
@@ -816,7 +816,7 @@ namespace OsEngine.Journal.Internal
             return loss / lossDeals;
         }
 
-        private static int GetMaxLossSeries(Position[] deals)
+        public static int GetMaxLossSeries(Position[] deals)
         {
             int maxSeries = 0;
 

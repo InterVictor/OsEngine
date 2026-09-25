@@ -123,10 +123,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 _closedPositionsGrid = DataGridFactory.GetDataGridPosition();
                 HostClosePosition.Child = _closedPositionsGrid;
 
-                _botsFilterGrid = CreateCheckGrid("Bot");
+                _botsFilterGrid = CreateBotsGrid();
                 HostBotsSelected.Child = _botsFilterGrid;
-                _botsFilterGrid.Rows.Add(true, _botId);
-                _botsFilterGrid.Rows[0].Cells[0].ReadOnly = true; // единственный бот — фильтровать нечем, оставлен для структурного соответствия оригиналу
+                _botsFilterGrid.CellEndEdit += BotsFilterGrid_CellEndEdit;
+                await RefreshBotsFilterGridAsync();
                 _securitiesFilterGrid = CreateCheckGrid("Security");
                 HostSecuritiesSelected.Child = _securitiesFilterGrid;
                 _securitiesFilterGrid.CellValueChanged += SecuritiesFilterGrid_CellValueChanged;
@@ -271,6 +271,113 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             });
         }
 
+        // Полная копия колонок оригинального _gridLeftBotsPanel (JournalUi2.xaml.cs, CreateBotsGrid):
+        // Группа/#/Имя/Класс/Вкл-выкл/Mult %. У нас одно окно = один робот, поэтому группировка не
+        // фильтрует список (фильтровать нечего), но колонка есть и реально сохраняется через
+        // bot_journal_set_settings — как поле, а не декоративная заглушка.
+        private static DataGridView CreateBotsGrid()
+        {
+            DataGridView grid = DataGridFactory.GetDataGridView(DataGridViewSelectionMode.CellSelect, DataGridViewAutoSizeRowsMode.AllCells);
+            grid.AllowUserToResizeRows = true;
+
+            AddColumn(grid, OsLocalization.Journal.Label9, 90);   // 0: Группа (editable)
+            grid.Columns[0].ReadOnly = false;
+            AddColumn(grid, "#", 35);                              // 1: номер
+            AddColumn(grid, OsLocalization.Journal.Label10, 110); // 2: Имя
+            AddColumn(grid, OsLocalization.Journal.Label11, 110); // 3: Класс
+
+            DataGridViewCheckBoxColumn onOff = new DataGridViewCheckBoxColumn { HeaderText = OsLocalization.Journal.Label12, Width = 55 };
+            grid.Columns.Add(onOff);                               // 4: Вкл/выкл (editable)
+
+            AddColumn(grid, "Mult %", 55);                         // 5: Mult % (editable)
+            grid.Columns[5].ReadOnly = false;
+
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            return grid;
+        }
+
+        private async System.Threading.Tasks.Task RefreshBotsFilterGridAsync()
+        {
+            string className = string.Empty;
+            try
+            {
+                JsonElement bots = await _client.CallToolAsync("bot_get_list", new { });
+                if (bots.TryGetProperty("bots", out JsonElement botsArray) && botsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement b in botsArray.EnumerateArray())
+                    {
+                        if (string.Equals(ReadString(b, "name"), _botId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            className = ReadString(b, "class_name");
+                            break;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // класс — справочная информация; при сбое просто оставляем колонку пустой
+            }
+
+            string group = string.Empty;
+            decimal mult = 100m;
+            bool isOn = true;
+
+            try
+            {
+                JsonElement settings = await _client.CallToolAsync("bot_journal_get_settings", new { bot_name = _botId });
+                if (settings.TryGetProperty("robots", out JsonElement robots) && robots.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement r in robots.EnumerateArray())
+                    {
+                        if (string.Equals(ReadString(r, "bot_name"), _botId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            group = ReadString(r, "group");
+                            mult = ReadDecimal(r, "mult");
+                            if (mult == 0) mult = 100m;
+                            isOn = r.TryGetProperty("is_on", out JsonElement onEl) && onEl.ValueKind == JsonValueKind.True;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { ShowError(ex); }
+
+            _botsFilterGrid.CellEndEdit -= BotsFilterGrid_CellEndEdit;
+            _botsFilterGrid.Rows.Clear();
+            _botsFilterGrid.Rows.Add(group, 1, _botId, className, isOn, FormatNumber(mult));
+            _botsFilterGrid.Rows[0].Cells[1].ReadOnly = true;
+            _botsFilterGrid.Rows[0].Cells[2].ReadOnly = true;
+            _botsFilterGrid.Rows[0].Cells[3].ReadOnly = true;
+            _botsFilterGrid.CellEndEdit += BotsFilterGrid_CellEndEdit;
+        }
+
+        private async void BotsFilterGrid_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex != 0) return;
+                if (e.ColumnIndex != 0 && e.ColumnIndex != 4 && e.ColumnIndex != 5) return;
+
+                DataGridViewRow row = _botsFilterGrid.Rows[0];
+                string group = row.Cells[0].Value?.ToString() ?? string.Empty;
+                bool isOn = row.Cells[4].Value is bool b && b;
+                decimal mult = decimal.TryParse(row.Cells[5].Value?.ToString(), NumberStyles.Any, CultureInfo.CurrentCulture, out decimal m) ? m : 100m;
+
+                await _client.CallToolAsync("bot_journal_set_settings", new
+                {
+                    settings = new[] { new { bot_name = _botId, group, mult, is_on = isOn } }
+                });
+
+                // Mult влияет на кумулятивные суммы Equity/Drawdown/Statistics — перечитываем данные
+                await ReloadAsync();
+            }
+            catch (Exception ex) { ShowError(ex); }
+        }
+
         private static DataGridView CreateCheckGrid(string nameHeader)
         {
             DataGridView grid = new DataGridView
@@ -378,6 +485,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 ChartArea area = new ChartArea(name) { Position = { Height = layout[index].Height, Width = 100, Y = layout[index].Y } };
                 if (index > 0) area.AlignWithChartArea = "ChartAreaProfit";
                 if (!axisXEnabled) area.AxisX.Enabled = AxisEnabled.False;
+                // шкала — слева (Primary): по явному пожеланию пользователя показывать основной масштаб
+                // слева, а не справа, как было в оригинале (там все Equity-серии заведены на Secondary/Y2).
+                area.AxisY2.Enabled = AxisEnabled.False;
                 area.CursorX.IsUserEnabled = true;
                 area.BackColor = Themes.ThemeManager.GetColorWinForms("JournalChartBackColor");
                 area.BorderColor = Themes.ThemeManager.GetColorWinForms("JournalChartBorderColor");
@@ -397,7 +507,25 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (withMonthly) AddArea("ChartAreaMonthlyBar", 2, axisXEnabled: false);
             if (withYearly) AddArea("ChartAreaYearlyBar", 3, axisXEnabled: false);
 
-            decimal ProfitOf(JsonElement p) => ReadDecimal(p, "profit_abs");
+            // Тип линии влияет на то, какое поле берём под капотом и совпадает 1:1 с серверным
+            // GetPositionProfitForChartType (RobotsApi.cs): Absolute -> profit_abs (ProfitPortfolioAbs),
+            // Percent1Contract -> profit_operation_percent (ProfitOperationPercent),
+            // DepositPercent -> profit_percent (ProfitPortfolioPercent). Масштабирование MultToJournal
+            // тоже берём из позиции (как это делает сервер в GetJournalEquity/GetJournalDrawdown).
+            decimal ProfitOf(JsonElement p)
+            {
+                decimal raw;
+                if (string.Equals(chartType, "Percent1Contract", StringComparison.OrdinalIgnoreCase))
+                    raw = ReadDecimal(p, "profit_operation_percent");
+                else if (string.Equals(chartType, "DepositPercent", StringComparison.OrdinalIgnoreCase))
+                    raw = ReadDecimal(p, "profit_percent");
+                else
+                    raw = ReadDecimal(p, "profit_abs");
+
+                decimal mult = ReadDecimal(p, "mult_to_journal");
+                if (mult == 0) mult = 100m;
+                return raw * (mult / 100m);
+            }
 
             Series total = new Series("Total") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 4, Color = Themes.ThemeManager.GetColorWinForms("JournalEquityTotalBrush") };
             Series longLine = new Series("Long") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaProfit", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalSwatchLongBrush") };
@@ -528,8 +656,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
             }
 
-            Series absolute = new Series("Absolute") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaDdPunct", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("ChartEquityColor") };
-            Series percent = new Series("Percent") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaDdPercent", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalShortColor") };
+            // YAxisType=Secondary — как в оригинале (drowDownPunct/drowDownPercent там же заведены на Secondary):
+            // без этого AxisY2.Title (вертикальная надпись АБСОЛЮТ/ПРОЦЕНТ) и сама правая шкала не отрисовываются,
+            // т.к. Y2 показывается только когда на него ссылается хотя бы одна серия.
+            Series absolute = new Series("Absolute") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaDdPunct", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("ChartEquityColor"), YAxisType = AxisType.Secondary };
+            Series percent = new Series("Percent") { ChartType = SeriesChartType.Line, ChartArea = "ChartAreaDdPercent", BorderWidth = 2, Color = Themes.ThemeManager.GetColorWinForms("JournalShortColor"), YAxisType = AxisType.Secondary };
 
             decimal cumulative = 0, maxEquity = 0;
             for (int i = 0; i < deals.Count; i++)
@@ -624,6 +755,25 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             SetRow(22, s => ReadInt(s, "deals_count") > 0 ? FormatNumber(100m * ReadInt(s, "losing_deals") / ReadInt(s, "deals_count")) + " %" : "0 %");
             SetRow(29, s => FormatNumber(ReadDecimal(s, "max_drawdown_percent")) + " %");
             SetRow(30, s => FormatNumber(ReadDecimal(s, "commission")));
+
+            // Строки 8-11/15-19/23-27 — то, что в оригинале приходит одним вызовом
+            // PositionStatisticGenerator.GetStatisticNew (средний П/У на контракт/депозит отдельно по
+            // всем/прибыльным/убыточным сделкам + макс. серии). Сервер теперь считает их теми же формулами
+            // (промоченные в public методы GetMiddleProfitInAbsolute и т.п.) и отдаёт именованными полями.
+            SetRow(8, s => FormatNumber(ReadDecimal(s, "avg_profit_abs_1_contract")));
+            SetRow(9, s => FormatNumber(ReadDecimal(s, "avg_profit_percent_1_contract")) + " %");
+            SetRow(10, s => FormatNumber(ReadDecimal(s, "avg_profit_abs_to_deposit")));
+            SetRow(11, s => FormatNumber(ReadDecimal(s, "avg_profit_percent_to_deposit")) + " %");
+            SetRow(15, s => FormatNumber(ReadDecimal(s, "avg_profit_abs_winning")));
+            SetRow(16, s => FormatNumber(ReadDecimal(s, "avg_profit_percent_winning")) + " %");
+            SetRow(17, s => FormatNumber(ReadDecimal(s, "avg_profit_abs_winning_to_deposit")));
+            SetRow(18, s => FormatNumber(ReadDecimal(s, "avg_profit_percent_winning_to_deposit")) + " %");
+            SetRow(19, s => ReadInt(s, "max_win_streak").ToString(CultureInfo.CurrentCulture));
+            SetRow(23, s => FormatNumber(ReadDecimal(s, "avg_loss_abs")));
+            SetRow(24, s => FormatNumber(ReadDecimal(s, "avg_loss_percent")) + " %");
+            SetRow(25, s => FormatNumber(ReadDecimal(s, "avg_loss_abs_to_deposit")));
+            SetRow(26, s => FormatNumber(ReadDecimal(s, "avg_loss_percent_to_deposit")) + " %");
+            SetRow(27, s => ReadInt(s, "max_loss_streak").ToString(CultureInfo.CurrentCulture));
         }
 
         #endregion
@@ -850,8 +1000,17 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 DataGridViewRow row = grid.Rows[rowIndex];
                 decimal profit = ReadDecimal(p, "profit_abs");
                 string side = ReadString(p, "side");
+                Color rowColor = profit > 0 ? profitColor : lossColor;
 
-                row.DefaultCellStyle.ForeColor = profit > 0 ? profitColor : lossColor;
+                row.DefaultCellStyle.ForeColor = rowColor;
+                // DataGridFactory.GetDataGridPosition() даёт колонкам 5+ общий CellTemplate с уже
+                // забитым в клоне Style.ForeColor (=GridTextColor) — он перекрывает Row.DefaultCellStyle
+                // по приоритету стилей ячейки. Проставляем цвет явно на каждой ячейке, чтобы подсветка
+                // прибыли/убытка не терялась на "поздних" колонках.
+                for (int c = 0; c < row.Cells.Count; c++)
+                {
+                    row.Cells[c].Style.ForeColor = rowColor;
+                }
 
                 row.Cells[0].Value = ReadInt(p, "number");
                 row.Cells[1].Value = FormatRemoteTime(ReadString(p, "open_time"));
