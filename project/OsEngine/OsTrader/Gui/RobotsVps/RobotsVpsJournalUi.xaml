@@ -3,42 +3,114 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OsEngine.OsTrader.Gui.RobotsVps"
         mc:Ignorable="d"
-        Title="Journal" Height="820" Width="1200" MinWidth="800" MinHeight="500" Style="{StaticResource WindowStyleCanResize}" WindowStartupLocation="CenterScreen" Icon="/Images/OsLogo.ico">
+        Title="Journal" Height="900" Width="1460" MinWidth="1200" MinHeight="500" Style="{StaticResource WindowStyleCanResize}" Icon="/Images/OsLogo.ico">
     <Grid>
-        <TabControl Name="TabControlPrime" BorderThickness="0" TabStripPlacement="Bottom">
-            <TabItem Name="TabItemEquity" Header="Equity" Width="140">
+        <Grid Name="GridTabPrime" Margin="510,0,-0.333,-0.333">
+
+            <TabControl Margin="0,1,1,0" BorderThickness="0" Name="TabControlPrime" TabStripPlacement="Bottom">
+                <TabItem Name="TabItem1" Header="Equity" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <WindowsFormsHost Name="HostEquity" Foreground="Black" Margin="0,0,0,47" />
+                        <Rectangle Fill="{DynamicResource JournalEquityTotalBrush}" HorizontalAlignment="Left" Height="25" Margin="126,0,0,10" Stroke="Black" VerticalAlignment="Bottom" Width="38" Name="RectangleEquity" MouseDown="RectangleEquity_MouseDown"/>
+                        <Label Name="Label1" Content="Total profit" HorizontalAlignment="Left" Margin="15,0,0,10" VerticalAlignment="Bottom"/>
+                        <Rectangle Fill="{DynamicResource JournalSwatchLongBrush}" HorizontalAlignment="Left" Height="25" Margin="240,0,0,10" Stroke="Black" VerticalAlignment="Bottom" Width="38" Name="RectangleLong" MouseDown="RectangleLong_MouseDown"/>
+                        <Label Name="Label2" Content="Long" HorizontalAlignment="Left" Margin="189,0,0,10" VerticalAlignment="Bottom"/>
+                        <Rectangle Fill="{DynamicResource JournalSwatchShortBrush}" HorizontalAlignment="Left" Height="25" Margin="355,0,0,10" Stroke="Black" VerticalAlignment="Bottom" Width="38" Name="RectangleShort" MouseDown="RectangleShort_MouseDown"/>
+                        <Label Name="Label3" Content="Short" HorizontalAlignment="Left" Margin="303,0,0,10" VerticalAlignment="Bottom"/>
+                        <Label Name="LabelEqutyCharteType" Content="Chart Type" HorizontalAlignment="Left" Margin="421,0,0,10" VerticalAlignment="Bottom"/>
+                        <ComboBox Name="ComboBoxChartType" HorizontalAlignment="Left" Margin="506,0,0,10" VerticalAlignment="Bottom" Width="140" SelectionChanged="ComboBoxChartType_SelectionChanged"/>
+                        <Label Name="LabelBenchmark" Content="Benchmark" HorizontalAlignment="Left" Margin="665,0,0,10" VerticalAlignment="Bottom"/>
+                        <ComboBox Name="ComboBoxBenchmark" HorizontalAlignment="Left" Margin="752,0,0,10" VerticalAlignment="Bottom" Width="140" IsEnabled="False" ToolTip="Not available remotely yet"/>
+                        <Button Name="ButtonRefreshBenchmark" HorizontalAlignment="Left" Margin="902,0,0,10" VerticalAlignment="Bottom" Width="25" Height="23" Click="ButtonRefreshBenchmark_Click" IsEnabled="False" ToolTip="Not available remotely yet">
+                            <Grid>
+                                <Image Name="RestartBenchmark" Source="/Images/RestartBenchmark.png" Width="19" Height="19"/>
+                            </Grid>
+                        </Button>
+                    </Grid>
+                </TabItem>
+                <TabItem Name="TabItem2" Header="Statistics" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <WindowsFormsHost Name="HostStatistics" Foreground="Black" Margin="25,10" RenderTransformOrigin="0.5,0.5"/>
+                    </Grid>
+                </TabItem>
+                <TabItem Name="TabItem3" Header="Drawdown" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <WindowsFormsHost Name="HostDrawdown" Foreground="Black" Margin="10"/>
+                    </Grid>
+                </TabItem>
+                <TabItem Name="TabItem4" Header="Volume" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <TabControl Margin="0,0,0,0" BorderThickness="0" Name="TabControlVolume" TabStripPlacement="Bottom">
+                            <TabItem Name="TabItemSecurities" Header="Securities" Width="140" Margin="310,0,-310,0">
+                                <Grid>
+                                    <WindowsFormsHost Name="HostVolume" Foreground="Black" Margin="0,0,0,38"/>
+                                    <Label Name="LabelVolumeShowNumbers" Content="Show" HorizontalAlignment="Left" Margin="310,0,0,10" VerticalAlignment="Bottom" Width="98"/>
+                                    <ComboBox Name="VolumeShowNumbers" HorizontalAlignment="Left" Margin="424,0,0,10" VerticalAlignment="Bottom" Width="146" SelectionChanged="VolumeShowNumbers_SelectionChanged"/>
+                                </Grid>
+                            </TabItem>
+                            <TabItem Name="TabItemPortfolio" Header="To portfolio" Width="140" Margin="310,0,-310,0">
+                                <Grid>
+                                    <WindowsFormsHost Name="HostVolumePortfolio" Foreground="Black" Margin="0,0,0,0"/>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
+                </TabItem>
+                <TabItem Name="TabItem5" Header="Open positions" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <WindowsFormsHost Name="HostOpenPosition" Foreground="Black" Margin="10,10,10,42"/>
+
+                        <ComboBox Name="ComboBoxOpenPosesOnPage" HorizontalAlignment="Right" Margin="0,0,153,10" VerticalAlignment="Bottom" Width="170" SelectionChanged="ComboBoxOpenPosesOnPage_SelectionChanged"/>
+                        <ComboBox Name="ComboBoxOpenPosesShowNumbers" HorizontalAlignment="Right" Margin="0,0,328,10" VerticalAlignment="Bottom" Width="170" SelectionChanged="ComboBoxOpenPosesShowNumbers_SelectionChanged"/>
+                    </Grid>
+                </TabItem>
+                <TabItem Name="TabItem6" Header="Closed positions" Width="140" Margin="41,0,-140,0">
+                    <Grid>
+                        <WindowsFormsHost Name="HostClosePosition" Foreground="Black" Margin="10,10,10,40"/>
+                        <CheckBox Name="CheckBoxShowDontOpenPoses" Content="Show don`t open positions" HorizontalAlignment="Left" Margin="10,0,0,10" VerticalAlignment="Bottom" Click="CheckBoxShowDontOpenPoses_Click"/>
+                        <ComboBox Name="ComboBoxClosePosesOnPage" HorizontalAlignment="Right" Margin="0,0,153,10" VerticalAlignment="Bottom" Width="170" SelectionChanged="ComboBoxClosePosesOnPage_SelectionChanged"/>
+                        <ComboBox Name="ComboBoxClosePosesShowNumbers" HorizontalAlignment="Right" Margin="0,0,328,10" VerticalAlignment="Bottom" Width="170" SelectionChanged="ComboBoxClosePosesShowNumbers_SelectionChanged"/>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+            <Button Name="ButtonShowLeftPanel" Content="&gt;&gt;&gt;&gt;" HorizontalAlignment="Left" Margin="0,0,0,2" Width="92" Height="25" VerticalAlignment="Bottom" Click="ButtonShowLeftPanel_Click" Visibility="Hidden"/>
+        </Grid>
+        <Grid Name="GridActivBots" Margin="0,0" HorizontalAlignment="Left" Width="510">
+            <Rectangle RadiusX="0" Margin="0,0,0,28" Stroke="Black"/>
+            <Button Name="ButtonHideLeftPanel" Content="&lt;&lt;&lt;&lt;" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="1,0,0,2" Width="92" Height="25" Click="ButtonHideLeftPanel_Click" RenderTransformOrigin="0.5,0.508"/>
+            <Label Name="LabelFrom" Content="From" HorizontalAlignment="Left" Margin="0,9,0,0" VerticalAlignment="Top"/>
+            <Label Name="LabelTo" Content="To" HorizontalAlignment="Left" Margin="0,37,0,0" VerticalAlignment="Top"/>
+            <TextBox Name="TextBoxFrom" HorizontalAlignment="Left" Margin="43,9,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+            <TextBox Name="TextBoxTo" HorizontalAlignment="Left" Margin="43,37,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+            <Slider Name="SliderFrom" HorizontalAlignment="Left" Margin="168,10,0,0" VerticalAlignment="Top" Width="224" IsEnabled="False" ToolTip="Not wired yet — use the From/To date fields"/>
+            <Slider Name="SliderTo" Margin="168,40,119,0" VerticalAlignment="Top" Height="22" RenderTransformOrigin="0.5,0.5" IsEnabled="False" ToolTip="Not wired yet — use the From/To date fields">
+                <Slider.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform/>
+                        <SkewTransform/>
+                        <RotateTransform Angle="-179.79"/>
+                        <TranslateTransform/>
+                    </TransformGroup>
+                </Slider.RenderTransform>
+            </Slider>
+            <Button Name="ButtonReload" Content="Reload" HorizontalAlignment="Right" Margin="0,41,2,0" VerticalAlignment="Top" Width="110" Height="21" Click="ButtonReload_Click"/>
+            <CheckBox Name="ButtonAutoReload" Content="Auto update" HorizontalAlignment="Left" Margin="400,5,0,0" VerticalAlignment="Top" Width="110" Click="ButtonAutoReload_Click"/>
+            <TabControl Margin="1,78,1,28">
+                <TabItem Name="TabItemBotFilters" Header="Bots filter">
+                    <WindowsFormsHost Name="HostBotsSelected" Margin="-2,0,-4,0"/>
+                </TabItem>
+                <TabItem Name="TabItemSecurityFilters" Header="Securities filter">
+                    <WindowsFormsHost Name="HostSecuritiesSelected" Margin="0,0,0,0"/>
+                </TabItem>
+            </TabControl>
+            <Button Name="ButtonPostsJournal2" HorizontalAlignment="Left" Margin="455,65.8,0,0" VerticalAlignment="Top" Height="36" Width="35" Click="ButtonPostsJournal2_Click">
                 <Grid>
-                    <WindowsFormsHost Name="HostEquity" Margin="0,0,0,40"/>
-                    <Label Content="Chart type" HorizontalAlignment="Left" Margin="10,0,0,8" VerticalAlignment="Bottom"/>
-                    <ComboBox Name="ComboBoxEquityChartType" HorizontalAlignment="Left" Margin="90,0,0,8" VerticalAlignment="Bottom" Width="180" SelectionChanged="ComboBoxEquityChartType_SelectionChanged"/>
+                    <Image Name="GreenCollectionJournal2" Source="/Images/InstructionPosts/GreenPostCollection.png" Width="31" Height="25"/>
+                    <Image Name="WhiteCollectionJournal2" Source="/Images/InstructionPosts/WhitePostCollection.png" Width="31" Height="25" Opacity="0" />
                 </Grid>
-            </TabItem>
-            <TabItem Name="TabItemStatistics" Header="Statistics" Width="140">
-                <Grid>
-                    <WindowsFormsHost Name="HostStatistics" Margin="10"/>
-                </Grid>
-            </TabItem>
-            <TabItem Name="TabItemDrawdown" Header="Drawdown" Width="140">
-                <Grid>
-                    <WindowsFormsHost Name="HostDrawdown" Margin="10"/>
-                </Grid>
-            </TabItem>
-            <TabItem Name="TabItemVolume" Header="Volume" Width="140">
-                <Grid>
-                    <WindowsFormsHost Name="HostVolume" Margin="10"/>
-                </Grid>
-            </TabItem>
-            <TabItem Name="TabItemOpenPositions" Header="Open positions" Width="140">
-                <Grid>
-                    <WindowsFormsHost Name="HostOpenPositions" Margin="10"/>
-                </Grid>
-            </TabItem>
-            <TabItem Name="TabItemClosedPositions" Header="Closed positions" Width="140">
-                <Grid>
-                    <WindowsFormsHost Name="HostClosedPositions" Margin="10"/>
-                </Grid>
-            </TabItem>
-        </TabControl>
+            </Button>
+        </Grid>
     </Grid>
 </Window>
