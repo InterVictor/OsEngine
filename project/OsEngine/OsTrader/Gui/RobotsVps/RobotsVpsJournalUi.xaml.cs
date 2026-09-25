@@ -72,63 +72,88 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             Closed += Window_Closed;
         }
 
+        // async void здесь и во всех остальных обработчиках в этом файле НАМЕРЕННО обёрнуты в try/catch
+        // целиком: необработанное исключение в async void (в отличие от async Task) не может быть поймано
+        // вызывающей стороной и в WPF валит процесс целиком — как и StackOverflowException. Это тот же
+        // защитный стиль, что и в остальном коде OsEngine (каждый обработчик там обёрнут в try/catch).
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            _equityChart = CreateChart();
-            HostEquity.Child = _equityChart;
-            _drawdownChart = CreateChart();
-            HostDrawdown.Child = _drawdownChart;
-            _statisticsGrid = CreateTwoColumnGrid("Metric", "Value");
-            HostStatistics.Child = _statisticsGrid;
-            _volumeGrid = CreateVolumeGrid();
-            HostVolume.Child = _volumeGrid;
-            // "To portfolio": оригинал группирует объём по портфелю коннектора. У наших ботов портфель один
-            // и bot_journal_get_volume его не отдаёт (только инструмент/время/объём/плечо) — сервер пока не
-            // умеет разбивать по портфелю. Явная заглушка, а не тихая подмена.
-            _volumePortfolioGrid = CreateTwoColumnGrid("Portfolio", "Volume");
-            HostVolumePortfolio.Child = _volumePortfolioGrid;
-            _volumePortfolioGrid.Rows.Add("(not available remotely yet)", "");
+            try
+            {
+                _equityChart = CreateChart();
+                HostEquity.Child = _equityChart;
+                _drawdownChart = CreateChart();
+                HostDrawdown.Child = _drawdownChart;
+                _statisticsGrid = CreateTwoColumnGrid("Metric", "Value");
+                HostStatistics.Child = _statisticsGrid;
+                _volumeGrid = CreateVolumeGrid();
+                HostVolume.Child = _volumeGrid;
+                // "To portfolio": оригинал группирует объём по портфелю коннектора. У наших ботов портфель один
+                // и bot_journal_get_volume его не отдаёт (только инструмент/время/объём/плечо) — сервер пока не
+                // умеет разбивать по портфелю. Явная заглушка, а не тихая подмена.
+                _volumePortfolioGrid = CreateTwoColumnGrid("Portfolio", "Volume");
+                HostVolumePortfolio.Child = _volumePortfolioGrid;
+                _volumePortfolioGrid.Rows.Add("(not available remotely yet)", "");
 
-            _openPositionsGrid = DataGridFactory.GetDataGridPosition();
-            HostOpenPosition.Child = _openPositionsGrid;
-            _closedPositionsGrid = DataGridFactory.GetDataGridPosition();
-            HostClosePosition.Child = _closedPositionsGrid;
+                _openPositionsGrid = DataGridFactory.GetDataGridPosition();
+                HostOpenPosition.Child = _openPositionsGrid;
+                _closedPositionsGrid = DataGridFactory.GetDataGridPosition();
+                HostClosePosition.Child = _closedPositionsGrid;
 
-            _botsFilterGrid = CreateCheckGrid("Bot");
-            HostBotsSelected.Child = _botsFilterGrid;
-            _botsFilterGrid.Rows.Add(true, _botId);
-            _botsFilterGrid.Rows[0].Cells[0].ReadOnly = true; // единственный бот — фильтровать нечем, оставлен для структурного соответствия оригиналу
-            _securitiesFilterGrid = CreateCheckGrid("Security");
-            HostSecuritiesSelected.Child = _securitiesFilterGrid;
-            _securitiesFilterGrid.CellContentClick += SecuritiesFilterGrid_CellContentClick;
+                _botsFilterGrid = CreateCheckGrid("Bot");
+                HostBotsSelected.Child = _botsFilterGrid;
+                _botsFilterGrid.Rows.Add(true, _botId);
+                _botsFilterGrid.Rows[0].Cells[0].ReadOnly = true; // единственный бот — фильтровать нечем, оставлен для структурного соответствия оригиналу
+                _securitiesFilterGrid = CreateCheckGrid("Security");
+                HostSecuritiesSelected.Child = _securitiesFilterGrid;
+                _securitiesFilterGrid.CellValueChanged += SecuritiesFilterGrid_CellValueChanged;
 
-            _loaded = true;
-            await ReloadAsync();
+                _loaded = true;
+                await ReloadAsync();
+            }
+            catch (Exception ex) { ShowError(ex); }
         }
 
         #region Reload / auto-update / left panel (real)
 
-        private async void ButtonReload_Click(object sender, RoutedEventArgs e) => await ReloadAsync();
+        private async void ButtonReload_Click(object sender, RoutedEventArgs e)
+        {
+            try { await ReloadAsync(); } catch (Exception ex) { ShowError(ex); }
+        }
 
         private void ButtonAutoReload_Click(object sender, RoutedEventArgs e)
         {
-            if (ButtonAutoReload.IsChecked == true)
+            try
             {
-                _autoReloadTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
-                _autoReloadTimer.Tick -= AutoReloadTimer_Tick;
-                _autoReloadTimer.Tick += AutoReloadTimer_Tick;
-                _autoReloadTimer.Start();
+                if (ButtonAutoReload.IsChecked == true)
+                {
+                    _autoReloadTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+                    _autoReloadTimer.Tick -= AutoReloadTimer_Tick;
+                    _autoReloadTimer.Tick += AutoReloadTimer_Tick;
+                    _autoReloadTimer.Start();
+                }
+                else
+                {
+                    _autoReloadTimer?.Stop();
+                }
             }
-            else
-            {
-                _autoReloadTimer?.Stop();
-            }
+            catch (Exception ex) { ShowError(ex); }
         }
 
-        private async void AutoReloadTimer_Tick(object sender, EventArgs e) => await ReloadAsync();
+        private async void AutoReloadTimer_Tick(object sender, EventArgs e)
+        {
+            try { await ReloadAsync(); } catch (Exception ex) { ShowError(ex); }
+        }
 
-        private void ButtonHideLeftPanel_Click(object sender, RoutedEventArgs e) => SetLeftPanelVisible(false);
-        private void ButtonShowLeftPanel_Click(object sender, RoutedEventArgs e) => SetLeftPanelVisible(true);
+        private void ButtonHideLeftPanel_Click(object sender, RoutedEventArgs e)
+        {
+            try { SetLeftPanelVisible(false); } catch (Exception ex) { ShowError(ex); }
+        }
+
+        private void ButtonShowLeftPanel_Click(object sender, RoutedEventArgs e)
+        {
+            try { SetLeftPanelVisible(true); } catch (Exception ex) { ShowError(ex); }
+        }
 
         private void SetLeftPanelVisible(bool visible)
         {
@@ -140,8 +165,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         // Community-инструкции — не относится к данным VPS, тут это просто карточка справки; в оригинале
         // открывает окно с постами сообщества. Явная заглушка.
-        private void ButtonPostsJournal2_Click(object sender, RoutedEventArgs e) =>
-            System.Windows.MessageBox.Show("Community posts are not available remotely.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+        private void ButtonPostsJournal2_Click(object sender, RoutedEventArgs e)
+        {
+            try { System.Windows.MessageBox.Show("Community posts are not available remotely.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information); }
+            catch (Exception ex) { ShowError(ex); }
+        }
 
         #endregion
 
@@ -176,8 +204,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             try { await RefreshEquityAndDrawdownAsync(); } catch (Exception ex) { ShowError(ex); }
             try { await RefreshStatisticsAsync(); } catch (Exception ex) { ShowError(ex); }
             try { await RefreshVolumeAsync(); } catch (Exception ex) { ShowError(ex); }
-            RenderOpenPositionsPage();
-            RenderClosedPositionsPage();
+            try { RenderOpenPositionsPage(); } catch (Exception ex) { ShowError(ex); }
+            try { RenderClosedPositionsPage(); } catch (Exception ex) { ShowError(ex); }
         }
 
         private async System.Threading.Tasks.Task<List<JsonElement>> FetchAllPositions(string tool, bool? includeFailed)
@@ -218,6 +246,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             };
             grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "", Width = 30 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = nameHeader, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true });
+            // DataGridViewCheckBoxColumn: клик коммитит значение в ячейку только на потере фокуса ячейки/CommitEdit;
+            // без принудительного коммита CellValueChanged (и старый CellContentClick) видят ПРЕДЫДУЩЕЕ состояние
+            // галочки — известная особенность WinForms, не ошибка выше по коду.
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
             return grid;
         }
 
@@ -230,7 +265,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 .OrderBy(s => s)
                 .ToList();
 
-            _securitiesFilterGrid.CellContentClick -= SecuritiesFilterGrid_CellContentClick;
+            _securitiesFilterGrid.CellValueChanged -= SecuritiesFilterGrid_CellValueChanged;
             _securitiesFilterGrid.Rows.Clear();
             foreach (string security in securities)
             {
@@ -238,22 +273,26 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
             // до первого снятия галочки фильтр не сужает список (все инструменты видны)
             if (_securityFilter.Count == 0) _securityFilter.UnionWith(securities);
-            _securitiesFilterGrid.CellContentClick += SecuritiesFilterGrid_CellContentClick;
+            _securitiesFilterGrid.CellValueChanged += SecuritiesFilterGrid_CellValueChanged;
         }
 
-        private async void SecuritiesFilterGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private async void SecuritiesFilterGrid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 || e.ColumnIndex != 0) return;
-            string security = _securitiesFilterGrid.Rows[e.RowIndex].Cells[1].Value?.ToString();
-            if (string.IsNullOrEmpty(security)) return;
-            bool isChecked = _securitiesFilterGrid.Rows[e.RowIndex].Cells[0].Value is bool b && b;
+            try
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex != 0) return;
+                string security = _securitiesFilterGrid.Rows[e.RowIndex].Cells[1].Value?.ToString();
+                if (string.IsNullOrEmpty(security)) return;
+                bool isChecked = _securitiesFilterGrid.Rows[e.RowIndex].Cells[0].Value is bool b && b;
 
-            if (isChecked) _securityFilter.Add(security); else _securityFilter.Remove(security);
+                if (isChecked) _securityFilter.Add(security); else _securityFilter.Remove(security);
 
-            await RefreshEquityAndDrawdownAsync();
-            await RefreshVolumeAsync();
-            RenderOpenPositionsPage();
-            RenderClosedPositionsPage();
+                await RefreshEquityAndDrawdownAsync();
+                await RefreshVolumeAsync();
+                RenderOpenPositionsPage();
+                RenderClosedPositionsPage();
+            }
+            catch (Exception ex) { ShowError(ex); }
         }
 
         #endregion
@@ -442,7 +481,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void RenderOpenPositionsPage()
         {
             List<JsonElement> filtered = FilteredPositions(closed: false).ToList();
+            // ВАЖНО: отвязать обработчик перед Items.Clear()/переустановкой SelectedItem, иначе WPF ComboBox
+            // поднимает SelectionChanged на обоих шагах (сброс выбора при Clear и новый выбор после) — это
+            // рекурсивно вызывает этот же метод и уходит в StackOverflowException (валит процесс целиком,
+            // try/catch не спасает). Ровно так же защищена пагинация в оригинале JournalUi2.xaml.cs.
+            ComboBoxOpenPosesShowNumbers.SelectionChanged -= ComboBoxOpenPosesShowNumbers_SelectionChanged;
             PopulatePageCombo(ComboBoxOpenPosesShowNumbers, filtered.Count, _openPageSize);
+            ComboBoxOpenPosesShowNumbers.SelectionChanged += ComboBoxOpenPosesShowNumbers_SelectionChanged;
             int page = ParsePageStart(ComboBoxOpenPosesShowNumbers.SelectedItem as string);
             RenderPositionRows(_openPositionsGrid, filtered.Skip(page).Take(_openPageSize), closed: false);
         }
@@ -450,7 +495,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void RenderClosedPositionsPage()
         {
             List<JsonElement> filtered = FilteredPositions(closed: true).ToList();
+            ComboBoxClosePosesShowNumbers.SelectionChanged -= ComboBoxClosePosesShowNumbers_SelectionChanged;
             PopulatePageCombo(ComboBoxClosePosesShowNumbers, filtered.Count, _closedPageSize);
+            ComboBoxClosePosesShowNumbers.SelectionChanged += ComboBoxClosePosesShowNumbers_SelectionChanged;
             int page = ParsePageStart(ComboBoxClosePosesShowNumbers.SelectedItem as string);
             RenderPositionRows(_closedPositionsGrid, filtered.Skip(page).Take(_closedPageSize), closed: true);
         }
@@ -471,27 +518,35 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void ComboBoxOpenPosesOnPage_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_loaded) return;
-            _openPageSize = ParsePageSize(ComboBoxOpenPosesOnPage.SelectedItem as string);
-            RenderOpenPositionsPage();
+            try
+            {
+                _openPageSize = ParsePageSize(ComboBoxOpenPosesOnPage.SelectedItem as string);
+                RenderOpenPositionsPage();
+            }
+            catch (Exception ex) { ShowError(ex); }
         }
 
         private void ComboBoxOpenPosesShowNumbers_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_loaded) return;
-            RenderOpenPositionsPage();
+            try { RenderOpenPositionsPage(); } catch (Exception ex) { ShowError(ex); }
         }
 
         private void ComboBoxClosePosesOnPage_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_loaded) return;
-            _closedPageSize = ParsePageSize(ComboBoxClosePosesOnPage.SelectedItem as string);
-            RenderClosedPositionsPage();
+            try
+            {
+                _closedPageSize = ParsePageSize(ComboBoxClosePosesOnPage.SelectedItem as string);
+                RenderClosedPositionsPage();
+            }
+            catch (Exception ex) { ShowError(ex); }
         }
 
         private void ComboBoxClosePosesShowNumbers_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_loaded) return;
-            RenderClosedPositionsPage();
+            try { RenderClosedPositionsPage(); } catch (Exception ex) { ShowError(ex); }
         }
 
         private static int ParsePageSize(string label) =>
