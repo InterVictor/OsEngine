@@ -571,11 +571,43 @@ namespace OsEngine.OsTrader.Panels.Tab
 
         #region Logging
 
+        private readonly object _recentLogLocker = new object();
+        private readonly List<LogMessage> _recentLogMessages = new List<LogMessage>();
+
+        public List<LogMessage> GetLastLogMessages(int count)
+        {
+            List<LogMessage> result = new List<LogMessage>();
+            if (count <= 0)
+            {
+                return result;
+            }
+
+            lock (_recentLogLocker)
+            {
+                int take = Math.Min(count, _recentLogMessages.Count);
+                for (int i = _recentLogMessages.Count - 1; i >= _recentLogMessages.Count - take; i--)
+                {
+                    result.Add(_recentLogMessages[i]);
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Put a new message in the log
         /// </summary>
         public void SetNewLogMessage(string message, LogMessageType messageType)
         {
+            lock (_recentLogLocker)
+            {
+                _recentLogMessages.Add(new LogMessage { Message = message, Time = DateTime.Now, Type = messageType });
+                while (_recentLogMessages.Count > 500)
+                {
+                    _recentLogMessages.RemoveAt(0);
+                }
+            }
+
             if (LogMessageEvent != null)
             {
                 LogMessageEvent(message, messageType);

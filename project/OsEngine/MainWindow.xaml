@@ -30,6 +30,7 @@
             <Button  Name="ButtonTesterLight" Content="Tester Light" Margin="249,138,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonTesterLight_Click"   />
             <Button  Name="ButtonRobotLight" Content="Bot Station Light" Margin="448,138,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonRobotLight_Click" />
             <Button  Name="ButtonRobotVps" Content="Bot Station VPS" Margin="448,171,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="146" Height="28" Click="ButtonRobotVps_Click" />
+            <Button Name="ButtonVpsSettings" Content="VPS" Margin="91,231,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="158" Height="28" Click="ButtonVpsSettings_Click"/>
             <Image Name="ImagePadlock" HorizontalAlignment="Left" Source="/Images/padlockClosed.png" Height="60" Margin="292,7,0,0" VerticalAlignment="Top" Width="60"/>
             <Button Name="ButtonLocal_Ru" Margin="518,232,0,0" VerticalAlignment="Top" Height="24" Click="ButtonLocal_Click" HorizontalAlignment="Left" Width="37">
                 <Image Name="ImageFlag_Ru" Height="27" Source="/Images/MainWIndow/flag_ru.png" Width="30"/>
@@ -44,7 +45,7 @@
                 </Grid>
             </Button>
             <Button Name="ButtonNewCommits" Content="  0 commits  " HorizontalAlignment="Left" Margin="91,231,0,0" VerticalAlignment="Top" Width="158" Height="28"
-                    Click="ButtonNewCommits_Click" MouseEnter="ButtCommits_MouseEnter" MouseLeave="ButtCommits_MouseLeave" />
+                    Click="ButtonNewCommits_Click" MouseEnter="ButtCommits_MouseEnter" MouseLeave="ButtCommits_MouseLeave" Visibility="Collapsed" />
         </Grid>
         <Grid Name="VideoGrid" VerticalAlignment="Top" Height="120" Margin="0,271,0,0">
             <Grid Width="570" HorizontalAlignment="Center" Margin="0,0,0,25">

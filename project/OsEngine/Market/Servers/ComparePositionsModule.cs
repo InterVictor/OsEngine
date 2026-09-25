@@ -12,6 +12,7 @@ using System.Threading;
 using OsEngine.Entity;
 using System.IO;
 using OsEngine.OsTrader.Panels.Tab.Internal;
+using OsEngine.Alerts;
 
 namespace OsEngine.Market.Servers
 {
@@ -273,6 +274,7 @@ namespace OsEngine.Market.Servers
                 if (canSendErrorMessage)
                 {
                     SendLogMessage(message, LogMessageType.Error);
+                    AlertMessageManager.ThrowAlert(null, portfolio.PortfolioName, message);
                 }
 
                 return true;

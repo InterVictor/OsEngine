@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OsEngine.OsTrader.Gui.RobotsVps"
         mc:Ignorable="d"
-        Title="Bot Station VPS" Height="750" Width="1100"
+        Title="VPS — connection and administration" Height="750" Width="1100"
         Style="{StaticResource WindowStyleCanResize}"
         WindowStartupLocation="CenterScreen"
         MinWidth="700" MinHeight="450"
@@ -79,6 +79,7 @@
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="VPS API port" FontSize="11" Foreground="Gray"/>
                     <TextBox Name="TextBoxSshRemotePort" Height="24" Text="6500"/>
+                    <CheckBox Name="CheckBoxAutoConnectSsh" Content="Connect SSH automatically on program start" Margin="0,4,0,0" Click="CheckBoxAutoConnectSsh_Click"/>
                 </StackPanel>
             </Grid>
         </Grid>

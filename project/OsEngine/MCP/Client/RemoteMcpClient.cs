@@ -84,6 +84,8 @@ namespace OsEngine.MCP.Client
                 clientInfo = new { name = "OsEngine.RobotsVps", version = "1.0.0" }
             }, cancel).ConfigureAwait(false);
 
+            await SendInitializedNotificationAsync(cancel).ConfigureAwait(false);
+
             IsConnected = true;
 
             _sseCts = new CancellationTokenSource();
@@ -205,6 +207,35 @@ namespace OsEngine.MCP.Client
             }
 
             return root.TryGetProperty("result", out JsonElement resultElement) ? resultElement.Clone() : default;
+        }
+
+        private async Task SendInitializedNotificationAsync(CancellationToken cancel)
+        {
+            var notification = new
+            {
+                jsonrpc = "2.0",
+                method = "notifications/initialized",
+                @params = new { }
+            };
+
+            string json = JsonSerializer.Serialize(notification);
+            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("Accept", "application/json, text/event-stream");
+
+            lock (_sessionLocker)
+            {
+                if (_sessionId != null)
+                {
+                    request.Headers.Add("Mcp-Session-Id", _sessionId);
+                    request.Headers.Add("MCP-Protocol-Version", ProtocolVersion);
+                }
+            }
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request, cancel).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
         }
 
         private static string ExtractSseDataIfNeeded(string body)

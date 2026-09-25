@@ -1,0 +1,20 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsComparePositionsUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Compare positions" Height="425" Width="662" MinWidth="750" MinHeight="300"
+        Style="{StaticResource WindowStyleCanResize}" WindowStartupLocation="CenterScreen" Icon="/Images/OsLogo.ico"
+        Loaded="Window_Loaded" Closed="Window_Closed">
+    <Grid>
+        <WindowsFormsHost Name="Host" Margin="5,26,5,75"/>
+        <Label Name="LabelConnectionName" Content="Connection: " Margin="5,5,5,0" VerticalAlignment="Top"/>
+        <CheckBox Name="CheckBoxAutoLogMessageOnError" Content="Auto log message on error" HorizontalAlignment="Left" Margin="13,0,0,50" VerticalAlignment="Bottom" Width="330" Click="CheckBoxAutoLogMessageOnError_Click"/>
+        <Label Name="LabelVerificationPeriod" Content="Verification period" HorizontalAlignment="Left" Margin="13,0,0,22" VerticalAlignment="Bottom"/>
+        <ComboBox Name="ComboBoxVerificationPeriod" HorizontalAlignment="Left" Margin="165,0,0,22" VerticalAlignment="Bottom" Width="120" SelectionChanged="ComboBoxVerificationPeriod_SelectionChanged"/>
+        <Label Name="LabelTimeDelaySeconds" Content="Time delay. Sec" HorizontalAlignment="Right" Margin="0,0,135,22" VerticalAlignment="Bottom" Width="132"/>
+        <TextBox Name="TextBoxTimeDelaySeconds" HorizontalAlignment="Right" Margin="0,0,10,22" TextWrapping="Wrap" VerticalAlignment="Bottom" Width="120" LostFocus="TextBoxTimeDelaySeconds_LostFocus"/>
+        <Button Name="ButtonSyncAll" HorizontalAlignment="Right" Margin="0,0,10,50" Width="130" Height="25" VerticalAlignment="Bottom" Click="ButtonSyncAll_Click"/>
+    </Grid>
+</Window>

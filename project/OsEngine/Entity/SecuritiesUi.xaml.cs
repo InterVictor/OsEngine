@@ -25,24 +25,30 @@ namespace OsEngine.Entity
         /// the server that owns the securities
         /// </summary>
         private IServer _server;
+        private List<Security> _securities;
+        private ServerType _serverType;
+        private Action<Security> _remoteSave;
+        private bool _painting;
 
         public SecuritiesUi(IServer server)
         {
+            _server = server;
+            _securities = server.Securities;
+            _serverType = server.ServerType;
             InitializeComponent();
             OsEngine.Layout.StickyBorders.Listen(this);
             OsEngine.Layout.StartupLocation.Start_MouseInCentre(this);
 
-            UpdateClassComboBox(server.Securities);
+            UpdateClassComboBox(_securities);
 
             CreateTable();
 
             ComboBoxClass.SelectionChanged += ComboBoxClass_SelectionChanged;
-            PaintSecurities(server.Securities);
+            PaintSecurities(_securities);
 
-            _server = server;
             _server.SecuritiesChangeEvent += _server_SecuritiesChangeEvent;
 
-            Title = OsLocalization.Entity.TitleSecuritiesUi + " " + _server.ServerType;
+            Title = OsLocalization.Entity.TitleSecuritiesUi + " " + _serverType;
             LabelClass.Content = OsLocalization.Entity.SecuritiesColumn11;
             TextBoxSearchSecurity.Text = OsLocalization.Market.Label64;
 
@@ -60,11 +66,36 @@ namespace OsEngine.Entity
             ButtonLeftInSearchResults.Click += ButtonLeftInSearchResults_Click;
         }
 
+        public SecuritiesUi(List<Security> securities, ServerType serverType, Action<Security> remoteSave)
+        {
+            _securities = securities ?? new List<Security>();
+            _serverType = serverType;
+            _remoteSave = remoteSave;
+            InitializeComponent();
+            OsEngine.Layout.StickyBorders.Listen(this);
+            OsEngine.Layout.StartupLocation.Start_MouseInCentre(this);
+            UpdateClassComboBox(_securities);
+            CreateTable();
+            ComboBoxClass.SelectionChanged += ComboBoxClass_SelectionChanged;
+            PaintSecurities(_securities);
+            Title = OsLocalization.Entity.TitleSecuritiesUi + " " + _serverType;
+            LabelClass.Content = OsLocalization.Entity.SecuritiesColumn11;
+            TextBoxSearchSecurity.Text = OsLocalization.Market.Label64;
+            Activate(); Focus();
+            Closed += SecuritiesUi_Closed;
+            TextBoxSearchSecurity.MouseEnter += TextBoxSearchSecurity_MouseEnter;
+            TextBoxSearchSecurity.TextChanged += TextBoxSearchSecurity_TextChanged;
+            TextBoxSearchSecurity.MouseLeave += TextBoxSearchSecurity_MouseLeave;
+            TextBoxSearchSecurity.LostKeyboardFocus += TextBoxSearchSecurity_LostKeyboardFocus;
+            TextBoxSearchSecurity.KeyDown += TextBoxSearchSecurity_KeyDown;
+            ButtonRightInSearchResults.Click += ButtonRightInSearchResults_Click;
+            ButtonLeftInSearchResults.Click += ButtonLeftInSearchResults_Click;
+        }
         private void SecuritiesUi_Closed(object sender, EventArgs e)
         {
             try
             {
-                _server.SecuritiesChangeEvent -= _server_SecuritiesChangeEvent;
+                if (_server != null) _server.SecuritiesChangeEvent -= _server_SecuritiesChangeEvent;
                 _server = null;
 
                 _gridSecurities.CellValueChanged -= _grid_CellValueChanged;
@@ -95,7 +126,7 @@ namespace OsEngine.Entity
 
         private void ComboBoxClass_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            PaintSecurities(_server.Securities);
+            PaintSecurities(_securities);
         }
 
         private void UpdateClassComboBox(List<Security> securities)
@@ -347,6 +378,11 @@ namespace OsEngine.Entity
 
         void _grid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
+            if (_painting || e.RowIndex < 0 || e.RowIndex >= _gridSecurities.Rows.Count)
+            {
+                return;
+            }
+
             try
             {
                 SaveFromTable(e.RowIndex);
@@ -361,6 +397,7 @@ namespace OsEngine.Entity
         {
             try
             {
+                _securities = securities;
                 UpdateClassComboBox(securities);
                 PaintSecurities(securities);
             }
@@ -416,6 +453,8 @@ namespace OsEngine.Entity
                 {
                     return;
                 }
+
+                _painting = true;
 
                 int num = 1;
 
@@ -502,7 +541,7 @@ namespace OsEngine.Entity
                     }
                     else
                     {
-                        nRow.Cells[19].ReadOnly = true;
+                        nRow.Cells[19].Value = string.Empty;
                     }
 
                     nRow.Cells.Add(new DataGridViewTextBoxCell());
@@ -512,6 +551,7 @@ namespace OsEngine.Entity
                         nRow.Cells[20].Value = curSec.Expiration.ToString(OsLocalization.CurCulture);
                     }
 
+                    nRow.Tag = curSec;
                     rows.Add(nRow);
                 }
 
@@ -522,13 +562,17 @@ namespace OsEngine.Entity
                 if (rows.Count > 0)
                 {
                     _gridSecurities.Rows.AddRange(rows.ToArray());
+                    foreach (DataGridViewRow row in _gridSecurities.Rows)
+                        if (row.Tag is Security security && security.OptionType == OptionType.None) row.Cells[19].ReadOnly = true;
                 }
 
                 HostSecurities.Child = _gridSecurities;
+                _painting = false;
 
             }
             catch (Exception ex)
             {
+                _painting = false;
                 ServerMaster.SendNewLogMessage(ex.ToString(), Logging.LogMessageType.Error);
             }
 
@@ -560,7 +604,7 @@ namespace OsEngine.Entity
             // 19 Strike
             // 20 Expiration
 
-            List<Security> securities = _server.Securities;
+            List<Security> securities = _securities;
 
             if (securities == null)
             {
@@ -632,14 +676,20 @@ namespace OsEngine.Entity
             mySecurity.Strike = strike;
             mySecurity.VolumeStep = volumeStep;
 
+            if (_remoteSave != null)
+            {
+                _remoteSave(mySecurity);
+                return;
+            }
+
             if (Directory.Exists(@"Engine\ServerDopSettings") == false)
             {
                 Directory.CreateDirectory(@"Engine\ServerDopSettings");
             }
 
-            if (Directory.Exists(@"Engine\ServerDopSettings\" + _server.ServerType) == false)
+            if (Directory.Exists(@"Engine\ServerDopSettings\" + _serverType) == false)
             {
-                Directory.CreateDirectory(@"Engine\ServerDopSettings\" + _server.ServerType);
+                Directory.CreateDirectory(@"Engine\ServerDopSettings\" + _serverType);
             }
 
             string fileName = mySecurity.Name.RemoveExcessFromSecurityName();
@@ -657,7 +707,7 @@ namespace OsEngine.Entity
             fileName += "_" + mySecurity.SecurityType.ToString().RemoveExcessFromSecurityName();
 
 
-            string filePath = @"Engine\ServerDopSettings\" + _server.ServerType + "\\" + fileName + ".txt";
+            string filePath = @"Engine\ServerDopSettings\" + _serverType + "\\" + fileName + ".txt";
 
             try
             {

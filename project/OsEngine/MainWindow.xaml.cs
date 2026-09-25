@@ -42,6 +42,9 @@ namespace OsEngine
     {
         private static MainWindow _window;
 
+        private RobotsVpsUi _vpsSettingsUi;
+        private bool _vpsAutoConnectStarted;
+
         private UpdateResponse _updServerResp;
 
         private int _commitsCount;
@@ -180,6 +183,7 @@ namespace OsEngine
         {
             try
             {
+                _vpsSettingsUi?.ShutdownConnection();
                 _mcpMaster?.SendTerminalStopped("shutting_down");
 
                 StopMcpHost();
@@ -224,6 +228,22 @@ namespace OsEngine
 
         private void MainWindow_ContentRendered(object sender, EventArgs e)
         {
+            if (!_vpsAutoConnectStarted && RobotsVpsUi.IsAutoConnectOnStartupEnabled())
+            {
+                _vpsAutoConnectStarted = true;
+                try
+                {
+                    EnsureVpsSettingsWindow();
+                    _vpsSettingsUi.Show();
+                    _vpsSettingsUi.Hide();
+                    _vpsSettingsUi.StartAutomaticConnect();
+                }
+                catch (Exception error)
+                {
+                    MessageBox.Show("VPS auto-connect failed: " + error.Message);
+                }
+            }
+
             Task.Run(() =>
             {
                 Thread.Sleep(1000);
@@ -989,12 +1009,13 @@ namespace OsEngine
         // "Роботы. VPS" не запускает локальный движок (нет ServerMaster.RealStarted, нет смены _startProgram) —
         // это лёгкий просмотрщик/пульт для ДРУГОГО экземпляра OsEngine по MCP API. Поэтому, в отличие от
         // остальных пунктов меню, окно открывается немодально и не закрывает главное меню/процесс.
-        private void ButtonRobotVps_Click(object sender, RoutedEventArgs e)
+        private void ButtonVpsSettings_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                RobotsVpsUi robotsVpsUi = new RobotsVpsUi();
-                robotsVpsUi.Show();
+                EnsureVpsSettingsWindow();
+                _vpsSettingsUi.Show();
+                _vpsSettingsUi.Activate();
             }
             catch (Exception error)
             {
@@ -1002,6 +1023,25 @@ namespace OsEngine
             }
         }
 
+        private void EnsureVpsSettingsWindow()
+        {
+            if (_vpsSettingsUi != null) return;
+            _vpsSettingsUi = new RobotsVpsUi();
+            _vpsSettingsUi.Closed += (s, e) => _vpsSettingsUi = null;
+        }
+
+        private void ButtonRobotVps_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                RobotsVpsWorkspaceUi workspaceUi = new RobotsVpsWorkspaceUi();
+                workspaceUi.Show();
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(error.ToString());
+            }
+        }
         private void ButtonData_Click(object sender, RoutedEventArgs e)
         {
             try

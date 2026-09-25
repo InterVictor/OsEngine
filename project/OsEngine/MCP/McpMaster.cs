@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Your rights to use code governed by this license https://github.com/AlexWan/OsEngine/blob/master/LICENSE
  * Ваши права на использование кода регулируются данной лицензией http://o-s-a.net/doc/license_simple_engine.pdf
 */
@@ -15,6 +15,7 @@ using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using System.Threading;
 using System.Threading.Tasks;
+using OsEngine.Alerts;
 using OsEngine.Entity;
 using OsEngine.Logging;
 using OsEngine.Market;
@@ -121,6 +122,7 @@ namespace OsEngine.MCP
             _openMode = openMode;
 
             Log = new Log("MCP", StartProgram.IsMainWindow);
+            AlertMessageManager.AlertRaised += AlertMessageManager_AlertRaised;
 
             Action<string, object> publishEvent = (eventName, payload) => SendEvent(eventName, payload);
 
@@ -256,6 +258,7 @@ namespace OsEngine.MCP
         {
             try
             {
+                AlertMessageManager.AlertRaised -= AlertMessageManager_AlertRaised;
                 _cts?.Cancel();
                 _listener?.Stop();
                 _listener?.Close();
@@ -283,6 +286,16 @@ namespace OsEngine.MCP
             {
                 Log.ProcessMessage(error.ToString(), LogMessageType.Error);
             }
+        }
+
+        private void AlertMessageManager_AlertRaised(string botName, string message)
+        {
+            SendEvent("alert.raised", new
+            {
+                bot_name = botName ?? string.Empty,
+                message = message ?? string.Empty,
+                time = DateTime.UtcNow.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
+            });
         }
 
         private void SendEventToClient(SseClient client, string eventName, object payload)
@@ -1412,6 +1425,7 @@ namespace OsEngine.MCP
 
                     case "log_get_emergency_log":
                     case "log_get_mcp_log":
+                    case "log_get_prime_log":
                         response = _logsApi.Handle(request);
                         break;
 
@@ -1430,6 +1444,8 @@ namespace OsEngine.MCP
                     case "server_management_get_trade_connectors":
                     case "server_management_get_data_connectors":
                     case "server_management_get_connector_permissions":
+                    case "server_management_get_auto_connect":
+                    case "server_management_set_auto_connect":
                         response = _serverManagementApi.Handle(request);
                         break;
 
@@ -1440,8 +1456,13 @@ namespace OsEngine.MCP
                     case "server_instance_connect":
                     case "server_instance_disconnect":
                     case "server_instance_get_securities":
+                    case "server_instance_set_security":
+                    case "server_instance_get_non_trade_periods":
+                    case "server_instance_set_non_trade_periods":
                     case "server_instance_get_portfolios":
                     case "server_instance_get_status":
+                    case "server_instance_get_active_orders":
+                    case "server_instance_get_historical_orders":
                     case "server_instance_get_log":
                         response = _serverInstanceApi.Handle(request);
                         break;

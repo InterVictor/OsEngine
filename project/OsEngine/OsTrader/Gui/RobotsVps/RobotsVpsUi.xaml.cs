@@ -15,6 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using OsEngine.Alerts;
 using OsEngine.Logging;
 using OsEngine.Market;
 using OsEngine.MCP.Client;
@@ -71,9 +72,37 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             LoadSettings();
 
-            Closed += (s, e) => Disconnect();
+            Closing += (s, e) =>
+            {
+                e.Cancel = true;
+                Hide();
+            };
         }
 
+        public void ShutdownConnection()
+        {
+            Disconnect();
+        }
+
+        public static bool IsAutoConnectOnStartupEnabled()
+        {
+            try
+            {
+                string[] lines = File.Exists(SettingsFile) ? File.ReadAllLines(SettingsFile) : Array.Empty<string>();
+                return lines.Length > 7 && bool.TryParse(lines[7], out bool enabled) && enabled;
+            }
+            catch { return false; }
+        }
+
+        public void StartAutomaticConnect()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (CheckBoxAutoConnectSsh.IsChecked == true) ButtonConnect_Click(null, null);
+            }));
+        }
+
+        private void CheckBoxAutoConnectSsh_Click(object sender, RoutedEventArgs e) => SaveSettings();
         #region Settings (Url + API key; excluded from git like other Engine\* connector settings)
 
         private void LoadSettings()
@@ -102,6 +131,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (lines.Length > 4 && !string.IsNullOrWhiteSpace(lines[4])) TextBoxSshKeyPath.Text = lines[4];
                 if (lines.Length > 5 && !string.IsNullOrWhiteSpace(lines[5])) TextBoxSshLocalPort.Text = lines[5];
                 if (lines.Length > 6 && !string.IsNullOrWhiteSpace(lines[6])) TextBoxSshRemotePort.Text = lines[6];
+                if (lines.Length > 7 && bool.TryParse(lines[7], out bool autoConnect)) CheckBoxAutoConnectSsh.IsChecked = autoConnect;
             }
             catch (Exception ex)
             {
@@ -122,7 +152,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     TextBoxSshUser.Text.Trim(),
                     TextBoxSshKeyPath.Text.Trim(),
                     TextBoxSshLocalPort.Text.Trim(),
-                    TextBoxSshRemotePort.Text.Trim()
+                    TextBoxSshRemotePort.Text.Trim(),
+                    (CheckBoxAutoConnectSsh.IsChecked == true).ToString()
                 });
             }
             catch (Exception ex)
@@ -182,6 +213,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 await client.ConnectAsync().ConfigureAwait(true);
 
                 _client = client;
+                VpsRemoteSession.SetClient(client);
                 _sshTunnel = tunnel;
                 tunnel = null;
                 SaveSettings();
@@ -224,6 +256,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             if (_client != null)
             {
+                if (ReferenceEquals(VpsRemoteSession.Client, _client))
+                {
+                    VpsRemoteSession.SetClient(null);
+                }
                 _client.EventReceived -= Client_EventReceived;
                 _client.Disconnected -= Client_Disconnected;
                 _client.Dispose();
@@ -259,7 +295,20 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private void Client_EventReceived(string eventName, JsonElement payload)
         {
-            Dispatcher.Invoke(() => AppendLog(eventName));
+            Dispatcher.Invoke(() =>
+            {
+                if (eventName == "alert.raised")
+                {
+                    string botName = payload.TryGetProperty("bot_name", out JsonElement bot) ? bot.GetString() : "VPS";
+                    string message = payload.TryGetProperty("message", out JsonElement text) ? text.GetString() : "";
+                    string time = payload.TryGetProperty("time", out JsonElement timestamp) ? timestamp.GetString() : DateTime.UtcNow.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+                    AlertMessageManager.ThrowRemoteAlert(botName, message, time);
+                    AppendLog("Emergency alert received from VPS: " + botName);
+                    return;
+                }
+
+                AppendLog(eventName);
+            });
         }
 
         private void SetStatus(string text, Brush color)
@@ -374,8 +423,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
-        // SelectionChanged фильтра-неустойчив к обновлению строк по месту (RefreshBotsAsync) — он срабатывает
-        // только когда реально меняется выбранный объект, поэтому опрос раз в 5с не дёргает параметры/вкладки.
         private void BotsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             BotRow selected = BotsDataGrid.SelectedItem as BotRow;
@@ -896,9 +943,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     }
 
     /// <summary>
-    /// One row of bot_get_params, editable in a WPF DataGrid via visibility-switched controls
-    /// (see RobotsVpsUi.xaml, Parameters tab). Mirrors RobotsApi.SerializeParameter/SetParameterValue
-    /// on the server: types match 1:1, ToWireValue() produces exactly what SetParameterValue expects.
+    /// One row from bot_get_params. The VPS parameter dialog groups these rows by TabName and paints
+    /// them in the same WinForms grid layout used by StrategyParametersUi.
     /// </summary>
     public class ParamRow
     {
@@ -907,6 +953,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         public string Name { get; set; }
         public string TypeStr { get; set; }
+        public string TabName { get; set; }
 
         /// <summary>enum values for a String parameter with a fixed choice list (ValuesString on the server).</summary>
         public List<string> Values { get; set; }
@@ -931,7 +978,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             string type = typeEl.GetString();
             string name = p.TryGetProperty("name", out JsonElement nameEl) ? nameEl.GetString() : "";
-            ParamRow row = new ParamRow { Name = name, TypeStr = type };
+            ParamRow row = new ParamRow
+            {
+                Name = name,
+                TypeStr = type,
+                TabName = p.TryGetProperty("tab_name", out JsonElement tabName) && tabName.ValueKind == JsonValueKind.String
+                    ? tabName.GetString() : null
+            };
 
             switch (type)
             {
@@ -973,6 +1026,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 case "Button":
                 case "Label":
+                    row.StringValue = p.TryGetProperty("label", out JsonElement label) && label.ValueKind == JsonValueKind.String
+                        ? label.GetString() : name;
+                    row.TextValue = p.TryGetProperty("value", out JsonElement labelValue) && labelValue.ValueKind == JsonValueKind.String
+                        ? labelValue.GetString() : string.Empty;
                     break;
 
                 default:
@@ -1002,13 +1059,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     return i;
 
                 case "Decimal":
-                case "DecimalCheckBox":
                     if (!decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal d)
                         && !decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.CurrentCulture, out d))
                     {
                         throw new FormatException("not a number: '" + TextValue + "'");
                     }
                     return d;
+
+                case "DecimalCheckBox":
+                    if (!decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal checkedDecimal)
+                        && !decimal.TryParse(TextValue, NumberStyles.Any, CultureInfo.CurrentCulture, out checkedDecimal))
+                        throw new FormatException("not a number: '" + TextValue + "'");
+                    return new Dictionary<string, object> { ["value"] = checkedDecimal, ["checked"] = BoolValue };
 
                 case "String":
                     return StringValue ?? TextValue ?? "";

@@ -19,6 +19,7 @@ using OsEngine.Logging;
 using JournalClass = OsEngine.Journal.Journal;
 using OsEngine.Market;
 using OsEngine.Market.Connectors;
+using OsEngine.Market.Servers;
 using OsEngine.MCP.Json;
 using OsEngine.OsTrader;
 using OsEngine.OsTrader.Panels;
@@ -74,6 +75,10 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetBots();
                         break;
 
+                    case "bot_set_state":
+                        response.Result = SetBotState(request.Params);
+                        break;
+
                     case "bot_create":
                         response.Result = CreateBot(request.Params);
                         break;
@@ -96,6 +101,26 @@ namespace OsEngine.MCP.Modules
 
                     case "bot_get_sources":
                         response.Result = GetBotSources(request.Params);
+                        break;
+
+                    case "bot_chart_get_snapshot":
+                        response.Result = GetBotChartSnapshot(request.Params);
+                        break;
+
+                    case "bot_chart_get_market_depth":
+                        response.Result = GetBotChartMarketDepth(request.Params);
+                        break;
+
+                    case "bot_chart_execute_action":
+                        response.Result = ExecuteBotChartAction(request.Params);
+                        break;
+
+                    case "bot_chart_get_alerts":
+                        response.Result = GetBotChartAlerts(request.Params);
+                        break;
+
+                    case "bot_chart_get_log":
+                        response.Result = GetBotChartLog(request.Params);
                         break;
 
                     case "bot_get_config_tab_simple":
@@ -198,6 +223,10 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetJournalClosedPositions(request.Params);
                         break;
 
+                    case "bot_journal_get_stop_limit_positions":
+                        response.Result = GetJournalStopLimitPositions(request.Params);
+                        break;
+
                     default:
                         response.Error = new McpJsonRpcError
                         {
@@ -228,6 +257,22 @@ namespace OsEngine.MCP.Modules
                     Name = "bot_get_list",
                     Description = "Get list of robots loaded in the terminal",
                     InputSchema = new { type = "object", properties = new { }, required = new string[0] }
+                },
+                new McpTool
+                {
+                    Name = "bot_set_state",
+                    Description = "Set robot trading and emulator on/off state",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            is_on = new { type = "boolean", description = "Whether robot trading is enabled" },
+                            emulator_is_on = new { type = "boolean", description = "Whether emulator mode is enabled" }
+                        },
+                        required = new[] { "bot_id" }
+                    }
                 },
                 new McpTool
                 {
@@ -323,6 +368,94 @@ namespace OsEngine.MCP.Modules
                 },
                 new McpTool
                 {
+                    Name = "bot_chart_get_snapshot",
+                    Description = "Get a read-only snapshot of recent OHLCV candles for a Simple robot tab",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot unique name" },
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" },
+                            candle_count = new { type = "integer", description = "Number of most recent candles (1..2000; default 500)", minimum = 1, maximum = 2000 }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_get_market_depth",
+                    Description = "Get a read-only market-depth snapshot for a Simple robot tab",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot unique name" },
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" },
+                            level_count = new { type = "integer", description = "Levels per side (1..50; default 25)" }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_execute_action",
+                    Description = "Execute a native manual order-entry or cancel action from the Robots.VPS chart depth panel",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string" },
+                            tab_name = new { type = "string" },
+                            action = new { type = "string", description = "BuyAtMarket, SellAtMarket, BuyAtLimit, SellAtLimit, BuyAtStop, SellAtStop, BuyAtStopMarket, SellAtStopMarket, BuyAtFake, SellAtFake, CancelOrders, SetEmulator, SetServerStopOrders" },
+                            volume = new { type = "number" },
+                            price = new { type = "number", description = "Limit price or fake price" },
+                            activation_price = new { type = "number" },
+                            stop_activate_type = new { type = "string", description = "HigherOrEqual or LowerOrEqual" },
+                            lifetime_bars = new { type = "integer" },
+                            lifetime_type = new { type = "string", description = "CandlesCount or NoLifeTime" },
+                            server_stop = new { type = "boolean" },
+                            emulator_is_on = new { type = "boolean" },
+                            time_local = new { type = "string", description = "Local DateTime in round-trip format for fake entries" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "action" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_get_alerts",
+                    Description = "Get read-only alert rows for a Simple robot tab",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot unique name" },
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_get_log",
+                    Description = "Get recent log messages for a Simple robot tab",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot unique name" },
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" },
+                            count = new { type = "integer", description = "Number of entries (1..500)" }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
                     Name = "bot_get_config_tab_simple",
                     Description = "Get BotTabSimple connector configuration",
                     InputSchema = new
@@ -360,7 +493,8 @@ namespace OsEngine.MCP.Modules
                             candle_create_method_type = new { type = "string", description = "Simple, Renko, Volume, Ticks, Delta, HeikenAshi, Revers, Range" },
                             time_frame = new { type = "string", description = "TimeFrame enum value" },
                             save_trades_in_candles = new { type = "boolean" },
-                            build_non_trading_candles = new { type = "boolean" }
+                            build_non_trading_candles = new { type = "boolean" },
+                            candle_series_parameters = new { type = "array", description = "Candle builder parameters: [{sys_name,value}]" }
                         },
                         required = new[] { "bot_id", "tab_name" }
                     }
@@ -887,6 +1021,20 @@ namespace OsEngine.MCP.Modules
                         },
                         required = new string[0]
                     }
+                },
+                new McpTool
+                {
+                    Name = "bot_journal_get_stop_limit_positions",
+                    Description = "Get active stop-limit position openers across all robots or one robot",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_name = new { type = "string", description = "Optional unique robot name" }
+                        },
+                        required = new string[0]
+                    }
                 }
             };
         }
@@ -920,11 +1068,37 @@ namespace OsEngine.MCP.Modules
                 for (int i = 0; i < master.PanelsArray.Count; i++)
                 {
                     BotPanel bot = master.PanelsArray[i];
+                    string firstSecurity = string.Empty;
+                    if (bot.TabsSimple != null && bot.TabsSimple.Count > 0
+                        && bot.TabsSimple[0] != null && bot.TabsSimple[0].Security != null)
+                    {
+                        firstSecurity = bot.TabsSimple[0].Security.Name;
+                    }
+
+                    int closedPositions = 0;
+                    List<JournalClass> journals = bot.GetJournals();
+                    for (int j = 0; journals != null && j < journals.Count; j++)
+                    {
+                        List<Position> closed = journals[j]?.CloseAllPositions;
+                        if (closed == null) continue;
+                        for (int k = 0; k < closed.Count; k++)
+                        {
+                            if (closed[k] != null && closed[k].State == PositionStateType.Done)
+                                closedPositions++;
+                        }
+                    }
+
                     bots.Add(new
                     {
                         number = i + 1,
                         class_name = bot.GetNameStrategyType(),
-                        name = bot.NameStrategyUniq
+                        name = bot.NameStrategyUniq,
+                        public_name = bot.PublicName ?? string.Empty,
+                        first_security = firstSecurity,
+                        open_positions_count = bot.PositionsCount,
+                        closed_positions_count = closedPositions,
+                        is_on = bot.OnOffEventsInTabs,
+                        emulator_is_on = bot.OnOffEmulatorsInTabs
                     });
                 }
             }
@@ -1261,12 +1435,61 @@ namespace OsEngine.MCP.Modules
                     object paramObj = SerializeParameter(param);
                     if (paramObj != null)
                     {
-                        result.Add(paramObj);
+                        Dictionary<string, object> parameter = new Dictionary<string, object>();
+                        using (JsonDocument serialized = JsonDocument.Parse(JsonSerializer.Serialize(paramObj)))
+                        {
+                            foreach (JsonProperty property in serialized.RootElement.EnumerateObject())
+                                parameter[property.Name] = property.Value.Clone();
+                        }
+                        parameter["tab_name"] = param.TabName;
+                        result.Add(parameter);
                     }
                 }
             }
 
-            return new { parameters = result, count = result.Count };
+            return new
+            {
+                parameters = result,
+                count = result.Count,
+                first_tab_label = bot.ParamGuiSettings?.FirstTabLabel,
+                window_title = bot.ParamGuiSettings?.Title,
+                window_width = bot.ParamGuiSettings?.Width,
+                window_height = bot.ParamGuiSettings?.Height,
+                custom_tabs = bot.ParamGuiSettings?.CustomTabs?.Select(tab => tab.Label).ToList(),
+                parameter_designs = bot.ParamGuiSettings?.ParameterDesigns?.Values.Select(design => new
+                {
+                    design_type = design.DesignType.ToString(),
+                    parameter_name = design.ParameterName,
+                    color = design.Color.ToArgb(),
+                    thickness = design.Thickness
+                }).ToList()
+            };
+        }
+
+        private object SetBotState(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object
+                || !parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+                throw new ArgumentException("bot_id is required");
+
+            BotPanel bot = FindBot(GetMasterRequired(), botIdElement);
+            Action update = () =>
+            {
+                if (parameters.TryGetProperty("is_on", out JsonElement isOn)
+                    && (isOn.ValueKind == JsonValueKind.True || isOn.ValueKind == JsonValueKind.False))
+                    bot.OnOffEventsInTabs = isOn.GetBoolean();
+                if (parameters.TryGetProperty("emulator_is_on", out JsonElement emulatorIsOn)
+                    && (emulatorIsOn.ValueKind == JsonValueKind.True || emulatorIsOn.ValueKind == JsonValueKind.False))
+                    bot.OnOffEmulatorsInTabs = emulatorIsOn.GetBoolean();
+            };
+
+            if (System.Windows.Application.Current?.Dispatcher != null
+                && !System.Windows.Application.Current.Dispatcher.CheckAccess())
+                System.Windows.Application.Current.Dispatcher.Invoke(update);
+            else
+                update();
+
+            return new { bot = bot.NameStrategyUniq, is_on = bot.OnOffEventsInTabs, emulator_is_on = bot.OnOffEmulatorsInTabs };
         }
 
         private object SerializeParameter(IIStrategyParameter param)
@@ -1354,12 +1577,24 @@ namespace OsEngine.MCP.Modules
                         step_type = decimalCheckParam.StepType.ToString()
                     };
 
-                case StrategyParameterType.Button:
                 case StrategyParameterType.Label:
+                    StrategyParameterLabel labelParam = (StrategyParameterLabel)param;
+                    return new
+                    {
+                        name = labelParam.Name,
+                        type = "Label",
+                        label = labelParam.Label,
+                        value = labelParam.Value,
+                        row_height = labelParam.RowHeight,
+                        text_height = labelParam.TextHeight,
+                        color = labelParam.Color.ToArgb()
+                    };
+
+                case StrategyParameterType.Button:
                     return new
                     {
                         name = param.Name,
-                        type = param.Type.ToString()
+                        type = "Button"
                     };
 
                 default:
@@ -1564,6 +1799,16 @@ namespace OsEngine.MCP.Modules
                     {
                         ((StrategyParameterDecimalCheckBox)parameter).ValueDecimal = decimalCheckValue;
                     }
+                    else if (valueElement.ValueKind == JsonValueKind.Object
+                        && valueElement.TryGetProperty("value", out JsonElement decimalCheckValueElement)
+                        && decimalCheckValueElement.TryGetDecimal(out decimal objectDecimalValue))
+                    {
+                        StrategyParameterDecimalCheckBox decimalCheckBox = (StrategyParameterDecimalCheckBox)parameter;
+                        decimalCheckBox.ValueDecimal = objectDecimalValue;
+                        if (valueElement.TryGetProperty("checked", out JsonElement checkedValue)
+                            && (checkedValue.ValueKind == JsonValueKind.True || checkedValue.ValueKind == JsonValueKind.False))
+                            decimalCheckBox.CheckState = checkedValue.GetBoolean() ? CheckState.Checked : CheckState.Unchecked;
+                    }
                     else
                     {
                         throw new ArgumentException($"Parameter '{parameter.Name}' requires a decimal value");
@@ -1603,6 +1848,343 @@ namespace OsEngine.MCP.Modules
             return new { sources = sources, count = sources.Count };
         }
 
+        private object GetBotChartSnapshot(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("Parameters must be an object");
+            }
+
+            if (!parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+            int requestedCount = GetOptionalInt(parameters, "candle_count") ?? 500;
+            if (requestedCount < 1 || requestedCount > 2000)
+            {
+                throw new ArgumentOutOfRangeException("candle_count", "candle_count must be between 1 and 2000");
+            }
+
+            BotPanel bot = FindBot(GetMasterRequired(), botIdElement);
+            BotTabSimple tab = FindBotTabSimple(bot, tabName);
+            ConnectorCandles connector = tab.Connector;
+            if (connector == null)
+            {
+                throw new InvalidOperationException($"Simple tab '{tabName}' has no candle connector");
+            }
+
+            List<Candle> sourceCandles = tab.CandlesAll;
+            Candle[] candleSnapshot = sourceCandles == null ? Array.Empty<Candle>() : sourceCandles.ToArray();
+            int startIndex = Math.Max(0, candleSnapshot.Length - requestedCount);
+            List<object> candles = new List<object>(candleSnapshot.Length - startIndex);
+            string lastBarTimeUtc = null;
+
+            for (int i = startIndex; i < candleSnapshot.Length; i++)
+            {
+                Candle candle = candleSnapshot[i];
+                if (candle == null)
+                {
+                    continue;
+                }
+
+                lastBarTimeUtc = candle.TimeStart.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+                candles.Add(new
+                {
+                    time_utc = lastBarTimeUtc,
+                    open = candle.Open,
+                    high = candle.High,
+                    low = candle.Low,
+                    close = candle.Close,
+                    volume = candle.Volume,
+                    state = candle.State.ToString(),
+                    is_complete = candle.State == CandleState.Finished
+                });
+            }
+
+            return new
+            {
+                status = candles.Count == 0 ? "NoData" : "Ok",
+                bot_id = bot.NameStrategyUniq,
+                bot_class = bot.GetNameStrategyType(),
+                tab_name = tab.TabName,
+                source_type = "Simple",
+                server_type = connector.ServerType.ToString(),
+                server_full_name = connector.ServerFullName,
+                security_class = connector.SecurityClass,
+                security_name = connector.SecurityName,
+                time_frame = connector.TimeFrame.ToString(),
+                emulator_is_on = connector.EmulatorIsOn,
+                server_stop_orders_supported = tab.ServerIsSupportStopOrders,
+                server_stop_orders_is_on = tab.ServerStopOrdersIsOn,
+                snapshot_time_utc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                last_bar_time_utc = lastBarTimeUtc,
+                requested_count = requestedCount,
+                count = candles.Count,
+                candles = candles
+            };
+        }
+
+        private object GetBotChartMarketDepth(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("bot_id", out JsonElement botId))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+            int levelCount = GetOptionalInt(parameters, "level_count") ?? 25;
+            if (levelCount < 1 || levelCount > 50)
+            {
+                throw new ArgumentOutOfRangeException("level_count", "level_count must be between 1 and 50");
+            }
+
+            Func<object> read = () =>
+            {
+                BotTabSimple tab = FindBotTabSimple(FindBot(GetMasterRequired(), botId), tabName);
+                AServer server = tab.Connector?.MyServer as AServer;
+                MarketDepth depth = server?.GetLatestMarketDepthForRemoteView(tab.Security?.Name) ?? tab.MarketDepth;
+                bool fullDepthEnabled = server?._needToUseFullMarketDepth?.Value == true;
+                if (depth == null)
+                {
+                    return new
+                    {
+                        status = "NoData",
+                        mode = fullDepthEnabled ? "Full" : "BidAsk",
+                        tab_name = tab.TabName,
+                        security_name = tab.Security?.Name,
+                        server_status = server?.ServerStatus.ToString() ?? "Unavailable",
+                        market_depth_updates_received = server?.RemoteMarketDepthUpdateCount ?? 0,
+                        last_market_depth_security = server?.RemoteMarketDepthLastSecurity ?? string.Empty,
+                        bids = new object[0],
+                        asks = new object[0]
+                    };
+                }
+
+                if (!fullDepthEnabled)
+                {
+                    return new
+                    {
+                        status = "Ok",
+                        mode = "BidAsk",
+                        tab_name = tab.TabName,
+                        security_name = tab.Security?.Name ?? string.Empty,
+                        time_utc = depth.Time.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                        market_depth_updates_received = server?.RemoteMarketDepthUpdateCount ?? 0,
+                        best_bid = depth.Bids != null && depth.Bids.Count > 0 ? depth.Bids[0].Price : 0d,
+                        best_ask = depth.Asks != null && depth.Asks.Count > 0 ? depth.Asks[0].Price : 0d
+                    };
+                }
+
+                var bids = (depth.Bids ?? new List<MarketDepthLevel>()).Take(levelCount)
+                    .Select(level => new { price = level.Price, volume = level.Bid }).ToArray();
+                var asks = (depth.Asks ?? new List<MarketDepthLevel>()).Take(levelCount)
+                    .Select(level => new { price = level.Price, volume = level.Ask }).ToArray();
+                return new
+                {
+                    status = "Ok",
+                    mode = "Full",
+                    tab_name = tab.TabName,
+                    security_name = tab.Security?.Name ?? string.Empty,
+                    time_utc = depth.Time.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                    market_depth_updates_received = server?.RemoteMarketDepthUpdateCount ?? 0,
+                    bids,
+                    asks
+                };
+            };
+
+            return MainWindow.GetDispatcher.CheckAccess() ? read() : MainWindow.GetDispatcher.Invoke(read);
+        }
+
+        private object ExecuteBotChartAction(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("bot_id", out JsonElement botId))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+            string action = GetRequiredString(parameters, "action");
+            BotTabSimple tab = FindBotTabSimple(FindBot(GetMasterRequired(), botId), tabName);
+
+            decimal ReadDecimal(string name, decimal defaultValue = 0)
+            {
+                if (!parameters.TryGetProperty(name, out JsonElement value)) return defaultValue;
+                if (value.ValueKind != JsonValueKind.Number || !value.TryGetDecimal(out decimal parsed))
+                    throw new ArgumentException(name + " must be a number");
+                return parsed;
+            }
+
+            bool ReadBool(string name, bool defaultValue = false)
+            {
+                if (!parameters.TryGetProperty(name, out JsonElement value)) return defaultValue;
+                if (value.ValueKind != JsonValueKind.True && value.ValueKind != JsonValueKind.False)
+                    throw new ArgumentException(name + " must be a boolean");
+                return value.GetBoolean();
+            }
+
+            Func<object> execute = () =>
+            {
+                if (action == "CancelOrders")
+                {
+                    tab.CloseAllOrderInSystem();
+                    return new { status = "Dispatched", action, tab_name = tab.TabName };
+                }
+
+                if (action == "SetEmulator")
+                {
+                    tab.EmulatorIsOn = ReadBool("emulator_is_on");
+                    return new { status = "Updated", action, emulator_is_on = tab.EmulatorIsOn };
+                }
+
+                if (action == "SetServerStopOrders")
+                {
+                    if (!tab.ServerIsSupportStopOrders && ReadBool("server_stop"))
+                        throw new InvalidOperationException("This connector does not support server stop orders");
+                    tab.ServerStopOrdersIsOn = ReadBool("server_stop");
+                    return new { status = "Updated", action, server_stop_orders_is_on = tab.ServerStopOrdersIsOn };
+                }
+
+                decimal volume = ReadDecimal("volume");
+                if (volume <= 0) throw new ArgumentOutOfRangeException("volume", "volume must be greater than zero");
+                decimal price = ReadDecimal("price");
+                decimal activationPrice = ReadDecimal("activation_price");
+                Position position = null;
+
+                switch (action)
+                {
+                    case "BuyAtMarket": position = tab.BuyAtMarket(volume); break;
+                    case "SellAtMarket": position = tab.SellAtMarket(volume); break;
+                    case "BuyAtLimit":
+                        if (price == 0) throw new ArgumentException("price must not be zero");
+                        position = tab.BuyAtLimit(volume, price);
+                        break;
+                    case "SellAtLimit":
+                        if (price == 0) throw new ArgumentException("price must not be zero");
+                        position = tab.SellAtLimit(volume, price);
+                        break;
+                    case "BuyAtStop":
+                    case "SellAtStop":
+                    {
+                        if (price == 0 || activationPrice == 0) throw new ArgumentException("price and activation_price must not be zero");
+                        StopActivateType activateType = Enum.TryParse(GetOptionalString(parameters, "stop_activate_type"), true, out StopActivateType parsedActivate)
+                            ? parsedActivate : StopActivateType.HigherOrEqual;
+                        PositionOpenerToStopLifeTimeType lifeType = Enum.TryParse(GetOptionalString(parameters, "lifetime_type"), true, out PositionOpenerToStopLifeTimeType parsedLife)
+                            ? parsedLife : PositionOpenerToStopLifeTimeType.CandlesCount;
+                        int lifeTime = GetOptionalInt(parameters, "lifetime_bars") ?? 1;
+                        bool serverStop = ReadBool("server_stop");
+                        if (serverStop && !tab.ServerIsSupportStopOrders) throw new InvalidOperationException("This connector does not support server stop orders");
+                        if (action == "BuyAtStop")
+                        {
+                            if (serverStop) tab.BuyAtStopOnServer(volume, price, activationPrice, "userSendBuyAtStopFromUi");
+                            else tab.BuyAtStop(volume, price, activationPrice, activateType, lifeTime, "userSendBuyAtStopFromUi", lifeType);
+                        }
+                        else
+                        {
+                            if (serverStop) tab.SellAtStopOnServer(volume, price, activationPrice, "userSendSellAtStopFromUi");
+                            else tab.SellAtStop(volume, price, activationPrice, activateType, lifeTime, "userSendSellAtStopFromUi", lifeType);
+                        }
+                        break;
+                    }
+                    case "BuyAtStopMarket":
+                    case "SellAtStopMarket":
+                    {
+                        if (activationPrice == 0) throw new ArgumentException("activation_price must not be zero");
+                        StopActivateType activateType = Enum.TryParse(GetOptionalString(parameters, "stop_activate_type"), true, out StopActivateType parsedActivate)
+                            ? parsedActivate : StopActivateType.HigherOrEqual;
+                        PositionOpenerToStopLifeTimeType lifeType = Enum.TryParse(GetOptionalString(parameters, "lifetime_type"), true, out PositionOpenerToStopLifeTimeType parsedLife)
+                            ? parsedLife : PositionOpenerToStopLifeTimeType.CandlesCount;
+                        int lifeTime = GetOptionalInt(parameters, "lifetime_bars") ?? 1;
+                        bool serverStop = ReadBool("server_stop");
+                        if (serverStop && !tab.ServerIsSupportStopOrders) throw new InvalidOperationException("This connector does not support server stop orders");
+                        if (action == "BuyAtStopMarket")
+                        {
+                            if (serverStop) tab.BuyAtStopMarketOnServer(volume, activationPrice, "userSendBuyAtStopMarketFromUi");
+                            else tab.BuyAtStopMarket(volume, activationPrice, activationPrice, activateType, lifeTime, "userSendBuyAtStopMarketFromUi", lifeType);
+                        }
+                        else
+                        {
+                            if (serverStop) tab.SellAtStopMarketOnServer(volume, activationPrice, "userSendSellAtStopMarketFromUi");
+                            else tab.SellAtStopMarket(volume, activationPrice, activationPrice, activateType, lifeTime, "userSendSellAtStopMarketFromUi", lifeType);
+                        }
+                        break;
+                    }
+                    case "BuyAtFake":
+                    case "SellAtFake":
+                    {
+                        if (price <= 0) throw new ArgumentException("price must be greater than zero");
+                        DateTime time = DateTime.Now;
+                        string timeText = GetOptionalString(parameters, "time_local");
+                        if (!string.IsNullOrWhiteSpace(timeText)
+                            && !DateTime.TryParse(timeText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out time))
+                            throw new ArgumentException("time_local must be a round-trip DateTime");
+                        position = action == "BuyAtFake" ? tab.BuyAtFake(volume, price, time) : tab.SellAtFake(volume, price, time);
+                        break;
+                    }
+                    default:
+                        throw new ArgumentException("Unknown chart action: " + action);
+                }
+
+                return new
+                {
+                    status = position == null ? "Dispatched" : "PositionCreated",
+                    action,
+                    tab_name = tab.TabName,
+                    position_number = position?.Number,
+                    emulator_is_on = tab.EmulatorIsOn
+                };
+            };
+
+            return MainWindow.GetDispatcher.CheckAccess() ? execute() : MainWindow.GetDispatcher.Invoke(execute);
+        }
+
+        private object GetBotChartAlerts(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("bot_id", out JsonElement botId))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+            Func<object> read = () =>
+            {
+                BotTabSimple tab = FindBotTabSimple(FindBot(GetMasterRequired(), botId), tabName);
+                List<object> alerts = tab._alerts?.GetAlertStates() ?? new List<object>();
+                return new { tab_name = tab.TabName, alerts, count = alerts.Count };
+            };
+
+            return MainWindow.GetDispatcher.CheckAccess() ? read() : MainWindow.GetDispatcher.Invoke(read);
+        }
+
+        private object GetBotChartLog(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("bot_id", out JsonElement botId))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+            int count = GetOptionalInt(parameters, "count") ?? 200;
+            if (count < 1 || count > 500)
+            {
+                throw new ArgumentOutOfRangeException("count", "count must be between 1 and 500");
+            }
+
+            BotTabSimple tab = FindBotTabSimple(FindBot(GetMasterRequired(), botId), tabName);
+            List<LogMessage> messages = tab.GetLastLogMessages(count);
+            return new
+            {
+                tab_name = tab.TabName,
+                count = messages.Count,
+                messages = messages.Select(message => new
+                {
+                    time = message.Time.ToString("O", CultureInfo.InvariantCulture),
+                    type = message.Type.ToString(),
+                    message = message.Message
+                }).ToArray()
+            };
+        }
         private void AddSources<T>(List<object> sources, List<T> tabs, string type)
         {
             if (tabs == null)
@@ -1670,6 +2252,31 @@ namespace OsEngine.MCP.Modules
                 buildNonTradingCandles = simpleSeries.BuildNonTradingCandles.ValueBool;
             }
 
+            List<object> candleSeriesParameters = new List<object>();
+            List<ICandleSeriesParameter> seriesParameters = connector.TimeFrameBuilder.CandleSeriesRealization?.Parameters;
+            for (int i = 0; seriesParameters != null && i < seriesParameters.Count; i++)
+            {
+                ICandleSeriesParameter parameter = seriesParameters[i];
+                object value = parameter.Type == CandlesParameterType.Int
+                    ? (object)((CandlesParameterInt)parameter).ValueInt
+                    : parameter.Type == CandlesParameterType.Decimal
+                        ? ((CandlesParameterDecimal)parameter).ValueDecimal
+                        : parameter.Type == CandlesParameterType.Bool
+                            ? ((CandlesParameterBool)parameter).ValueBool
+                            : ((CandlesParameterString)parameter).ValueString;
+                List<string> values = parameter.Type == CandlesParameterType.StringCollection
+                    ? ((CandlesParameterString)parameter).ValuesString
+                    : null;
+                candleSeriesParameters.Add(new
+                {
+                    sys_name = parameter.SysName,
+                    label = parameter.Label,
+                    type = parameter.Type.ToString(),
+                    value = value,
+                    values = values
+                });
+            }
+
             return new
             {
                 server_type = connector.ServerType.ToString(),
@@ -1685,7 +2292,9 @@ namespace OsEngine.MCP.Modules
                 candle_create_method_type = connector.CandleCreateMethodType,
                 time_frame = connector.TimeFrame.ToString(),
                 save_trades_in_candles = connector.SaveTradesInCandles,
-                build_non_trading_candles = buildNonTradingCandles
+                build_non_trading_candles = buildNonTradingCandles,
+                candle_series_parameters = candleSeriesParameters,
+                candle_create_method_types = CandleFactory.GetCandlesNames()
             };
         }
 
@@ -1807,6 +2416,54 @@ namespace OsEngine.MCP.Modules
                 if (connector.TimeFrameBuilder.CandleSeriesRealization is Simple simpleSeries)
                 {
                     simpleSeries.BuildNonTradingCandles.ValueBool = buildNonTradingElement.GetBoolean();
+                }
+            }
+
+            if (parameters.TryGetProperty("candle_series_parameters", out JsonElement seriesParametersElement)
+                && seriesParametersElement.ValueKind == JsonValueKind.Array
+                && connector.TimeFrameBuilder.CandleSeriesRealization?.Parameters != null)
+            {
+                List<ICandleSeriesParameter> currentParameters = connector.TimeFrameBuilder.CandleSeriesRealization.Parameters;
+                foreach (JsonElement parameterElement in seriesParametersElement.EnumerateArray())
+                {
+                    if (!parameterElement.TryGetProperty("sys_name", out JsonElement nameElement)
+                        || nameElement.ValueKind != JsonValueKind.String
+                        || !parameterElement.TryGetProperty("value", out JsonElement valueElement))
+                    {
+                        continue;
+                    }
+
+                    string sysName = nameElement.GetString();
+                    ICandleSeriesParameter target = currentParameters.Find(p => p.SysName == sysName);
+                    if (target == null)
+                    {
+                        continue;
+                    }
+
+                    if (target.Type == CandlesParameterType.Int && valueElement.ValueKind == JsonValueKind.Number
+                        && valueElement.TryGetInt32(out int intValue))
+                    {
+                        ((CandlesParameterInt)target).ValueInt = intValue;
+                    }
+                    else if (target.Type == CandlesParameterType.Decimal && valueElement.ValueKind == JsonValueKind.Number
+                        && valueElement.TryGetDecimal(out decimal decimalValue))
+                    {
+                        ((CandlesParameterDecimal)target).ValueDecimal = decimalValue;
+                    }
+                    else if (target.Type == CandlesParameterType.Bool
+                        && (valueElement.ValueKind == JsonValueKind.True || valueElement.ValueKind == JsonValueKind.False))
+                    {
+                        ((CandlesParameterBool)target).ValueBool = valueElement.GetBoolean();
+                    }
+                    else if (target.Type == CandlesParameterType.StringCollection && valueElement.ValueKind == JsonValueKind.String)
+                    {
+                        string selectedValue = valueElement.GetString();
+                        List<string> allowedValues = ((CandlesParameterString)target).ValuesString;
+                        if (allowedValues == null || allowedValues.Contains(selectedValue))
+                        {
+                            ((CandlesParameterString)target).ValueString = selectedValue;
+                        }
+                    }
                 }
             }
 
@@ -4562,6 +5219,68 @@ namespace OsEngine.MCP.Modules
             };
         }
 
+        private object GetJournalStopLimitPositions(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+            string botName = GetOptionalBotName(parameters);
+            ValidateBotNameIfSpecified(master, botName);
+            List<object> result = new List<object>();
+
+            if (master.PanelsArray != null)
+            {
+                for (int i = 0; i < master.PanelsArray.Count; i++)
+                {
+                    BotPanel bot = master.PanelsArray[i];
+                    if (botName != null && bot.NameStrategyUniq != botName)
+                        continue;
+
+                    List<BotTabSimple> tabs = bot.TabsSimple ?? new List<BotTabSimple>();
+                    if (bot.TabsScreener != null)
+                    {
+                        for (int j = 0; j < bot.TabsScreener.Count; j++)
+                        {
+                            if (bot.TabsScreener[j]?.Tabs != null)
+                                tabs.AddRange(bot.TabsScreener[j].Tabs);
+                        }
+                    }
+
+                    foreach (BotTabSimple tab in tabs)
+                    {
+                        PositionOpenerToStopLimit[] snapshot;
+                        try
+                        {
+                            snapshot = tab.PositionOpenerToStopsAll?.ToArray() ?? new PositionOpenerToStopLimit[0];
+                        }
+                        catch
+                        {
+                            snapshot = new PositionOpenerToStopLimit[0];
+                        }
+
+                        foreach (PositionOpenerToStopLimit opener in snapshot)
+                        {
+                            if (opener == null) continue;
+                            result.Add(new
+                            {
+                                number = opener.Number,
+                                time_create = opener.TimeCreate.ToString("O", CultureInfo.InvariantCulture),
+                                tab_name = opener.TabName ?? tab.TabName ?? string.Empty,
+                                security_name = opener.Security ?? string.Empty,
+                                volume = opener.Volume,
+                                side = opener.Side.ToString(),
+                                activate_type = opener.ActivateType.ToString(),
+                                price_red_line = opener.PriceRedLine,
+                                price_order = opener.PriceOrder,
+                                expires_bars = opener.ExpiresBars,
+                                lifetime_type = opener.LifeTimeType.ToString()
+                            });
+                        }
+                    }
+                }
+            }
+
+            return new { positions = result, count = result.Count };
+        }
+
         #endregion
 
         #region Journal helpers
@@ -4693,14 +5412,24 @@ namespace OsEngine.MCP.Modules
                 security_name = pos.SecurityName ?? string.Empty,
                 direction = direction,
                 state = pos.State.ToString(),
+                time_create = pos.TimeCreate == DateTime.MinValue ? null : pos.TimeCreate.ToString("O"),
                 open_time = pos.TimeOpen == DateTime.MinValue ? null : pos.TimeOpen.ToString("O"),
                 close_time = pos.TimeClose == DateTime.MinValue ? null : pos.TimeClose.ToString("O"),
                 entry_price = pos.EntryPrice,
                 close_price = pos.ClosePrice,
+                price_step = pos.PriceStep,
+                side = pos.Direction.ToString(),
                 volume = pos.MaxVolume,
                 open_volume = pos.OpenVolume,
+                wait_volume = pos.WaitVolume,
                 profit_abs = pos.ProfitPortfolioAbs,
                 profit_percent = pos.ProfitPortfolioPercent,
+                stop_order_red_line = pos.StopOrderRedLine,
+                stop_order_price = pos.StopOrderPrice,
+                profit_order_red_line = pos.ProfitOrderRedLine,
+                profit_order_price = pos.ProfitOrderPrice,
+                signal_type_open = pos.SignalTypeOpen ?? string.Empty,
+                signal_type_close = pos.SignalTypeClose ?? string.Empty,
                 commission = pos.CommissionTotal()
             };
         }

@@ -687,6 +687,9 @@ namespace OsEngine.Logging
 
         private ConcurrentQueue<LogMessage> _incomingMessages = new ConcurrentQueue<LogMessage>();
 
+        private readonly object _recentMessagesLocker = new object();
+        private readonly List<LogMessage> _recentMessages = new List<LogMessage>();
+
         public List<LogMessage> LastErrorMessages = new List<LogMessage>();
 
         private int MaxMessagesCount
@@ -723,6 +726,7 @@ namespace OsEngine.Logging
             if (_startProgram != StartProgram.IsOsOptimizer)
             {
                 LogMessage messageLog = new LogMessage { Message = message, Time = DateTime.Now, Type = type };
+                RememberRecentMessage(messageLog);
                 _incomingMessages.Enqueue(messageLog);
 
                 if (_incomingMessages.Count > MaxMessagesCount)
@@ -899,6 +903,7 @@ namespace OsEngine.Logging
 
                 for (int i = 0; i < messages.Count; i++)
                 {
+                    RememberRecentMessage(messages[i]);
                     _incomingMessages.Enqueue(messages[i]);
                 }
             }
@@ -1344,6 +1349,25 @@ namespace OsEngine.Logging
         {
             var result = new List<LogMessage>();
 
+            if (count <= 0)
+            {
+                return result;
+            }
+
+            lock (_recentMessagesLocker)
+            {
+                int takeRecent = Math.Min(count, _recentMessages.Count);
+                for (int i = _recentMessages.Count - 1; i >= _recentMessages.Count - takeRecent; i--)
+                {
+                    result.Add(_recentMessages[i]);
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                return result;
+            }
+
             if (_grid == null || _grid.Rows.Count == 0)
             {
                 return result;
@@ -1370,6 +1394,23 @@ namespace OsEngine.Logging
             }
 
             return result;
+        }
+
+        private void RememberRecentMessage(LogMessage message)
+        {
+            if (message == null)
+            {
+                return;
+            }
+
+            lock (_recentMessagesLocker)
+            {
+                _recentMessages.Add(message);
+                while (_recentMessages.Count > MaxMessagesCount)
+                {
+                    _recentMessages.RemoveAt(0);
+                }
+            }
         }
 
         private static DateTime ParseLogTime(object value)

@@ -5,59 +5,30 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OsEngine.OsTrader.Gui.RobotsVps"
         mc:Ignorable="d"
-        Title="Create robot on VPS" Height="520" Width="700"
-        Style="{StaticResource WindowStyleCanResize}"
-        WindowStartupLocation="CenterOwner"
-        MinWidth="500" MinHeight="350"
-        Icon="/Images/OsLogo.ico">
+        Title="Add robot" Height="668" Width="571" Icon="/Images/OsLogo.ico" Style="{StaticResource WindowStyleNoResize}" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Topmost="True">
+    <Grid>
+        <Rectangle  Margin="2,2,2,32"/>
+        <Button Name="ButtonAccept" Content="Accept" Height="22" Margin="0,0,5,5" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="280" Click="ButtonAccept_Click"/>
+        <TextBox Name="TextBoxName" Height="23" Margin="111,5,0,0" TextWrapping="Wrap" VerticalAlignment="Top" HorizontalAlignment="Left" Width="104"/>
+        <Label Name="LabelName" Content="Name" HorizontalAlignment="Left" Margin="12,5,0,0" VerticalAlignment="Top"/>
+        <WindowsFormsHost Name="HostBots" Margin="2,67,2,33"/>
+        <Label Name="LabelLocation" Content="Location" HorizontalAlignment="Left" Margin="12,33,0,0" VerticalAlignment="Top"/>
+        <ComboBox Name="ComboBoxLocation" HorizontalAlignment="Left" Margin="111,33,0,0" VerticalAlignment="Top" Width="104"/>
+        <Button Name="ButtonWhyNeedName" Content="?" HorizontalAlignment="Left" Margin="220,5,0,0" VerticalAlignment="Top" Height="23" Width="25" Click="ButtonWhyNeedName_Click"/>
+        <Button Name="ButtonWhyLocation" Content="?" HorizontalAlignment="Left" Margin="220,33,0,0" VerticalAlignment="Top" Height="23" Width="25" Click="ButtonWhyLocation_Click"/>
+        <TextBox Name="TextBoxSearchSecurity" HorizontalAlignment="Left" Margin="342,33,0,0" TextWrapping="Wrap" Text="search..." VerticalAlignment="Top" Width="208"/>
+        <Button Name="ButtonRightInSearchResults" Content="&gt;" HorizontalAlignment="Left" Margin="506,5,0,0" VerticalAlignment="Top" Width="44" Height="23"/>
+        <Button Name="ButtonLeftInSearchResults" Content="&lt;" HorizontalAlignment="Left" Margin="342,6,0,0" VerticalAlignment="Top" Width="44" Height="24"/>
+        <Label Name="LabelCurrentResultShow" Content="1" HorizontalAlignment="Left" Margin="424,9,0,0" VerticalAlignment="Top" Height="20"/>
+        <Label Name="LabelCommasResultShow" Content="...." HorizontalAlignment="Left" Margin="439,9,0,0" VerticalAlignment="Top" Height="20"/>
+        <Label Name="LabelCountResultsShow" Content="8" HorizontalAlignment="Left" Margin="458,9,0,0" VerticalAlignment="Top" Height="20"/>
+        <Button Name="ButtonUpdateRobots" Content="Update Robots Info" Height="22" Margin="2,0,0,5" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="279" Click="ButtonUpdateRobots_Click"/>
+        <Button Name="ButtonRobots" HorizontalAlignment="Center" Margin="0,20,0,0" VerticalAlignment="Top" Height="36" Width="35" Click="ButtonRobots_Click">
+            <Grid>
+                <Image Name="PostGreenRobots" Source="/Images/InstructionPosts/GreenPost.png"  Width="31" Height="25" />
+                <Image Name="PostWhiteRobots"  Source="/Images/InstructionPosts/WhitePost.png" Width="31" Height="25" Opacity="0" />
+            </Grid>
+        </Button>
 
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <Grid Grid.Row="0" Margin="0,0,0,5">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Label Grid.Column="0" Content="Filter" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" Name="TextBoxFilter" Height="26" VerticalAlignment="Center" TextChanged="TextBoxFilter_TextChanged"/>
-        </Grid>
-
-        <DataGrid Grid.Row="1" Name="StrategiesDataGrid"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  IsReadOnly="True"
-                  SelectionMode="Single"
-                  SelectionChanged="StrategiesDataGrid_SelectionChanged"
-                  MouseDoubleClick="StrategiesDataGrid_MouseDoubleClick"
-                  Style="{StaticResource DataGridStyle}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Class" Width="220" Binding="{Binding ClassName}"/>
-                <DataGridTextColumn Header="Location" Width="90" Binding="{Binding Location}"/>
-                <DataGridTextColumn Header="Description" Width="*" Binding="{Binding Description}"/>
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <Label Grid.Row="2" Name="LabelStatus" Content="Loading strategy list..." Margin="0,5,0,0"/>
-
-        <Grid Grid.Row="3" Margin="0,10,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Label Grid.Column="0" Content="Bot name (optional)" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" Name="TextBoxBotName" Height="26" Margin="5,0,10,0" VerticalAlignment="Center"/>
-            <Button Grid.Column="3" Name="ButtonOk" Content="Create" Width="100" Height="28" Margin="0,0,5,0"
-                    IsEnabled="False" Click="ButtonOk_Click"/>
-            <Button Grid.Column="4" Name="ButtonCancel" Content="Cancel" Width="90" Height="28" Click="ButtonCancel_Click"/>
-        </Grid>
     </Grid>
 </Window>

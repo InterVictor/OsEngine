@@ -73,6 +73,14 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetConnectorPermissions(request.Params);
                         break;
 
+                    case "server_management_get_auto_connect":
+                        response.Result = new { enabled = ServerMaster.NeedToConnectAuto };
+                        break;
+
+                    case "server_management_set_auto_connect":
+                        response.Result = SetAutoConnect(request.Params);
+                        break;
+
                     default:
                         response.Error = new McpJsonRpcError
                         {
@@ -165,6 +173,23 @@ namespace OsEngine.MCP.Modules
                             }
                         },
                         required = new[] { "type" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "server_management_get_auto_connect",
+                    Description = "Get whether server auto-connect is enabled",
+                    InputSchema = new { type = "object", properties = new { }, required = new string[0] }
+                },
+                new McpTool
+                {
+                    Name = "server_management_set_auto_connect",
+                    Description = "Set and persist whether server auto-connect is enabled",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new { enabled = new { type = "boolean" } },
+                        required = new[] { "enabled" }
                     }
                 }
             };
@@ -312,6 +337,20 @@ namespace OsEngine.MCP.Modules
                     permissions = document.RootElement.Clone()
                 };
             }
+        }
+
+        private static object SetAutoConnect(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object
+                || !parameters.TryGetProperty("enabled", out JsonElement value)
+                || (value.ValueKind != JsonValueKind.True && value.ValueKind != JsonValueKind.False))
+            {
+                throw new ArgumentException("Parameter 'enabled' is required and must be a boolean");
+            }
+
+            ServerMaster.NeedToConnectAuto = value.GetBoolean();
+            ServerMaster.Save();
+            return new { enabled = ServerMaster.NeedToConnectAuto };
         }
 
         private static ServerType ParseServerType(JsonElement parameters)

@@ -33,9 +33,15 @@ namespace OsEngine.Entity
         }
 
         public string NameUnique;
+        public Action<List<string>> SaveCallback;
 
         public void Save()
         {
+            if (SaveCallback != null)
+            {
+                SaveCallback(GetFullSaveArray());
+                return;
+            }
             try
             {
                 using (StreamWriter writer = new StreamWriter(@"Engine\" + NameUnique + ".txt", false))

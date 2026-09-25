@@ -2303,6 +2303,25 @@ namespace OsEngine.Market.Servers
         {
             ServerRealization.GetSecurities();
         }
+        public bool SaveSecuritySettings(Security updated)
+        {
+            if (updated == null || _securities == null) return false;
+            Security current = _securities.Find(security => security != null && security.Name == updated.Name && security.NameFull == updated.NameFull && security.NameId == updated.NameId && security.NameClass == updated.NameClass && security.SecurityType == updated.SecurityType);
+            if (current == null) return false;
+            current.Lot = updated.Lot; current.PriceStep = updated.PriceStep; current.PriceStepCost = updated.PriceStepCost;
+            current.Decimals = updated.Decimals; current.DecimalsVolume = updated.DecimalsVolume; current.MinTradeAmount = updated.MinTradeAmount;
+            current.MinTradeAmountType = updated.MinTradeAmountType; current.VolumeStep = updated.VolumeStep;
+            current.PriceLimitHigh = updated.PriceLimitHigh; current.PriceLimitLow = updated.PriceLimitLow;
+            current.MarginBuy = updated.MarginBuy; current.MarginSell = updated.MarginSell; current.Strike = updated.Strike;
+            string directory = Path.Combine("Engine", "ServerDopSettings", ServerType.ToString());
+            Directory.CreateDirectory(directory);
+            string fileName = current.Name.RemoveExcessFromSecurityName();
+            if (!string.IsNullOrEmpty(current.NameId)) fileName += "_" + current.NameId.RemoveExcessFromSecurityName();
+            if (!string.IsNullOrEmpty(current.NameClass)) fileName += "_" + current.NameClass.RemoveExcessFromSecurityName();
+            fileName += "_" + current.SecurityType.ToString().RemoveExcessFromSecurityName();
+            File.WriteAllText(Path.Combine(directory, fileName + ".txt"), current.GetSaveStr());
+            return true;
+        }
 
         private Dictionary<string, Security> _securitiesDictionary = new Dictionary<string, Security>();
 
@@ -3414,6 +3433,31 @@ namespace OsEngine.Market.Servers
                     myDepth.Bids.Count == 0))
                 {
                     return;
+                }
+
+                // Keep only the best bid/ask when full depth is disabled. This
+                // mirrors the native BidAsk paint regime and avoids retaining or
+                // processing depth levels for the VPS view in the resource-saving mode.
+                if (!string.IsNullOrEmpty(myDepth.SecurityNameCode))
+                {
+                    MarketDepth remoteDepth = myDepth;
+                    if (_needToUseFullMarketDepth == null || !_needToUseFullMarketDepth.Value)
+                    {
+                        remoteDepth = new MarketDepth
+                        {
+                            SecurityNameCode = myDepth.SecurityNameCode,
+                            Time = myDepth.Time,
+                            Bids = myDepth.Bids != null && myDepth.Bids.Count > 0
+                                ? new List<MarketDepthLevel> { myDepth.Bids[0] }
+                                : new List<MarketDepthLevel>(),
+                            Asks = myDepth.Asks != null && myDepth.Asks.Count > 0
+                                ? new List<MarketDepthLevel> { myDepth.Asks[0] }
+                                : new List<MarketDepthLevel>()
+                        };
+                    }
+                    _latestMarketDepthsForRemoteView[myDepth.SecurityNameCode] = remoteDepth;
+                    Interlocked.Increment(ref _remoteMarketDepthUpdateCount);
+                    _remoteMarketDepthLastSecurity = myDepth.SecurityNameCode;
                 }
 
                 TrySendMarketDepthEvent(myDepth);
@@ -4881,6 +4925,46 @@ namespace OsEngine.Market.Servers
         #region Non trade periods
 
         private NonTradePeriods _nonTradePeriods;
+        public List<string> GetNonTradePeriodsSettings()
+        {
+            return _nonTradePeriods != null ? _nonTradePeriods.GetFullSaveArray() : new NonTradePeriods(ServerNameUnique).GetFullSaveArray();
+        }
+
+        private readonly ConcurrentDictionary<string, MarketDepth> _latestMarketDepthsForRemoteView =
+            new ConcurrentDictionary<string, MarketDepth>(StringComparer.OrdinalIgnoreCase);
+
+        private long _remoteMarketDepthUpdateCount;
+        private string _remoteMarketDepthLastSecurity;
+
+        public long RemoteMarketDepthUpdateCount
+        {
+            get { return Interlocked.Read(ref _remoteMarketDepthUpdateCount); }
+        }
+
+        public string RemoteMarketDepthLastSecurity
+        {
+            get { return _remoteMarketDepthLastSecurity; }
+        }
+
+        public MarketDepth GetLatestMarketDepthForRemoteView(string securityName)
+        {
+            if (string.IsNullOrWhiteSpace(securityName))
+            {
+                return null;
+            }
+
+            _latestMarketDepthsForRemoteView.TryGetValue(securityName, out MarketDepth depth);
+            return depth;
+        }
+
+        public bool SetNonTradePeriodsSettings(List<string> values)
+        {
+            if (values == null || values.Count != 9) return false;
+            if (_nonTradePeriods == null) _nonTradePeriods = new NonTradePeriods(ServerNameUnique);
+            _nonTradePeriods.LoadFromSaveArray(values);
+            _nonTradePeriods.Save();
+            return true;
+        }
 
         private bool _isNonTradingPeriodNow;
 

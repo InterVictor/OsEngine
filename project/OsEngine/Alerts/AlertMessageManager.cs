@@ -15,6 +15,9 @@ namespace OsEngine.Alerts
 {
     public class AlertMessageManager
     {
+        /// <summary>Raised when this terminal creates a local emergency alert.</summary>
+        public static event Action<string, string> AlertRaised;
+
         /// <summary>
         /// throw new alert
         /// выбросить новый алерт
@@ -24,10 +27,28 @@ namespace OsEngine.Alerts
         /// <param name="message"> message being created/сообщение ради которого сыр бор</param>
         public static void ThrowAlert(Stream stream, string botName, string message)
         {
+            AlertRaised?.Invoke(botName, message);
+            DisplayAlert(stream, botName, message, DateTime.Now.ToLongTimeString());
+        }
+
+        /// <summary>Adds an alert received from a remote OsEngine instance without forwarding it again.</summary>
+        public static void ThrowRemoteAlert(string botName, string message, string time)
+        {
+            DisplayAlert(null, botName, message, time);
+        }
+
+        private static void DisplayAlert(Stream stream, string botName, string message, string time)
+        {
+            // Headless/server builds forward alerts through MCP without creating a local WPF window.
+            if (TextBoxFromStaThread == null)
+            {
+                return;
+            }
+
             if (!TextBoxFromStaThread.Dispatcher.CheckAccess())
             {
                 TextBoxFromStaThread.Dispatcher.Invoke(
-                    new Action<Stream, string, string>(ThrowAlert), stream, botName, message);
+                    new Action<Stream, string, string, string>(DisplayAlert), stream, botName, message, time);
                 return;
 
             }
@@ -42,7 +63,7 @@ namespace OsEngine.Alerts
 
             DataGridViewRow row = new DataGridViewRow();
             row.Cells.Add(new DataGridViewTextBoxCell());
-            row.Cells[0].Value = DateTime.Now.ToLongTimeString();
+            row.Cells[0].Value = time;
 
             row.Cells.Add(new DataGridViewTextBoxCell());
             row.Cells[1].Value = botName;

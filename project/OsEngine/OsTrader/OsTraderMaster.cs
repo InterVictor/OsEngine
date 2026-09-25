@@ -1902,6 +1902,15 @@ namespace OsEngine.OsTrader
         private Log _log;
 
         /// <summary>
+        /// Read recent messages from the native global Prime log.
+        /// Call on the UI dispatcher because Log reads its native grid.
+        /// </summary>
+        public List<LogMessage> GetPrimeLogMessages(int count)
+        {
+            return _log != null ? _log.GetLastMessages(count) : new List<LogMessage>();
+        }
+
+        /// <summary>
         /// Send a new message 
         /// </summary>
         public void SendNewLogMessage(string message, LogMessageType type)

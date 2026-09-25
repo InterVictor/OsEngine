@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using OsEngine.Logging;
 using OsEngine.MCP.Json;
+using OsEngine.OsTrader;
 
 namespace OsEngine.MCP.Modules
 {
@@ -59,6 +60,10 @@ namespace OsEngine.MCP.Modules
                     case "log_get_mcp_log":
                         SendLog("log_get_mcp_log requested", LogMessageType.System);
                         response.Result = GetMcpLogEntries(request.Params);
+                        break;
+
+                    case "log_get_prime_log":
+                        response.Result = GetPrimeLogEntries(request.Params);
                         break;
 
                     default:
@@ -124,6 +129,22 @@ namespace OsEngine.MCP.Modules
             return ConvertToMcpEntries(messages);
         }
 
+        private List<McpLogEntry> GetPrimeLogEntries(JsonElement parameters)
+        {
+            int count = ParseCount(parameters);
+            Func<List<McpLogEntry>> read = () => ConvertToMcpEntries(
+                OsTraderMaster.Master != null
+                    ? OsTraderMaster.Master.GetPrimeLogMessages(count)
+                    : new List<LogMessage>());
+
+            if (MainWindow.GetDispatcher.CheckAccess() == false)
+            {
+                return (List<McpLogEntry>)MainWindow.GetDispatcher.Invoke(read);
+            }
+
+            return read();
+        }
+
         private List<McpLogEntry> ConvertToMcpEntries(List<LogMessage> messages)
         {
             List<McpLogEntry> result = new List<McpLogEntry>(messages.Count);
@@ -148,7 +169,8 @@ namespace OsEngine.MCP.Modules
             return new List<McpTool>
             {
                 new McpTool { Name = "log_get_emergency_log", Description = "Read last emergency log entries", InputSchema = new { type = "object", properties = new { count = new { type = "integer", description = "Number of entries (1..1000)" } }, required = new string[0] } },
-                new McpTool { Name = "log_get_mcp_log", Description = "Read last MCP log entries", InputSchema = new { type = "object", properties = new { count = new { type = "integer", description = "Number of entries (1..1000)" } }, required = new string[0] } }
+                new McpTool { Name = "log_get_mcp_log", Description = "Read last MCP log entries", InputSchema = new { type = "object", properties = new { count = new { type = "integer", description = "Number of entries (1..1000)" } }, required = new string[0] } },
+                new McpTool { Name = "log_get_prime_log", Description = "Read recent messages from the global OsEngine Prime log", InputSchema = new { type = "object", properties = new { count = new { type = "integer", description = "Number of entries (1..1000)" } }, required = new string[0] } }
             };
         }
 

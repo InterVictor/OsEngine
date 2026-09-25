@@ -465,6 +465,29 @@ namespace OsEngine.Alerts
 
         private List<IIAlert> _alertArray;
 
+        public List<object> GetAlertStates()
+        {
+            List<object> result = new List<object>();
+            for (int i = 0; _alertArray != null && i < _alertArray.Count; i++)
+            {
+                IIAlert alert = _alertArray[i];
+                if (alert == null)
+                {
+                    continue;
+                }
+
+                result.Add(new
+                {
+                    number = i,
+                    type = alert.TypeAlert.ToString(),
+                    name = alert.Name ?? string.Empty,
+                    is_on = alert.IsOn
+                });
+            }
+
+            return result;
+        }
+
         private void Load()
         {
             if (!File.Exists(@"Engine\" + _name + "AlertKeeper.txt"))

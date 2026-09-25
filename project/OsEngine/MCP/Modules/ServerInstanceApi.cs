@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Your rights to use code governed by this license https://github.com/AlexWan/OsEngine/blob/master/LICENSE
  * Ваши права на использование кода регулируются данной лицензией http://o-s-a.net/doc/license_simple_engine.pdf
 */
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using OsEngine.Entity;
+using OsEngine.Language;
 using OsEngine.Logging;
 using OsEngine.Market;
 using OsEngine.Market.Servers;
@@ -29,6 +30,9 @@ namespace OsEngine.MCP.Modules
         private readonly Dictionary<(ServerType, int), Action<List<Portfolio>>> _portfolioSubscriptions = new Dictionary<(ServerType, int), Action<List<Portfolio>>>();
         private readonly Dictionary<(ServerType, int), Action<string, LogMessageType>> _logSubscriptions = new Dictionary<(ServerType, int), Action<string, LogMessageType>>();
         private readonly object _subscriptionsLocker = new object();
+        private readonly Dictionary<(ServerType, int), Action<Order>> _orderSubscriptions = new Dictionary<(ServerType, int), Action<Order>>();
+        private readonly Dictionary<(ServerType, int), List<Order>> _orderCache = new Dictionary<(ServerType, int), List<Order>>();
+        private readonly object _orderCacheLocker = new object();
 
         #endregion
 
@@ -43,6 +47,66 @@ namespace OsEngine.MCP.Modules
         public ServerInstanceApi(Action<string, object> publishEvent)
         {
             _publishEvent = publishEvent;
+            ServerMaster.ServerCreateEvent += ServerMaster_ServerCreateEvent;
+            ServerMaster.ServerDeleteEvent += ServerMaster_ServerDeleteEvent;
+            List<AServer> existingServers = ServerMaster.GetAServers();
+            if (existingServers != null)
+                foreach (AServer server in existingServers)
+                    SubscribeToOrderEvents(server);
+        }
+
+        private void ServerMaster_ServerCreateEvent(IServer server)
+        {
+            if (server is AServer aServer) SubscribeToOrderEvents(aServer);
+        }
+
+        private void ServerMaster_ServerDeleteEvent(IServer server)
+        {
+            if (server is not AServer aServer) return;
+            var key = (aServer.ServerType, aServer.ServerNum);
+            lock (_orderCacheLocker)
+            {
+                if (_orderSubscriptions.TryGetValue(key, out Action<Order> handler))
+                {
+                    aServer.NewOrderIncomeEvent -= handler;
+                    _orderSubscriptions.Remove(key);
+                }
+                _orderCache.Remove(key);
+            }
+        }
+
+        private void SubscribeToOrderEvents(AServer server)
+        {
+            if (server == null) return;
+            var key = (server.ServerType, server.ServerNum);
+            lock (_orderCacheLocker)
+            {
+                if (_orderSubscriptions.ContainsKey(key)) return;
+                _orderCache[key] = new List<Order>();
+                Action<Order> handler = order => CacheOrder(key, order);
+                _orderSubscriptions[key] = handler;
+                server.NewOrderIncomeEvent += handler;
+            }
+        }
+
+        private void CacheOrder((ServerType, int) key, Order order)
+        {
+            if (order == null) return;
+            lock (_orderCacheLocker)
+            {
+                if (!_orderCache.TryGetValue(key, out List<Order> orders))
+                {
+                    orders = new List<Order>();
+                    _orderCache[key] = orders;
+                }
+
+                int index = orders.FindIndex(existing =>
+                    (order.NumberUser != 0 && existing.NumberUser == order.NumberUser)
+                    || (!string.IsNullOrEmpty(order.NumberMarket) && existing.NumberMarket == order.NumberMarket));
+                if (index >= 0) orders[index] = order;
+                else orders.Add(order);
+                if (orders.Count > 1000) orders.RemoveAt(0);
+            }
         }
 
         #endregion
@@ -88,6 +152,15 @@ namespace OsEngine.MCP.Modules
                     case "server_instance_get_securities":
                         response.Result = GetServerSecurities(request.Params);
                         break;
+                    case "server_instance_set_security":
+                        response.Result = SetServerSecurity(request.Params);
+                        break;
+                    case "server_instance_get_non_trade_periods":
+                        response.Result = GetNonTradePeriods(request.Params);
+                        break;
+                    case "server_instance_set_non_trade_periods":
+                        response.Result = SetNonTradePeriods(request.Params);
+                        break;
 
                     case "server_instance_get_portfolios":
                         response.Result = GetServerPortfolios(request.Params);
@@ -95,6 +168,14 @@ namespace OsEngine.MCP.Modules
 
                     case "server_instance_get_status":
                         response.Result = GetServerStatus(request.Params);
+                        break;
+
+                    case "server_instance_get_active_orders":
+                        response.Result = GetServerOrders(request.Params, false);
+                        break;
+
+                    case "server_instance_get_historical_orders":
+                        response.Result = GetServerOrders(request.Params, true);
                         break;
 
                     case "server_instance_get_log":
@@ -215,6 +296,40 @@ namespace OsEngine.MCP.Modules
                 },
                 new McpTool
                 {
+                    Name = "server_instance_get_active_orders",
+                    Description = "Get active orders from a server instance using the same order list source as the terminal",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            type = new { type = "string" },
+                            number = new { type = "integer" },
+                            offset = new { type = "integer" },
+                            limit = new { type = "integer" }
+                        },
+                        required = new[] { "type" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "server_instance_get_historical_orders",
+                    Description = "Get completed orders from a server instance",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            type = new { type = "string" },
+                            number = new { type = "integer" },
+                            offset = new { type = "integer" },
+                            limit = new { type = "integer" }
+                        },
+                        required = new[] { "type" }
+                    }
+                },
+                new McpTool
+                {
                     Name = "server_instance_get_securities",
                     Description = "Get list of securities from a server instance",
                     InputSchema = new
@@ -252,6 +367,23 @@ namespace OsEngine.MCP.Modules
                     }
                 },
                 new McpTool
+                {
+                    Name = "server_instance_set_security",
+                    Description = "Save security settings on the remote connector",
+                    InputSchema = new { type = "object", properties = new { type = new { type = "string" }, number = new { type = "integer" }, security = new { type = "object" } }, required = new[] { "type", "security" } }
+                },
+                new McpTool
+                {
+                    Name = "server_instance_get_non_trade_periods",
+                    Description = "Get connector non-trading periods",
+                    InputSchema = new { type = "object", properties = new { type = new { type = "string" }, number = new { type = "integer" } }, required = new[] { "type" } }
+                },
+                new McpTool
+                {
+                    Name = "server_instance_set_non_trade_periods",
+                    Description = "Set connector non-trading periods",
+                    InputSchema = new { type = "object", properties = new { type = new { type = "string" }, number = new { type = "integer" }, values = new { type = "array", items = new { type = "string" } } }, required = new[] { "type", "values" } }
+                },                new McpTool
                 {
                     Name = "server_instance_get_portfolios",
                     Description = "Get list of portfolios and positions from a server instance",
@@ -393,7 +525,7 @@ namespace OsEngine.MCP.Modules
 
         #region Private methods
 
-        private static List<object> GetServerParams(JsonElement parameters)
+        private static object GetServerParams(JsonElement parameters)
         {
             ServerType serverType = ParseServerType(parameters);
             int serverNumber = ParseServerNumber(parameters);
@@ -405,7 +537,8 @@ namespace OsEngine.MCP.Modules
                 throw new ArgumentException($"Server {serverType}#{serverNumber} not found");
             }
 
-            return ConvertServerParameters(server.ServerParameters);
+            List<object> values = ConvertServerParameters(server.ServerParameters);
+            return new { type = serverType.ToString(), number = serverNumber, server_name = server.ServerNameAndPrefix, status = server.ServerStatus.ToString(), parameter_count = values.Count, parameters = values };
         }
 
         private static AServer FindServer(ServerType serverType, int serverNumber)
@@ -444,24 +577,51 @@ namespace OsEngine.MCP.Modules
             {
                 IServerParameter parameter = parameters[i];
 
-                if (parameter.Type == ServerParameterType.Button)
-                {
-                    continue;
-                }
-
-                object value = GetParameterValue(parameter);
-                bool isSecret = parameter.Type == ServerParameterType.Password;
+                object value = parameter.Type == ServerParameterType.Button ? null : GetParameterValue(parameter);
+                List<string> enumValues = parameter.Type == ServerParameterType.Enum
+                    ? ((ServerParameterEnum)parameter).EnumValues ?? new List<string>()
+                    : new List<string>();
+                bool isSecret = parameter.Type == ServerParameterType.Password
+                    || parameter.Name.IndexOf("key", StringComparison.OrdinalIgnoreCase) >= 0
+                    || parameter.Name.IndexOf("secret", StringComparison.OrdinalIgnoreCase) >= 0;
 
                 result.Add(new
                 {
                     name = parameter.Name,
                     type = parameter.Type.ToString(),
                     value = isSecret ? MaskSecret(value) : value,
-                    comment = parameter.Comment
+                    is_secret = isSecret,
+                    button_action = GetConnectorButtonAction(parameter),
+                    comment = parameter.Comment,
+                    enum_values = enumValues
                 });
             }
 
             return result;
+        }
+
+        private static string GetConnectorButtonAction(IServerParameter parameter)
+        {
+            if (parameter == null || parameter.Type != ServerParameterType.Button)
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(parameter.Name, OsLocalization.Market.ServerParam12, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.Name, "View securities", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.Name, "Просмотр бумаг", StringComparison.OrdinalIgnoreCase))
+            {
+                return "securities";
+            }
+
+            if (string.Equals(parameter.Name, OsLocalization.Market.ServerParam14, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.Name, "Non trading periods", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.Name, "Неторговые периоды", StringComparison.OrdinalIgnoreCase))
+            {
+                return "non_trade_periods";
+            }
+
+            return string.Empty;
         }
 
         private static object GetParameterValue(IServerParameter parameter)
@@ -828,6 +988,135 @@ namespace OsEngine.MCP.Modules
             };
         }
 
+        private object GetServerOrders(JsonElement parameters, bool historical)
+        {
+            ServerType serverType = ParseServerType(parameters);
+            int serverNumber = ParseServerNumber(parameters);
+            AServer server = FindServer(serverType, serverNumber);
+            if (server == null)
+                throw new ArgumentException($"Server {serverType}#{serverNumber} not found");
+
+            int offset = ReadNonNegativeInt(parameters, "offset", 0);
+            int limit = ReadNonNegativeInt(parameters, "limit", 100);
+            if (limit == 0) limit = 100;
+            limit = Math.Min(limit, 100);
+
+            List<Order> connectorOrders = historical
+                ? server.GetHistoricalOrders(0, 100)
+                : server.GetActiveOrders(0, 100);
+            List<Order> cachedOrders;
+            lock (_orderCacheLocker)
+                cachedOrders = _orderCache.TryGetValue((serverType, serverNumber), out List<Order> cached)
+                    ? new List<Order>(cached) : new List<Order>();
+
+            Dictionary<string, Order> uniqueOrders = new Dictionary<string, Order>();
+            AddOrdersByIdentity(uniqueOrders, connectorOrders);
+            AddOrdersByIdentity(uniqueOrders, cachedOrders);
+            List<Order> orders = uniqueOrders.Values
+                .Where(order => historical
+                    ? order.State != OrderStateType.Active && order.State != OrderStateType.Pending && order.State != OrderStateType.None
+                    : order.State == OrderStateType.Active || order.State == OrderStateType.Pending || order.State == OrderStateType.None)
+                .OrderByDescending(order => order.TimeCreate)
+                .Skip(offset).Take(limit).ToList();
+            List<object> result = new List<object>();
+            if (orders != null)
+            {
+                foreach (Order order in orders)
+                {
+                    if (order == null) continue;
+                    result.Add(new
+                    {
+                        number_user = order.NumberUser,
+                        number_market = order.NumberMarket,
+                        time_create = order.TimeCreate.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                        security = order.SecurityNameCode,
+                        portfolio = order.PortfolioNumber,
+                        side = order.Side.ToString(),
+                        state = order.State.ToString(),
+                        price = order.Price,
+                        price_real = order.PriceReal,
+                        volume = order.Volume,
+                        type = order.TypeOrder.ToString(),
+                        round_trip = order.TimeRoundTrip.ToString()
+                    });
+                }
+            }
+
+            return new { type = serverType.ToString(), number = serverNumber, orders = result, count = result.Count };
+        }
+
+        private static void AddOrdersByIdentity(Dictionary<string, Order> destination, List<Order> orders)
+        {
+            if (orders == null) return;
+            foreach (Order order in orders)
+            {
+                if (order == null) continue;
+                string identity = order.NumberUser != 0
+                    ? "user:" + order.NumberUser
+                    : !string.IsNullOrEmpty(order.NumberMarket)
+                        ? "market:" + order.NumberMarket
+                        : "time:" + order.TimeCreate.Ticks + ":" + order.SecurityNameCode;
+                destination[identity] = order;
+            }
+        }
+
+        private static int ReadNonNegativeInt(JsonElement parameters, string name, int defaultValue)
+        {
+            if (parameters.ValueKind == JsonValueKind.Object
+                && parameters.TryGetProperty(name, out JsonElement value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out int parsed)
+                && parsed >= 0)
+                return parsed;
+            return defaultValue;
+        }
+
+        private static object GetNonTradePeriods(JsonElement parameters)
+        {
+            AServer server = FindServer(ParseServerType(parameters), ParseServerNumber(parameters));
+            if (server == null) throw new ArgumentException("Connector instance not found");
+            return new { values = server.GetNonTradePeriodsSettings() };
+        }
+
+        private static object SetNonTradePeriods(JsonElement parameters)
+        {
+            AServer server = FindServer(ParseServerType(parameters), ParseServerNumber(parameters));
+            if (server == null) throw new ArgumentException("Connector instance not found");
+            if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("values", out JsonElement array) || array.ValueKind != JsonValueKind.Array)
+                throw new ArgumentException("Parameter 'values' must be an array of nine strings");
+            List<string> values = array.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToList();
+            if (!server.SetNonTradePeriodsSettings(values)) throw new ArgumentException("Exactly nine non-trade period values are required");
+            return new { saved = true };
+        }
+
+        private static object SetServerSecurity(JsonElement parameters)
+        {
+            ServerType type = ParseServerType(parameters);
+            int number = ParseServerNumber(parameters);
+            AServer server = FindServer(type, number);
+            if (server == null) throw new ArgumentException($"Server {type}#{number} not found");
+            if (!parameters.TryGetProperty("security", out JsonElement item) || item.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException("Parameter 'security' is required");
+            Security updated = new Security { Name = ReadString(item, "name"), NameFull = ReadString(item, "nameFull"), NameId = ReadString(item, "nameId"), NameClass = ReadString(item, "nameClass") };
+            if (!Enum.TryParse(ReadString(item, "securityType"), true, out updated.SecurityType)) throw new ArgumentException("Invalid securityType");
+            if (!Enum.TryParse(ReadString(item, "minTradeAmountType"), true, out updated.MinTradeAmountType)) throw new ArgumentException("Invalid minTradeAmountType");
+            updated.Lot = ReadDecimal(item, "lot"); updated.PriceStep = ReadDecimal(item, "priceStep"); updated.PriceStepCost = ReadDecimal(item, "priceStepCost");
+            updated.Decimals = ReadInt(item, "decimals"); updated.DecimalsVolume = ReadInt(item, "decimalsVolume");
+            updated.MinTradeAmount = ReadDecimal(item, "minTradeAmount"); updated.VolumeStep = ReadDecimal(item, "volumeStep");
+            updated.PriceLimitHigh = ReadDecimal(item, "priceLimitHigh"); updated.PriceLimitLow = ReadDecimal(item, "priceLimitLow");
+            updated.MarginBuy = ReadDecimal(item, "marginBuy"); updated.MarginSell = ReadDecimal(item, "marginSell"); updated.Strike = ReadDecimal(item, "strike");
+            if (!server.SaveSecuritySettings(updated)) throw new ArgumentException("Security was not found on the connector");
+            return new { saved = true };
+        }
+
+        private static string ReadString(JsonElement item, string name) => item.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : string.Empty;
+        private static decimal ReadDecimal(JsonElement item, string name)
+        {
+            if (!item.TryGetProperty(name, out JsonElement value)) return 0m;
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out decimal number)) return number;
+            return decimal.TryParse(value.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out number) ? number : 0m;
+        }
+        private static int ReadInt(JsonElement item, string name) => item.TryGetProperty(name, out JsonElement value) && value.TryGetInt32(out int number) ? number : 0;
         private static object GetServerSecurities(JsonElement parameters)
         {
             ServerType serverType = ParseServerType(parameters);
