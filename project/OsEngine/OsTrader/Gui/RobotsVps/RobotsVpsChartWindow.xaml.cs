@@ -48,6 +48,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private bool _chartTimeFrameInitialized;
         private string _securityName;
         private RobotsVpsPositionOpenUi _remotePositionOpenWindow;
+        private readonly Dictionary<int, RobotsVpsPositionCloseUi> _remotePositionCloseWindows = new();
 
         public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
         {
@@ -392,16 +393,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             items[1].Click += (s, args) => ButtonMoreOpenPositionDetail_Click(null, null);
 
             items[2] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem3 };
-            items[2].Click += (s, args) => NotAvailableRemotely();
+            items[2].Click += (s, args) => OpenPositionCloseDialog(positionNumber, "Limit");
 
             items[3] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem14 };
-            items[3].Click += (s, args) => NotAvailableRemotely();
+            items[3].Click += (s, args) => NotAvailableRemotely(); // PositionAddingUi2 — не портирован
 
             items[4] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem5 };
-            items[4].Click += (s, args) => NotAvailableRemotely();
+            items[4].Click += (s, args) => OpenPositionCloseDialog(positionNumber, "Stop");
 
             items[5] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem6 };
-            items[5].Click += (s, args) => NotAvailableRemotely();
+            items[5].Click += (s, args) => OpenPositionCloseDialog(positionNumber, "Profit");
 
             items[6] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem7 };
             items[6].Click += (s, args) => _ = DeleteSelectedPositionAsync(positionNumber, securityName);
@@ -410,6 +411,29 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             menu.Items.AddRange(items);
             _openPositionsGrid.ContextMenuStrip = menu;
             _openPositionsGrid.ContextMenuStrip.Show(_openPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        // "Закрыть выбранную" / "Переставить стоп" / "Переставить профит" в оригинале — один и тот же
+        // диалог (PositionCloseUi2) с разной начальной вкладкой; повторный вызов для той же позиции
+        // активирует уже открытое окно и переключает вкладку, как и оригинал.
+        private void OpenPositionCloseDialog(int positionNumber, string initialTab)
+        {
+            if (_remotePositionCloseWindows.TryGetValue(positionNumber, out RobotsVpsPositionCloseUi existing) && existing.IsVisible)
+            {
+                if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                existing.SelectTab(initialTab);
+                return;
+            }
+
+            RobotsVpsPositionCloseUi window = new RobotsVpsPositionCloseUi(_client, _botId, _tabName, _securityName, positionNumber)
+            {
+                Owner = this
+            };
+            window.SelectTab(initialTab);
+            window.Closed += (s, args) => _remotePositionCloseWindows.Remove(positionNumber);
+            _remotePositionCloseWindows[positionNumber] = window;
+            window.Show();
         }
 
         private async System.Threading.Tasks.Task CloseAllPositionsAtMarketAsync()
