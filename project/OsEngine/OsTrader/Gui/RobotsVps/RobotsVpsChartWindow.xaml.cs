@@ -16,6 +16,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using OsEngine.Charts.CandleChart;
 using OsEngine.Entity;
+using OsEngine.Indicators;
 using OsEngine.Language;
 using OsEngine.Layout;
 using OsEngine.MCP.Client;
@@ -50,6 +51,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private RobotsVpsPositionOpenUi _remotePositionOpenWindow;
         private readonly Dictionary<int, RobotsVpsPositionCloseUi> _remotePositionCloseWindows = new();
         private RobotsVpsPositionSupportUi _remotePositionSupportWindow;
+        // Индикаторы, которые бот уже настроил на своей вкладке (bot_chart_get_indicators) и которые этот
+        // клиент уже воссоздал локально в _chartMaster — по имени, чтобы не пересоздавать на каждый тик.
+        private readonly HashSet<string> _syncedServerIndicators = new(StringComparer.OrdinalIgnoreCase);
 
         public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
         {
@@ -242,6 +246,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     string interval = ReadText(snapshot, "time_frame");
                     _startTitle = _botName + " / " + (string.IsNullOrWhiteSpace(_securityName) ? _tabName : _securityName + " / " + interval);
                     Title = _startTitle;
+
+                    // Значки входа/выхода и индикаторы, настроенные ботом, — на графике всегда, вне
+                    // зависимости от того, какая боковая вкладка сейчас выбрана (в отличие от таблиц ниже).
+                    await RefreshChartPositionsAsync();
+                    await RefreshChartIndicatorsAsync();
                 }
 
                 if (TabItemMarketDepth.IsSelected) await RefreshMarketDepthAsync();
@@ -266,6 +275,194 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             if (IsLoaded) _ = RefreshSelectedChartDataAsync();
         }
+
+        #region Chart positions (entry/exit markers) — ChartCandleMaster.SetPosition, fed from journal data
+
+        // ChartCandleMaster/WinFormsChartPainter уже умеют рисовать значки входа/выхода — это стандартная
+        // функциональность родного графика (WinFormsChartPainter.PaintPositions), просто окно раньше никогда
+        // не вызывало SetPosition. bot_journal_get_open/closed_positions не отдают отдельные сделки
+        // (MyTrades/Order), поэтому здесь собирается МИНИМАЛЬНАЯ позиция: один ордер на открытие
+        // (+ один на закрытие) с одной сделкой каждый — этого достаточно для треугольников входа/выхода,
+        // но не для интрадей-заявок на несколько частичных исполнений и для линий live-стопа/профита
+        // (те строятся из полноценных Order в позиции, которых MCP пока не отдаёт).
+        private async System.Threading.Tasks.Task RefreshChartPositionsAsync()
+        {
+            try
+            {
+                JsonElement openResponse = await _client.CallToolAsync("bot_journal_get_open_positions", new { bot_name = _botId, limit = 500 });
+                JsonElement closedResponse = await _client.CallToolAsync("bot_journal_get_closed_positions", new { bot_name = _botId, limit = 500 });
+
+                List<Position> positions = new List<Position>();
+                CollectChartPositions(openResponse, closed: false, positions);
+                CollectChartPositions(closedResponse, closed: true, positions);
+
+                _chartMaster.SetPosition(positions);
+            }
+            catch
+            {
+                // значки на графике — необязательная надстройка; сбой не должен ронять обновление свечей/таблиц
+            }
+        }
+
+        private void CollectChartPositions(JsonElement response, bool closed, List<Position> target)
+        {
+            if (!response.TryGetProperty("positions", out JsonElement list) || list.ValueKind != JsonValueKind.Array) return;
+
+            foreach (JsonElement p in list.EnumerateArray())
+            {
+                // bot_name в ответе bot_journal_get_*_positions — имя ВКЛАДКИ (см. комментарий в RenderPositionRows),
+                // однозначно совпадает с _tabName этого окна.
+                if (!string.Equals(ReadString(p, "bot_name"), _tabName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                Position position = BuildChartPosition(p, closed);
+                if (position != null) target.Add(position);
+            }
+        }
+
+        private Position BuildChartPosition(JsonElement p, bool closed)
+        {
+            decimal volume = ReadDecimal(p, "volume");
+            decimal entryPrice = ReadDecimal(p, "entry_price");
+            DateTime openTime = ReadDateTime(p, "open_time");
+            if (openTime == DateTime.MinValue) openTime = ReadDateTime(p, "time_create");
+            if (volume <= 0 || entryPrice <= 0 || openTime == DateTime.MinValue) return null;
+
+            string securityName = ReadString(p, "security_name");
+            Side openSide = string.Equals(ReadString(p, "side"), "Sell", StringComparison.OrdinalIgnoreCase) ? Side.Sell : Side.Buy;
+
+            Position position = new Position
+            {
+                Number = ReadInt(p, "number"),
+                NameBot = ReadString(p, "bot_name"),
+                Direction = openSide
+            };
+
+            position.AddNewOpenOrder(BuildChartOrder(securityName, openSide, entryPrice, volume, openTime, OrderPositionConditionType.Open, "open_" + position.Number));
+
+            if (closed)
+            {
+                decimal closePrice = ReadDecimal(p, "close_price");
+                DateTime closeTime = ReadDateTime(p, "close_time");
+                if (closePrice > 0 && closeTime != DateTime.MinValue)
+                {
+                    Side closeSide = openSide == Side.Buy ? Side.Sell : Side.Buy;
+                    position.AddNewCloseOrder(BuildChartOrder(securityName, closeSide, closePrice, volume, closeTime, OrderPositionConditionType.Close, "close_" + position.Number));
+                }
+            }
+
+            if (Enum.TryParse(ReadString(p, "state"), out PositionStateType stateType)) position.State = stateType;
+
+            position.StopOrderPrice = ReadDecimal(p, "stop_order_price");
+            position.StopOrderRedLine = ReadDecimal(p, "stop_order_red_line");
+            position.StopOrderIsActive = position.StopOrderPrice != 0;
+            position.ProfitOrderPrice = ReadDecimal(p, "profit_order_price");
+            position.ProfitOrderRedLine = ReadDecimal(p, "profit_order_red_line");
+            position.ProfitOrderIsActive = position.ProfitOrderPrice != 0;
+
+            return position;
+        }
+
+        private static Order BuildChartOrder(string securityName, Side side, decimal price, decimal volume, DateTime time, OrderPositionConditionType conditionType, string idSuffix)
+        {
+            Order order = new Order
+            {
+                SecurityNameCode = securityName,
+                Side = side,
+                Price = price,
+                Volume = volume,
+                VolumeExecute = volume,
+                State = OrderStateType.Done,
+                PositionConditionType = conditionType,
+                TimeCreate = time,
+                TimeDone = time
+            };
+            order.SetTrade(new MyTrade
+            {
+                Volume = volume,
+                Price = price,
+                Time = time,
+                Side = side,
+                SecurityNameCode = securityName,
+                NumberTrade = "vps_" + idSuffix,
+                NumberOrderParent = "vps_order_" + idSuffix
+            });
+            return order;
+        }
+
+        private static DateTime ReadDateTime(JsonElement e, string prop)
+        {
+            string s = ReadString(e, prop);
+            return !string.IsNullOrEmpty(s) && DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime t) ? t : DateTime.MinValue;
+        }
+
+        #endregion
+
+        #region Chart indicators — reconstruct the bot's own configured indicators locally and let
+        // ChartCandleMaster compute/paint them from the candles it already streams (no server-side math)
+
+        // bot_chart_get_indicators — перепись УЖЕ настроенных индикаторов вкладки (тип/область/параметры),
+        // не значения. Каждый новый (по имени) реконструируется через ту же IndicatorsFactory, что и родной
+        // "Create indicator" в правой кнопке мыши, и добавляется в ту же область (Prime = поверх цены,
+        // любое другое имя = отдельное окно/область под графиком — ChartCandleMaster создаёт её сам).
+        private async System.Threading.Tasks.Task RefreshChartIndicatorsAsync()
+        {
+            try
+            {
+                JsonElement response = await _client.CallToolAsync("bot_chart_get_indicators", new { bot_id = _botId, tab_name = _tabName });
+                if (!response.TryGetProperty("indicators", out JsonElement list) || list.ValueKind != JsonValueKind.Array) return;
+
+                foreach (JsonElement ind in list.EnumerateArray())
+                {
+                    string name = ReadString(ind, "name");
+                    if (string.IsNullOrEmpty(name) || _syncedServerIndicators.Contains(name)) continue;
+                    // Отмечаем сразу, даже если реконструкция не удастся (легаси/неизвестный тип) —
+                    // чтобы не пытаться пересоздавать один и тот же индикатор на каждый тик.
+                    _syncedServerIndicators.Add(name);
+
+                    if (!ReadBool(ind, "is_supported")) continue;
+
+                    string typeName = ReadString(ind, "type_name");
+                    string area = ReadString(ind, "area");
+                    if (string.IsNullOrEmpty(area)) area = "Prime";
+
+                    Aindicator indicator = IndicatorsFactory.CreateIndicatorByName(typeName, name, canDelete: false, StartProgram.IsOsTrader);
+                    if (indicator == null) continue;
+
+                    if (ind.TryGetProperty("parameters", out JsonElement parameters) && parameters.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (JsonElement param in parameters.EnumerateArray())
+                        {
+                            ApplyIndicatorParameter(indicator, param);
+                        }
+                    }
+
+                    _chartMaster.CreateIndicator(indicator, area);
+                }
+            }
+            catch
+            {
+                // индикаторы бота — необязательная надстройка; сбой не должен ронять обновление свечей/таблиц
+            }
+        }
+
+        private static void ApplyIndicatorParameter(Aindicator indicator, JsonElement param)
+        {
+            string paramName = ReadString(param, "name");
+            IndicatorParameter target = indicator.Parameters?.Find(x => x.Name == paramName);
+            if (target == null) return;
+
+            string paramType = ReadString(param, "type");
+            if (paramType == "Int" && target is IndicatorParameterInt intParam)
+                intParam.ValueInt = ReadInt(param, "value_int");
+            else if (paramType == "Decimal" && target is IndicatorParameterDecimal decimalParam)
+                decimalParam.ValueDecimal = ReadDecimal(param, "value_decimal");
+            else if (paramType == "Bool" && target is IndicatorParameterBool boolParam)
+                boolParam.ValueBool = ReadBool(param, "value_bool");
+            else if (paramType == "String" && target is IndicatorParameterString stringParam)
+                stringParam.ValueString = ReadString(param, "value_string");
+        }
+
+        #endregion
 
         private async System.Threading.Tasks.Task RefreshMarketDepthAsync()
         {

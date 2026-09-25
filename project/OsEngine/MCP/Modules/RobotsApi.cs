@@ -27,6 +27,7 @@ using OsEngine.OsTrader.Panels.Tab;
 using OsEngine.OsTrader.Panels.Tab.Internal;
 using OsEngine.OsTrader.Grids;
 using OsEngine.Robots;
+using OsEngine.Indicators;
 
 namespace OsEngine.MCP.Modules
 {
@@ -105,6 +106,10 @@ namespace OsEngine.MCP.Modules
 
                     case "bot_chart_get_snapshot":
                         response.Result = GetBotChartSnapshot(request.Params);
+                        break;
+
+                    case "bot_chart_get_indicators":
+                        response.Result = GetBotChartIndicators(request.Params);
                         break;
 
                     case "bot_chart_get_market_depth":
@@ -410,6 +415,21 @@ namespace OsEngine.MCP.Modules
                             bot_id = new { type = "string", description = "Robot unique name" },
                             tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" },
                             candle_count = new { type = "integer", description = "Number of most recent candles (1..2000; default 500)", minimum = 1, maximum = 2000 }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_get_indicators",
+                    Description = "Get indicators configured on a robot's Simple chart tab (strategy-added or user-added), with enough detail (type, chart area, parameters) for a remote client to reconstruct and paint them locally against its own streamed candles. Legacy (non-script) indicator types are reported with is_supported=false and no parameters, since only script-based (Aindicator) indicators can be reconstructed by class name via IndicatorsFactory",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" }
                         },
                         required = new[] { "bot_id", "tab_name" }
                     }
@@ -2104,6 +2124,97 @@ namespace OsEngine.MCP.Modules
                 count = candles.Count,
                 candles = candles
             };
+        }
+
+        // Роботы.VPS: удалённое окно графика рисует индикаторы САМО, локально пересчитывая их из уже
+        // стримящихся свечей (ChartCandleMaster умеет это без единого лишнего вызова к серверу — расчёт
+        // чисто клиентский). Единственное, чего клиент не может знать сам, — ЧТО именно стратегия бота
+        // нарисовала на своём графике (тип индикатора/область/параметры). Этот инструмент — только
+        // "перепись" уже настроенных индикаторов вкладки; сами значения индикатора сюда не входят.
+        // Только Aindicator (скриптовые) реконструируемы по имени класса через IndicatorsFactory — легаси
+        // индикаторы (реализующие IIndicator напрямую, не через Aindicator) отдаются с is_supported=false
+        // и без parameters, чтобы клиент не пытался угадать их конструктор.
+        private object GetBotChartIndicators(JsonElement parameters)
+        {
+            if (parameters.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("Parameters must be an object");
+            }
+
+            if (!parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            string tabName = GetRequiredString(parameters, "tab_name");
+
+            BotPanel bot = FindBot(GetMasterRequired(), botIdElement);
+            BotTabSimple tab = FindBotTabSimple(bot, tabName);
+
+            List<object> result = new List<object>();
+            List<IIndicator> indicators = tab.Indicators;
+
+            for (int i = 0; indicators != null && i < indicators.Count; i++)
+            {
+                IIndicator indicator = indicators[i];
+                if (indicator == null)
+                {
+                    continue;
+                }
+
+                bool isSupported = indicator is Aindicator;
+                List<object> parameterDtos = new List<object>();
+
+                if (isSupported)
+                {
+                    List<IndicatorParameter> indicatorParameters = ((Aindicator)indicator).Parameters;
+
+                    for (int p = 0; indicatorParameters != null && p < indicatorParameters.Count; p++)
+                    {
+                        IndicatorParameter param = indicatorParameters[p];
+                        if (param == null)
+                        {
+                            continue;
+                        }
+
+                        object dto;
+                        if (param.Type == IndicatorParameterType.Int)
+                        {
+                            dto = new { name = param.Name, type = "Int", value_int = ((IndicatorParameterInt)param).ValueInt };
+                        }
+                        else if (param.Type == IndicatorParameterType.Decimal)
+                        {
+                            dto = new { name = param.Name, type = "Decimal", value_decimal = ((IndicatorParameterDecimal)param).ValueDecimal };
+                        }
+                        else if (param.Type == IndicatorParameterType.Bool)
+                        {
+                            dto = new { name = param.Name, type = "Bool", value_bool = ((IndicatorParameterBool)param).ValueBool };
+                        }
+                        else if (param.Type == IndicatorParameterType.String)
+                        {
+                            dto = new { name = param.Name, type = "String", value_string = ((IndicatorParameterString)param).ValueString };
+                        }
+                        else
+                        {
+                            dto = new { name = param.Name, type = param.Type.ToString() };
+                        }
+
+                        parameterDtos.Add(dto);
+                    }
+                }
+
+                result.Add(new
+                {
+                    name = indicator.Name,
+                    type_name = indicator.GetType().Name,
+                    area = indicator.NameArea,
+                    can_delete = indicator.CanDelete,
+                    is_supported = isSupported,
+                    parameters = parameterDtos
+                });
+            }
+
+            return new { indicators = result, count = result.Count };
         }
 
         private object GetBotChartMarketDepth(JsonElement parameters)
