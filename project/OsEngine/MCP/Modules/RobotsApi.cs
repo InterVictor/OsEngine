@@ -191,6 +191,34 @@ namespace OsEngine.MCP.Modules
                         response.Result = DeleteBotPosition(request.Params);
                         break;
 
+                    case "bot_position_close_at_limit":
+                        response.Result = CloseBotPositionAtLimit(request.Params);
+                        break;
+
+                    case "bot_position_close_at_stop":
+                        response.Result = CloseBotPositionAtStop(request.Params);
+                        break;
+
+                    case "bot_position_close_at_stop_market":
+                        response.Result = CloseBotPositionAtStopMarket(request.Params);
+                        break;
+
+                    case "bot_position_close_at_profit":
+                        response.Result = CloseBotPositionAtProfit(request.Params);
+                        break;
+
+                    case "bot_position_revoke_stop":
+                        response.Result = RevokeBotPositionStop(request.Params);
+                        break;
+
+                    case "bot_position_revoke_profit":
+                        response.Result = RevokeBotPositionProfit(request.Params);
+                        break;
+
+                    case "bot_position_revoke_close_orders":
+                        response.Result = RevokeBotPositionCloseOrders(request.Params);
+                        break;
+
                     case "bot_journal_get_settings":
                         response.Result = GetJournalSettings(request.Params);
                         break;
@@ -880,6 +908,137 @@ namespace OsEngine.MCP.Modules
                 {
                     Name = "bot_position_delete",
                     Description = "Remove a position from the robot's journal without sending any order (matches the Bot Station 'Delete position' context-menu action). Use only to clear a stale/erroneous record; it does not touch the exchange",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_close_at_limit",
+                    Description = "Place a limit order closing part or all of a position (Bot Station position-close dialog, Limit tab)",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            price = new { type = "number", description = "Limit price" },
+                            volume = new { type = "number", description = "Volume to close. Whole position if omitted" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number", "price" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_close_at_stop",
+                    Description = "Arm a stop-limit close for a position (Bot Station position-close dialog, Stop tab). By default the stop is tracked locally (fires a limit close when price crosses the activation level); server_side=true places a real stop order on the exchange (requires volume)",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            activation_price = new { type = "number", description = "Price at which the stop activates" },
+                            price = new { type = "number", description = "Limit price sent once activated" },
+                            server_side = new { type = "boolean", description = "Place a real server-side stop order instead of local tracking (default false)" },
+                            volume = new { type = "number", description = "Required when server_side=true. Whole position if omitted" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number", "activation_price", "price" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_close_at_stop_market",
+                    Description = "Arm a stop-market close for a position (Bot Station position-close dialog, Stop-Market tab). By default tracked locally (fires a market close when price crosses); server_side=true places a real stop-market order on the exchange (requires volume)",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            activation_price = new { type = "number", description = "Price at which the stop activates" },
+                            server_side = new { type = "boolean", description = "Place a real server-side stop order instead of local tracking (default false)" },
+                            volume = new { type = "number", description = "Required when server_side=true. Whole position if omitted" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number", "activation_price" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_close_at_profit",
+                    Description = "Arm a take-profit close for a position (Bot Station position-close dialog, Profit tab). Tracked locally: fires a limit close when price crosses the activation level",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            activation_price = new { type = "number", description = "Price at which the profit target activates" },
+                            price = new { type = "number", description = "Limit price sent once activated" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number", "activation_price", "price" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_revoke_stop",
+                    Description = "Cancel a position's armed stop-loss (Bot Station position-close dialog, Revoke on Stop/Stop-Market tab). Clears local tracking, or cancels the real server-side stop order if one was placed",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            server_side = new { type = "boolean", description = "Cancel the real server-side stop order instead of clearing local tracking (default false)" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_revoke_profit",
+                    Description = "Cancel a position's armed take-profit (Bot Station position-close dialog, Revoke on Profit tab). Local tracking only — there is no server-side profit order",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_revoke_close_orders",
+                    Description = "Cancel every active close order of a position (Bot Station position-close dialog, Revoke on Limit tab)",
                     InputSchema = new
                     {
                         type = "object",
@@ -3957,6 +4116,195 @@ namespace OsEngine.MCP.Modules
             };
         }
 
+        // Volume является необязательным на всех инструментах закрытия позиции (как в PositionCloseUi2:
+        // текстовое поле изначально пусто, кнопка "All open volume" подставляет OpenVolume) — если не
+        // передан, закрываем целиком; если передан, не даём закрыть больше, чем открыто.
+        private decimal ResolveCloseVolume(JsonElement parameters, Position position)
+        {
+            if (!parameters.TryGetProperty("volume", out _))
+            {
+                return position.OpenVolume;
+            }
+
+            decimal volume = GetRequiredDecimal(parameters, "volume");
+
+            if (volume <= 0)
+            {
+                throw new ArgumentException("volume must be greater than 0");
+            }
+
+            if (volume > position.OpenVolume)
+            {
+                throw new ArgumentException($"volume {volume} exceeds open volume {position.OpenVolume}");
+            }
+
+            return volume;
+        }
+
+        private (BotPanel bot, BotTabSimple tab, Position position) ResolveOpenPositionCommand(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+
+            if (parameters.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("Parameters must be an object");
+            }
+
+            if (!parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            BotPanel bot = FindBot(master, botIdElement);
+            string tabName = GetRequiredString(parameters, "tab_name");
+            string securityName = GetOptionalString(parameters, "security_name", null);
+            BotTabSimple tab = FindPositionTab(bot, tabName, securityName, true);
+            int positionNumber = GetRequiredInt(parameters, "position_number");
+            Position position = FindOpenPosition(tab, positionNumber);
+
+            return (bot, tab, position);
+        }
+
+        private void RunOnDispatcher(Action action)
+        {
+            if (MainWindow.GetDispatcher.CheckAccess())
+            {
+                action();
+            }
+            else
+            {
+                MainWindow.GetDispatcher.Invoke(action);
+            }
+        }
+
+        // Bot Station: диалог закрытия позиции, вкладка Limit -> Tab.CloseAtLimit
+        private object CloseBotPositionAtLimit(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            decimal price = GetRequiredDecimal(parameters, "price");
+            decimal volume = ResolveCloseVolume(parameters, position);
+
+            RunOnDispatcher(() => tab.CloseAtLimit(position, price, volume));
+
+            return new { position_number = position.Number, price, volume };
+        }
+
+        // Bot Station: диалог закрытия позиции, вкладка Stop -> Tab.CloseAtStop / CloseAtStopOnServer
+        private object CloseBotPositionAtStop(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            decimal activationPrice = GetRequiredDecimal(parameters, "activation_price");
+            decimal price = GetRequiredDecimal(parameters, "price");
+            bool serverSide = GetOptionalBool(parameters, "server_side", false);
+
+            if (serverSide)
+            {
+                decimal volume = ResolveCloseVolume(parameters, position);
+                RunOnDispatcher(() => tab.CloseAtStopOnServer(position, activationPrice, price, volume));
+                return new { position_number = position.Number, activation_price = activationPrice, price, volume, server_side = true };
+            }
+
+            RunOnDispatcher(() => tab.CloseAtStop(position, activationPrice, price));
+            return new { position_number = position.Number, activation_price = activationPrice, price, server_side = false };
+        }
+
+        // Bot Station: диалог закрытия позиции, вкладка Stop-Market -> Tab.CloseAtStopMarket / CloseAtStopMarketOnServer
+        private object CloseBotPositionAtStopMarket(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            decimal activationPrice = GetRequiredDecimal(parameters, "activation_price");
+            bool serverSide = GetOptionalBool(parameters, "server_side", false);
+
+            if (serverSide)
+            {
+                decimal volume = ResolveCloseVolume(parameters, position);
+                RunOnDispatcher(() => tab.CloseAtStopMarketOnServer(position, activationPrice, volume));
+                return new { position_number = position.Number, activation_price = activationPrice, volume, server_side = true };
+            }
+
+            RunOnDispatcher(() => tab.CloseAtStopMarket(position, activationPrice));
+            return new { position_number = position.Number, activation_price = activationPrice, server_side = false };
+        }
+
+        // Bot Station: диалог закрытия позиции, вкладка Profit -> Tab.CloseAtProfit (только локальное отслеживание,
+        // серверного тейк-профита в оригинале нет — та же вкладка без чекбокса "Server ...")
+        private object CloseBotPositionAtProfit(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            decimal activationPrice = GetRequiredDecimal(parameters, "activation_price");
+            decimal price = GetRequiredDecimal(parameters, "price");
+
+            RunOnDispatcher(() => tab.CloseAtProfit(position, activationPrice, price));
+
+            return new { position_number = position.Number, activation_price = activationPrice, price };
+        }
+
+        // Bot Station: диалог закрытия позиции, кнопка Revoke на вкладке Stop/Stop-Market
+        private object RevokeBotPositionStop(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            bool serverSide = GetOptionalBool(parameters, "server_side", false);
+
+            RunOnDispatcher(() =>
+            {
+                if (serverSide)
+                {
+                    tab.CloseAtStopOnServerCancel(position);
+                }
+                else
+                {
+                    position.StopOrderIsActive = false;
+                    position.StopOrderPrice = 0;
+                    position.StopOrderRedLine = 0;
+                }
+            });
+
+            return new { position_number = position.Number, server_side = serverSide };
+        }
+
+        // Bot Station: диалог закрытия позиции, кнопка Revoke на вкладке Profit (только локальный сброс — как в оригинале)
+        private object RevokeBotPositionProfit(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+
+            RunOnDispatcher(() =>
+            {
+                position.ProfitOrderIsActive = false;
+                position.ProfitOrderPrice = 0;
+                position.ProfitOrderRedLine = 0;
+            });
+
+            return new { position_number = position.Number };
+        }
+
+        // Bot Station: диалог закрытия позиции, кнопка Revoke на вкладке Limit -> отменить все активные close-ордера позиции
+        private object RevokeBotPositionCloseOrders(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            int cancelled = 0;
+
+            RunOnDispatcher(() =>
+            {
+                if (position.CloseOrders == null)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < position.CloseOrders.Count; i++)
+                {
+                    Order order = position.CloseOrders[i];
+
+                    if (order.State == OrderStateType.Active)
+                    {
+                        tab.CloseOrder(order);
+                        cancelled++;
+                    }
+                }
+            });
+
+            return new { position_number = position.Number, cancelled_count = cancelled };
+        }
+
         private void ClosePositionInternal(BotTabSimple tab, Position position, decimal volume, bool isFake, decimal? priceParam)
         {
             if (isFake)
@@ -3976,6 +4324,15 @@ namespace OsEngine.MCP.Modules
             tab.CloseAtMarket(position, volume);
         }
 
+        private static string StripTestPaperSuffix(string securityName)
+        {
+            const string suffix = " TestPaper";
+
+            return securityName != null && securityName.EndsWith(suffix, StringComparison.Ordinal)
+                ? securityName.Substring(0, securityName.Length - suffix.Length)
+                : securityName;
+        }
+
         private BotTabSimple FindPositionTab(BotPanel bot, string tabName, string securityName, bool securityRequired)
         {
             if (bot.TabsSimple != null)
@@ -3989,7 +4346,11 @@ namespace OsEngine.MCP.Modules
                         if (securityName != null
                             && tab.Connector != null
                             && !string.IsNullOrEmpty(tab.Connector.SecurityName)
-                            && tab.Connector.SecurityName != securityName)
+                            // эмулятор дописывает " TestPaper" к имени инструмента у позиций/ордеров
+                            // (OrderExecutionEmulator.cs) — сама вкладка всегда без суффикса, поэтому
+                            // сравниваем без него, а не буквально (иначе любой вызов с security_name
+                            // от позиции в режиме эмуляции ложно считался бы несовпадением)
+                            && StripTestPaperSuffix(tab.Connector.SecurityName) != StripTestPaperSuffix(securityName))
                         {
                             throw new ArgumentException(
                                 $"Security mismatch: tab '{tabName}' trades '{tab.Connector.SecurityName}', not '{securityName}'");
@@ -4021,7 +4382,7 @@ namespace OsEngine.MCP.Modules
                 for (int i = 0; i < tabs.Length; i++)
                 {
                     if (tabs[i].Connector != null
-                        && tabs[i].Connector.SecurityName == securityName)
+                        && StripTestPaperSuffix(tabs[i].Connector.SecurityName) == StripTestPaperSuffix(securityName))
                     {
                         return tabs[i];
                     }
