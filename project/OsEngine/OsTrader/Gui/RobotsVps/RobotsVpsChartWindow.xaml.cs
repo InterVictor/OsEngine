@@ -498,7 +498,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (!response.TryGetProperty("positions", out JsonElement positions) || positions.ValueKind != JsonValueKind.Array) return;
             foreach (JsonElement p in positions.EnumerateArray())
             {
-                if (!closed && !string.IsNullOrEmpty(_securityName) && !string.Equals(ReadString(p, "security_name"), _securityName, StringComparison.OrdinalIgnoreCase)) continue;
+                // Раньше фильтровали по совпадению security_name с _securityName из bot_chart_get_snapshot —
+                // сервер иногда возвращает их по-разному (например, у позиции "AAVEUSDT TestPaper", у вкладки
+                // просто "AAVEUSDT"), и открытая позиция пропадала из графика, хотя оставалась в общем списке
+                // (Роботы.ВПС → Bots). Правильный признак "эта позиция — с этой вкладки" — поле bot_name в
+                // ответе bot_journal_get_open_positions: сервер кладёт туда имя ВКЛАДКИ (tab.TabName), а не
+                // общее имя бота, и оно однозначно совпадает с _tabName этого окна.
+                if (!closed && !string.Equals(ReadString(p, "bot_name"), _tabName, StringComparison.OrdinalIgnoreCase)) continue;
                 int rowIndex = grid.Rows.Add();
                 DataGridViewRow row = grid.Rows[rowIndex];
                 row.Cells[0].Value = ReadInt(p, "number");
