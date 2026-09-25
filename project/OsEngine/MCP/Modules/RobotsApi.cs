@@ -187,6 +187,10 @@ namespace OsEngine.MCP.Modules
                         response.Result = CloseBotPositionAtMarket(request.Params);
                         break;
 
+                    case "bot_position_delete":
+                        response.Result = DeleteBotPosition(request.Params);
+                        break;
+
                     case "bot_journal_get_settings":
                         response.Result = GetJournalSettings(request.Params);
                         break;
@@ -868,6 +872,23 @@ namespace OsEngine.MCP.Modules
                             security_name = new { type = "string", description = "Security name (required for Screener tabs)" },
                             is_fake = new { type = "boolean", description = "Journal-only close, no order (default false)" },
                             price = new { type = "number", description = "Price for fake close (only with is_fake=true)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_delete",
+                    Description = "Remove a position from the robot's journal without sending any order (matches the Bot Station 'Delete position' context-menu action). Use only to clear a stale/erroneous record; it does not touch the exchange",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
                         },
                         required = new[] { "bot_id", "tab_name", "position_number" }
                     }
@@ -3892,6 +3913,46 @@ namespace OsEngine.MCP.Modules
                 position_number = positionNumber,
                 closed_volume = volume,
                 is_fake = isFake,
+                state = position.State.ToString()
+            };
+        }
+
+        // "Удалить позицию" в Bot Station: чистая запись в журнале (Journal.DeletePosition), без ордера на биржу —
+        // используется, когда позиция уже закрыта вручную/на бирже и надо просто убрать её из учёта OsEngine.
+        private object DeleteBotPosition(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+
+            if (parameters.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("Parameters must be an object");
+            }
+
+            if (!parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            BotPanel bot = FindBot(master, botIdElement);
+            string tabName = GetRequiredString(parameters, "tab_name");
+            string securityName = GetOptionalString(parameters, "security_name", null);
+            BotTabSimple tab = FindPositionTab(bot, tabName, securityName, true);
+
+            int positionNumber = GetRequiredInt(parameters, "position_number");
+            Position position = FindOpenPosition(tab, positionNumber);
+
+            if (MainWindow.GetDispatcher.CheckAccess())
+            {
+                tab.GetJournal().DeletePosition(position);
+            }
+            else
+            {
+                MainWindow.GetDispatcher.Invoke(() => tab.GetJournal().DeletePosition(position));
+            }
+
+            return new
+            {
+                position_number = positionNumber,
                 state = position.State.ToString()
             };
         }

@@ -140,6 +140,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             HostGrids.Child = _gridsGrid;
 
             _openPositionsGrid = DataGridFactory.GetDataGridPosition();
+            _openPositionsGrid.Click += OpenPositionsGrid_Click;
             _stopLimitsGrid = DataGridFactory.GetDataGridBuyAtStopPositions();
             _closedPositionsGrid = DataGridFactory.GetDataGridPosition();
             _botLogGrid = DataGridFactory.GetDataGridView(DataGridViewSelectionMode.FullRowSelect, DataGridViewAutoSizeRowsMode.AllCells);
@@ -361,6 +362,100 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             JsonElement response = await _client.CallToolAsync("bot_journal_get_open_positions", new { bot_name = _botId, limit = 500 });
             RenderPositionRows(_openPositionsGrid, response, false);
+        }
+
+        // Right-click menu on the open-positions grid — same 7 items, order and labels as the parent
+        // Bot Station's Journal\Internal\PositionController._gridOpenDeal_Click. "Close selected",
+        // "Add to selected", "Swap stop" and "Swap profit" still need their own remote dialogs
+        // (PositionCloseUi2 / PositionAddingUi2 / stop-profit editors are not ported yet) — they show
+        // the same "not available yet" notice already used elsewhere in this window rather than fake it.
+        private void OpenPositionsGrid_Click(object sender, EventArgs e)
+        {
+            if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Right) return;
+            if (_openPositionsGrid.Rows.Count == 0 || _openPositionsGrid.CurrentCell == null) return;
+
+            int rowIndex = _openPositionsGrid.CurrentCell.RowIndex;
+            if (rowIndex < 0 || rowIndex >= _openPositionsGrid.Rows.Count) return;
+            DataGridViewRow row = _openPositionsGrid.Rows[rowIndex];
+
+            int positionNumber;
+            try { positionNumber = Convert.ToInt32(row.Cells[0].Value); }
+            catch { return; }
+            string securityName = row.Cells[4].Value as string;
+
+            ToolStripMenuItem[] items = new ToolStripMenuItem[7];
+
+            items[0] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem1 };
+            items[0].Click += (s, args) => _ = CloseAllPositionsAtMarketAsync();
+
+            items[1] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem2 };
+            items[1].Click += (s, args) => ButtonMoreOpenPositionDetail_Click(null, null);
+
+            items[2] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem3 };
+            items[2].Click += (s, args) => NotAvailableRemotely();
+
+            items[3] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem14 };
+            items[3].Click += (s, args) => NotAvailableRemotely();
+
+            items[4] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem5 };
+            items[4].Click += (s, args) => NotAvailableRemotely();
+
+            items[5] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem6 };
+            items[5].Click += (s, args) => NotAvailableRemotely();
+
+            items[6] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem7 };
+            items[6].Click += (s, args) => _ = DeleteSelectedPositionAsync(positionNumber, securityName);
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.AddRange(items);
+            _openPositionsGrid.ContextMenuStrip = menu;
+            _openPositionsGrid.ContextMenuStrip.Show(_openPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        private async System.Threading.Tasks.Task CloseAllPositionsAtMarketAsync()
+        {
+            if (System.Windows.MessageBox.Show(OsLocalization.Journal.Message5, "VPS", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                JsonElement response = await _client.CallToolAsync("bot_position_get_open", new { bot_id = _botId, tab_name = _tabName });
+
+                if (response.TryGetProperty("positions", out JsonElement positions) && positions.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement p in positions.EnumerateArray())
+                    {
+                        int number = ReadInt(p, "position_number");
+                        await _client.CallToolAsync("bot_position_close_at_market", new { bot_id = _botId, tab_name = _tabName, position_number = number });
+                    }
+                }
+
+                await RefreshOpenPositionsAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private async System.Threading.Tasks.Task DeleteSelectedPositionAsync(int positionNumber, string securityName)
+        {
+            if (System.Windows.MessageBox.Show(OsLocalization.Journal.Message3, "VPS", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                object args = string.IsNullOrEmpty(securityName)
+                    ? new { bot_id = _botId, tab_name = _tabName, position_number = positionNumber }
+                    : (object)new { bot_id = _botId, tab_name = _tabName, position_number = positionNumber, security_name = securityName };
+
+                await _client.CallToolAsync("bot_position_delete", args);
+                await RefreshOpenPositionsAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private async System.Threading.Tasks.Task RefreshClosedPositionsAsync()
