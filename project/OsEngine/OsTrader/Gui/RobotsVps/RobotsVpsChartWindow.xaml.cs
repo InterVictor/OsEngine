@@ -400,49 +400,102 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         #region Chart indicators — reconstruct the bot's own configured indicators locally and let
         // ChartCandleMaster compute/paint them from the candles it already streams (no server-side math)
 
-        // bot_chart_get_indicators — перепись УЖЕ настроенных индикаторов вкладки (тип/область/параметры),
-        // не значения. Каждый новый (по имени) реконструируется через ту же IndicatorsFactory, что и родной
+        // bot_chart_get_indicators — перепись УЖЕ настроенных индикаторов вкладки (тип/область/параметры)
+        // плюс data_series (те же 500 последних значений, что и candle_count у bot_chart_get_snapshot).
+        // Каждый новый (по имени) индикатор реконструируется через ту же IndicatorsFactory, что и родной
         // "Create indicator" в правой кнопке мыши, и добавляется в ту же область (Prime = поверх цены,
         // любое другое имя = отдельное окно/область под графиком — ChartCandleMaster создаёт её сам).
+        //
+        // Для формульных индикаторов (Sma/Rsi/...) локальный Process(candles) и так даёт тот же результат —
+        // data_series тут избыточны, но применяются единообразно. А вот для EmptyIndicator и подобных, у
+        // которых OnProcess — no-op (значения пишет сам код бота), это ЕДИНСТВЕННЫЙ источник истории: каждый
+        // ChartCandleMaster.SetCandles(...) выше (см. RefreshSelectedChartDataAsync) заново гоняет
+        // Process(candles) по всем уже добавленным индикаторам и для EmptyIndicator обнуляет DataSeries —
+        // поэтому серверные значения накатываются здесь ПОСЛЕ CreateIndicator, на каждый опрос, а не только
+        // при первом создании.
         private async System.Threading.Tasks.Task RefreshChartIndicatorsAsync()
         {
             try
             {
-                JsonElement response = await _client.CallToolAsync("bot_chart_get_indicators", new { bot_id = _botId, tab_name = _tabName });
+                JsonElement response = await _client.CallToolAsync("bot_chart_get_indicators", new { bot_id = _botId, tab_name = _tabName, candle_count = 500 });
                 if (!response.TryGetProperty("indicators", out JsonElement list) || list.ValueKind != JsonValueKind.Array) return;
 
                 foreach (JsonElement ind in list.EnumerateArray())
                 {
                     string name = ReadString(ind, "name");
-                    if (string.IsNullOrEmpty(name) || _syncedServerIndicators.Contains(name)) continue;
-                    // Отмечаем сразу, даже если реконструкция не удастся (легаси/неизвестный тип) —
-                    // чтобы не пытаться пересоздавать один и тот же индикатор на каждый тик.
-                    _syncedServerIndicators.Add(name);
+                    if (string.IsNullOrEmpty(name)) continue;
 
-                    if (!ReadBool(ind, "is_supported")) continue;
-
-                    string typeName = ReadString(ind, "type_name");
-                    string area = ReadString(ind, "area");
-                    if (string.IsNullOrEmpty(area)) area = "Prime";
-
-                    Aindicator indicator = IndicatorsFactory.CreateIndicatorByName(typeName, name, canDelete: false, StartProgram.IsOsTrader);
-                    if (indicator == null) continue;
-
-                    if (ind.TryGetProperty("parameters", out JsonElement parameters) && parameters.ValueKind == JsonValueKind.Array)
+                    if (!_syncedServerIndicators.Contains(name))
                     {
-                        foreach (JsonElement param in parameters.EnumerateArray())
+                        // Отмечаем сразу, даже если реконструкция не удастся (легаси/неизвестный тип) —
+                        // чтобы не пытаться пересоздавать один и тот же индикатор на каждый тик.
+                        _syncedServerIndicators.Add(name);
+
+                        if (!ReadBool(ind, "is_supported")) continue;
+
+                        string typeName = ReadString(ind, "type_name");
+                        string area = ReadString(ind, "area");
+                        if (string.IsNullOrEmpty(area)) area = "Prime";
+
+                        Aindicator newIndicator = IndicatorsFactory.CreateIndicatorByName(typeName, name, canDelete: false, StartProgram.IsOsTrader);
+                        if (newIndicator == null) continue;
+
+                        if (ind.TryGetProperty("parameters", out JsonElement newParameters) && newParameters.ValueKind == JsonValueKind.Array)
                         {
-                            ApplyIndicatorParameter(indicator, param);
+                            foreach (JsonElement param in newParameters.EnumerateArray())
+                            {
+                                ApplyIndicatorParameter(newIndicator, param);
+                            }
                         }
+
+                        _chartMaster.CreateIndicator(newIndicator, area);
                     }
 
-                    _chartMaster.CreateIndicator(indicator, area);
+                    ApplyServerDataSeries(name, ind);
                 }
             }
             catch
             {
                 // индикаторы бота — необязательная надстройка; сбой не должен ронять обновление свечей/таблиц
             }
+        }
+
+        private void ApplyServerDataSeries(string indicatorName, JsonElement ind)
+        {
+            if (!ind.TryGetProperty("data_series", out JsonElement seriesList) || seriesList.ValueKind != JsonValueKind.Array) return;
+
+            IIndicator indicator = _chartMaster.Indicators?.Find(i => i.Name == indicatorName);
+            if (indicator is not Aindicator aIndicator) return;
+
+            List<IndicatorDataSeries> localSeries = aIndicator.DataSeries;
+            if (localSeries == null) return;
+
+            bool changed = false;
+            int seriesIndex = 0;
+
+            foreach (JsonElement s in seriesList.EnumerateArray())
+            {
+                if (seriesIndex >= localSeries.Count) break;
+
+                if (s.TryGetProperty("values", out JsonElement valuesEl) && valuesEl.ValueKind == JsonValueKind.Array)
+                {
+                    List<decimal> values = new List<decimal>();
+                    foreach (JsonElement v in valuesEl.EnumerateArray())
+                    {
+                        values.Add(v.TryGetDecimal(out decimal d) ? d : 0m);
+                    }
+
+                    localSeries[seriesIndex].Values.Clear();
+                    localSeries[seriesIndex].Values.AddRange(values);
+                    changed = true;
+                }
+
+                seriesIndex++;
+            }
+
+            // Только перерисовать (ChartCandle.RePaintIndicator), а не aIndicator.RePaint()/Reload() —
+            // те снова вызовут Process(candles) и затрут только что применённые серверные значения.
+            if (changed) _chartMaster.ChartCandle.RePaintIndicator(indicator);
         }
 
         private static void ApplyIndicatorParameter(Aindicator indicator, JsonElement param)

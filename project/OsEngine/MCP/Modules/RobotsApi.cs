@@ -422,14 +422,15 @@ namespace OsEngine.MCP.Modules
                 new McpTool
                 {
                     Name = "bot_chart_get_indicators",
-                    Description = "Get indicators configured on a robot's Simple chart tab (strategy-added or user-added), with enough detail (type, chart area, parameters) for a remote client to reconstruct and paint them locally against its own streamed candles. Legacy (non-script) indicator types are reported with is_supported=false and no parameters, since only script-based (Aindicator) indicators can be reconstructed by class name via IndicatorsFactory",
+                    Description = "Get indicators configured on a robot's Simple chart tab (strategy-added or user-added), with enough detail (type, chart area, parameters) for a remote client to reconstruct and paint them locally against its own streamed candles. Legacy (non-script) indicator types are reported with is_supported=false and no parameters, since only script-based (Aindicator) indicators can be reconstructed by class name via IndicatorsFactory. Also returns each data series' actual current values (aligned to the same trailing candle_count as bot_chart_get_snapshot) for indicators whose values a client cannot recompute locally from candles alone, e.g. EmptyIndicator-style indicators fed directly by the robot's own strategy code",
                     InputSchema = new
                     {
                         type = "object",
                         properties = new
                         {
                             bot_id = new { type = "string", description = "Robot number or unique name" },
-                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" }
+                            tab_name = new { type = "string", description = "Simple tab name from bot_get_sources" },
+                            candle_count = new { type = "integer", description = "Number of trailing data-series values to return per series, aligned with bot_chart_get_snapshot's candle_count (1..2000; default 500)", minimum = 1, maximum = 2000 }
                         },
                         required = new[] { "bot_id", "tab_name" }
                     }
@@ -2128,12 +2129,18 @@ namespace OsEngine.MCP.Modules
 
         // Роботы.VPS: удалённое окно графика рисует индикаторы САМО, локально пересчитывая их из уже
         // стримящихся свечей (ChartCandleMaster умеет это без единого лишнего вызова к серверу — расчёт
-        // чисто клиентский). Единственное, чего клиент не может знать сам, — ЧТО именно стратегия бота
-        // нарисовала на своём графике (тип индикатора/область/параметры). Этот инструмент — только
-        // "перепись" уже настроенных индикаторов вкладки; сами значения индикатора сюда не входят.
+        // чисто клиентский) — для обычных, формульных индикаторов (Sma/Rsi/...) этого достаточно.
+        // Единственное, чего клиент не может знать сам, — ЧТО именно стратегия бота нарисовала на своём
+        // графике (тип индикатора/область/параметры). Этот инструмент — "перепись" уже настроенных
+        // индикаторов вкладки.
+        // Исключение — индикаторы вроде EmptyIndicator, у которых OnProcess ничего не делает: расчёт
+        // целиком идёт в коде самого бота, который сам пишет значения прямо в DataSeries. Для них
+        // локальный Process(candles) клиента не восстановит историю (и не обновит текущее значение) —
+        // взять эти значения можно только с сервера, поэтому data_series отдаётся всегда (клиент сам
+        // решает, использовать ли готовые значения или доверять собственному пересчёту).
         // Только Aindicator (скриптовые) реконструируемы по имени класса через IndicatorsFactory — легаси
         // индикаторы (реализующие IIndicator напрямую, не через Aindicator) отдаются с is_supported=false
-        // и без parameters, чтобы клиент не пытался угадать их конструктор.
+        // и без parameters/data_series, чтобы клиент не пытался угадать их конструктор.
         private object GetBotChartIndicators(JsonElement parameters)
         {
             if (parameters.ValueKind != JsonValueKind.Object)
@@ -2147,6 +2154,11 @@ namespace OsEngine.MCP.Modules
             }
 
             string tabName = GetRequiredString(parameters, "tab_name");
+            int requestedCount = GetOptionalInt(parameters, "candle_count") ?? 500;
+            if (requestedCount < 1 || requestedCount > 2000)
+            {
+                throw new ArgumentOutOfRangeException("candle_count", "candle_count must be between 1 and 2000");
+            }
 
             BotPanel bot = FindBot(GetMasterRequired(), botIdElement);
             BotTabSimple tab = FindBotTabSimple(bot, tabName);
@@ -2164,10 +2176,12 @@ namespace OsEngine.MCP.Modules
 
                 bool isSupported = indicator is Aindicator;
                 List<object> parameterDtos = new List<object>();
+                List<object> dataSeriesDtos = new List<object>();
 
                 if (isSupported)
                 {
-                    List<IndicatorParameter> indicatorParameters = ((Aindicator)indicator).Parameters;
+                    Aindicator aIndicator = (Aindicator)indicator;
+                    List<IndicatorParameter> indicatorParameters = aIndicator.Parameters;
 
                     for (int p = 0; indicatorParameters != null && p < indicatorParameters.Count; p++)
                     {
@@ -2201,6 +2215,32 @@ namespace OsEngine.MCP.Modules
 
                         parameterDtos.Add(dto);
                     }
+
+                    List<IndicatorDataSeries> dataSeries = aIndicator.DataSeries;
+
+                    for (int s = 0; dataSeries != null && s < dataSeries.Count; s++)
+                    {
+                        IndicatorDataSeries series = dataSeries[s];
+                        if (series == null)
+                        {
+                            continue;
+                        }
+
+                        // Индекс s — тот же порядок, что использует клиентский PaintIndicator для имени
+                        // серии на графике ("indicator.Name + i"), поэтому data_series отдаётся позиционно,
+                        // а не по Name/NameSeries.
+                        List<decimal> values = series.Values;
+                        int count = values?.Count ?? 0;
+                        int startIndex = Math.Max(0, count - requestedCount);
+                        List<decimal> tail = new List<decimal>(count - startIndex);
+
+                        for (int v = startIndex; v < count; v++)
+                        {
+                            tail.Add(values[v]);
+                        }
+
+                        dataSeriesDtos.Add(new { values = tail });
+                    }
                 }
 
                 result.Add(new
@@ -2210,7 +2250,8 @@ namespace OsEngine.MCP.Modules
                     area = indicator.NameArea,
                     can_delete = indicator.CanDelete,
                     is_supported = isSupported,
-                    parameters = parameterDtos
+                    parameters = parameterDtos,
+                    data_series = dataSeriesDtos
                 });
             }
 
