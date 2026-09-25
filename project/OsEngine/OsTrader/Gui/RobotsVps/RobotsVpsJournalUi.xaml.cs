@@ -216,6 +216,25 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private bool InRange(DateTime time, DateTime? from, DateTime? to) =>
             (!from.HasValue || time >= from.Value) && (!to.HasValue || time <= to.Value);
 
+        // ReadDateRange() уже учитывался в FilteredPositions*/RefreshEquityChart и т.д. — не хватало только
+        // триггера: раньше диапазон применялся лишь если что-то ДРУГОЕ (Reload, смена страницы) заново
+        // вызывало эти методы. LostFocus (а не TextChanged на каждый символ) — применяем, как только поле
+        // потеряло фокус, без лишних перерисовок посреди набора даты и без похода на сервер (данные уже
+        // закешированы в _allOpenPositions/_allClosedPositions).
+        private void TextBoxDateRange_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (!_loaded) return;
+            try
+            {
+                RefreshEquityChart();
+                RefreshDrawdownChart();
+                RefreshVolumeChart();
+                RenderOpenPositionsPage();
+                RenderClosedPositionsPage();
+            }
+            catch (Exception ex) { ShowError(ex); }
+        }
+
         #endregion
 
         #region Load + filters
@@ -224,13 +243,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             if (!_loaded || _client == null || !_client.IsConnected) return;
 
-            try
-            {
-                _allOpenPositions = await FetchAllPositions("bot_journal_get_open_positions", includeFailed: null);
-                _allClosedPositions = await FetchAllPositions("bot_journal_get_closed_positions", includeFailed: _showFailedClosed);
-                RefreshSecuritiesFilter();
-            }
-            catch (Exception ex) { ShowError(ex); return; }
+            // Раньше это был один try/catch с return на ошибке — если бы бросило хоть на securities-фильтре,
+            // ВСЕ дальнейшие Render*/Refresh* (таблицы позиций, эквити и т.д.) вообще не вызывались бы, и
+            // экран оставался бы в прежнем виде (первая загрузка — пустым; после переключения фильтра —
+            // со старыми данными), а ошибка была видна только в заголовке окна. Каждый шаг — своя ошибка,
+            // не блокирующая остальные.
+            try { _allOpenPositions = await FetchAllPositions("bot_journal_get_open_positions", includeFailed: null); }
+            catch (Exception ex) { ShowError(ex); }
+
+            try { _allClosedPositions = await FetchAllPositions("bot_journal_get_closed_positions", includeFailed: _showFailedClosed); }
+            catch (Exception ex) { ShowError(ex); }
+
+            try { RefreshSecuritiesFilter(); } catch (Exception ex) { ShowError(ex); }
 
             try { RefreshEquityChart(); } catch (Exception ex) { ShowError(ex); }
             try { RefreshDrawdownChart(); } catch (Exception ex) { ShowError(ex); }
@@ -531,12 +555,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _equityChart.Series.Clear();
             _equityChart.ChartAreas.Clear();
-            // WindowsFormsHost не всегда перерисовывает уже размещённый WinForms-контрол сам по себе, когда
-            // его содержимое ОПУСТЕЛО (Series/ChartAreas.Clear() без единой новой серии) — тот же трюк, что
-            // и в оригинале для таблиц позиций (HostOpenPosition.Child = null; ...; = _openPositionGrid;),
-            // иначе при отключении всех ботов старый график остаётся на экране визуально.
-            HostEquity.Child = null;
-            HostEquity.Child = _equityChart;
             if (deals.Count == 0) return;
 
             DateTime minDate = deals.Min(p => ReadTime(p, "open_time"));
@@ -703,9 +721,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _drawdownChart.Series.Clear();
             _drawdownChart.ChartAreas.Clear();
-            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
-            HostDrawdown.Child = null;
-            HostDrawdown.Child = _drawdownChart;
             if (deals.Count == 0) return;
 
             ChartArea absoluteArea = new ChartArea("ChartAreaDdPunct") { Position = { Height = 50, Width = 100, Y = 0 } };
@@ -876,9 +891,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _volumeChart.Series.Clear();
             _volumeChart.ChartAreas.Clear();
-            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
-            HostVolume.Child = null;
-            HostVolume.Child = _volumeChart;
             if (deals.Count == 0) { VolumeShowNumbers.Items.Clear(); return; }
 
             List<string> securities = deals.Select(p => ReadString(p, "security_name")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToList();
