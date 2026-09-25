@@ -55,6 +55,20 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // клиент уже воссоздал локально в _chartMaster — по имени, чтобы не пересоздавать на каждый тик.
         private readonly HashSet<string> _syncedServerIndicators = new(StringComparer.OrdinalIgnoreCase);
 
+        // Родительская вкладка держит ВЕСЬ график бота (tab.CandlesAll) без ограничения длины, поэтому
+        // первая свеча в её массиве никогда не меняется — WinFormsChartPainter.PaintCandles всегда попадает
+        // в лёгкий путь (AddCandleInArray/RePaintToIndex, апдейт последней точки) без рывков. У нас запрос
+        // с фиксированным candle_count=500 — СКОЛЬЗЯЩЕЕ окно: как только у бота накопилось больше 500 свечей,
+        // самая старая свеча окна на каждый опрос СДВИГАЕТСЯ, PaintCandles видит "другой массив свечек" и
+        // делает полный PaintAllCandles + ResizeYAxisOnArea(..., full: true) — отсюда дёрганье графика (и,
+        // как следствие, тот же сброс истории у индикаторов, которые не пересчитываются из свечей).
+        // Решение: не скользить — расширять запрашиваемое окно так, чтобы самая первая увиденная свеча
+        // оставалась в ответе (как у родителя), пока не упрёмся в серверный максимум bot_chart_get_snapshot.
+        private const int InitialCandleCount = 500;
+        private const int MaxCandleCount = 2000;
+        private int _requestedCandleCount = InitialCandleCount;
+        private DateTime _anchorCandleTimeUtc = DateTime.MinValue;
+
         public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
         {
             InitializeComponent();
@@ -231,10 +245,24 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _remoteRefreshInFlight = true;
             try
             {
-                JsonElement snapshot = await _client.CallToolAsync("bot_chart_get_snapshot", new { bot_id = _botId, tab_name = _tabName, candle_count = 500 });
+                JsonElement snapshot = await _client.CallToolAsync("bot_chart_get_snapshot", new { bot_id = _botId, tab_name = _tabName, candle_count = _requestedCandleCount });
                 List<Candle> candles = ReadCandles(snapshot);
+
+                if (candles.Count > 0 && _anchorCandleTimeUtc != DateTime.MinValue
+                    && candles[0].TimeStart > _anchorCandleTimeUtc && _requestedCandleCount < MaxCandleCount)
+                {
+                    // Окно свечей сдвинулось бы (самая старая свеча стала новее нашего якоря) и вызвала бы
+                    // рывок в PaintCandles/ProcessAll — расширяем окно и перезапрашиваем в этом же цикле, до
+                    // того как эти свечи попадут в _chartMaster, чтобы пользователь вообще не увидел скачок.
+                    _requestedCandleCount = Math.Min(MaxCandleCount, _requestedCandleCount * 2);
+                    snapshot = await _client.CallToolAsync("bot_chart_get_snapshot", new { bot_id = _botId, tab_name = _tabName, candle_count = _requestedCandleCount });
+                    candles = ReadCandles(snapshot);
+                }
+
                 if (candles.Count > 0)
                 {
+                    if (_anchorCandleTimeUtc == DateTime.MinValue) _anchorCandleTimeUtc = candles[0].TimeStart;
+
                     TimeFrame timeFrame = ReadTimeFrame(snapshot);
                     if (!_chartTimeFrameInitialized)
                     {
@@ -401,7 +429,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // ChartCandleMaster compute/paint them from the candles it already streams (no server-side math)
 
         // bot_chart_get_indicators — перепись УЖЕ настроенных индикаторов вкладки (тип/область/параметры)
-        // плюс data_series (те же 500 последних значений, что и candle_count у bot_chart_get_snapshot).
+        // плюс data_series (то же окно последних значений, что _requestedCandleCount у bot_chart_get_snapshot).
         // Каждый новый (по имени) индикатор реконструируется через ту же IndicatorsFactory, что и родной
         // "Create indicator" в правой кнопке мыши, и добавляется в ту же область (Prime = поверх цены,
         // любое другое имя = отдельное окно/область под графиком — ChartCandleMaster создаёт её сам).
@@ -417,7 +445,10 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             try
             {
-                JsonElement response = await _client.CallToolAsync("bot_chart_get_indicators", new { bot_id = _botId, tab_name = _tabName, candle_count = 500 });
+                // candle_count здесь должен совпадать с тем, что сейчас запрошен для свечей
+                // (_requestedCandleCount, растущее окно — см. RefreshSelectedChartDataAsync), иначе
+                // data_series и candles разъедутся по длине/якорю и индексная привязка PaintLikeLine собьётся.
+                JsonElement response = await _client.CallToolAsync("bot_chart_get_indicators", new { bot_id = _botId, tab_name = _tabName, candle_count = _requestedCandleCount });
                 if (!response.TryGetProperty("indicators", out JsonElement list) || list.ValueKind != JsonValueKind.Array) return;
 
                 foreach (JsonElement ind in list.EnumerateArray())
