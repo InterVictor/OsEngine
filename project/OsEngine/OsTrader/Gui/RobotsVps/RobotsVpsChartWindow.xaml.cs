@@ -68,6 +68,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private const int MaxCandleCount = 2000;
         private int _requestedCandleCount = InitialCandleCount;
         private DateTime _anchorCandleTimeUtc = DateTime.MinValue;
+        private TimeSpan _knownTimeFrameSpan = TimeSpan.Zero;
+
+        // Индикаторы для EmptyIndicator-подобных типов не пересчитываются из свечей — их надо тянуть с
+        // сервера (см. RefreshChartIndicatorsAsync/ApplyServerDataSeries), но полная перерисовка серии на
+        // каждый опрос (раз в несколько секунд, из-за одного лишь обновления цены последней свечи) даёт
+        // дёрганье линий индикатора без какой-либо новой информации — исторические 500-2000 значений между
+        // опросами не меняются. Обновляем индикаторы только когда сменилась ПОСЛЕДНЯЯ свеча (число она же
+        // TimeStart), плюс всегда один раз сразу при открытии чарта (MinValue != любое реальное время).
+        private DateTime _lastIndicatorRefreshCandleTimeUtc = DateTime.MinValue;
 
         public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
         {
@@ -261,12 +270,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 if (candles.Count > 0)
                 {
-                    if (_anchorCandleTimeUtc == DateTime.MinValue) _anchorCandleTimeUtc = candles[0].TimeStart;
+                    // Минимум, а не "только если ещё не задан": окно могло вырасти НАЗАД (см.
+                    // GrowCandleWindowForPositions) — тогда новая candles[0] раньше старого якоря, и
+                    // якорь должен сдвинуться вместе с ней, иначе последующее сравнение в блоке выше
+                    // (candles[0] > _anchorCandleTimeUtc) не будет отражать реальную границу окна.
+                    if (_anchorCandleTimeUtc == DateTime.MinValue || candles[0].TimeStart < _anchorCandleTimeUtc)
+                        _anchorCandleTimeUtc = candles[0].TimeStart;
 
                     TimeFrame timeFrame = ReadTimeFrame(snapshot);
                     if (!_chartTimeFrameInitialized)
                     {
-                        _chartMaster.ChartCandle.SetNewTimeFrame(GetTimeSpan(timeFrame), timeFrame);
+                        _knownTimeFrameSpan = GetTimeSpan(timeFrame);
+                        _chartMaster.ChartCandle.SetNewTimeFrame(_knownTimeFrameSpan, timeFrame);
                         _chartTimeFrameInitialized = true;
                     }
                     _chartMaster.SetCandles(candles);
@@ -278,7 +293,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     // Значки входа/выхода и индикаторы, настроенные ботом, — на графике всегда, вне
                     // зависимости от того, какая боковая вкладка сейчас выбрана (в отличие от таблиц ниже).
                     await RefreshChartPositionsAsync();
-                    await RefreshChartIndicatorsAsync();
+
+                    DateTime lastCandleTimeUtc = candles[candles.Count - 1].TimeStart;
+                    if (lastCandleTimeUtc != _lastIndicatorRefreshCandleTimeUtc)
+                    {
+                        // Первый опрос (MinValue) — рисуем сразу; иначе только когда появилась новая
+                        // свеча, а не на каждое обновление цены текущей.
+                        _lastIndicatorRefreshCandleTimeUtc = lastCandleTimeUtc;
+                        await RefreshChartIndicatorsAsync();
+                    }
                 }
 
                 if (TabItemMarketDepth.IsSelected) await RefreshMarketDepthAsync();
@@ -321,10 +344,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 JsonElement closedResponse = await _client.CallToolAsync("bot_journal_get_closed_positions", new { bot_name = _botId, limit = 500 });
 
                 List<Position> positions = new List<Position>();
-                CollectChartPositions(openResponse, closed: false, positions);
-                CollectChartPositions(closedResponse, closed: true, positions);
+                DateTime oldestNeededTimeUtc = DateTime.MaxValue;
+                CollectChartPositions(openResponse, closed: false, positions, ref oldestNeededTimeUtc);
+                CollectChartPositions(closedResponse, closed: true, positions, ref oldestNeededTimeUtc);
 
                 _chartMaster.SetPosition(positions);
+                GrowCandleWindowForPositions(oldestNeededTimeUtc);
             }
             catch
             {
@@ -332,7 +357,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
-        private void CollectChartPositions(JsonElement response, bool closed, List<Position> target)
+        private void CollectChartPositions(JsonElement response, bool closed, List<Position> target, ref DateTime oldestNeededTimeUtc)
         {
             if (!response.TryGetProperty("positions", out JsonElement list) || list.ValueKind != JsonValueKind.Array) return;
 
@@ -343,8 +368,35 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (!string.Equals(ReadString(p, "bot_name"), _tabName, StringComparison.OrdinalIgnoreCase)) continue;
 
                 Position position = BuildChartPosition(p, closed);
-                if (position != null) target.Add(position);
+                if (position == null) continue;
+
+                target.Add(position);
+
+                // Значок сделки становится видимым, только если её время попадает в уже загруженное окно
+                // свечей (WinFormsChartPainter.GetTimeIndex ищет индекс СРЕДИ _myCandles — сделка старше
+                // самой первой загруженной свечи резолвится в 0 и молча пропускается PaintPositions).
+                // Запоминаем самое старое время сделки здесь, чтобы окно могло дорасти НАЗАД до него.
+                DateTime tradeTimeUtc = position.MyTrades.Count > 0 ? position.MyTrades[0].Time : DateTime.MaxValue;
+                if (tradeTimeUtc != DateTime.MinValue && tradeTimeUtc < oldestNeededTimeUtc) oldestNeededTimeUtc = tradeTimeUtc;
             }
+        }
+
+        // Родительская вкладка видит все сделки, потому что её окно свечей не ограничено. Наше растёт
+        // только ВПЕРЁД, за скользящий якорь (см. комментарий у _anchorCandleTimeUtc) — сделку старше
+        // самой первой когда-либо увиденной свечи оно само по себе никогда не захватит. Если такая
+        // сделка нашлась, считаем недостающее число свечей по времени и заранее расширяем окно —
+        // подействует на следующий опрос (в этом уже отрисованы текущие, более узкие свечи).
+        private void GrowCandleWindowForPositions(DateTime oldestNeededTimeUtc)
+        {
+            if (oldestNeededTimeUtc == DateTime.MaxValue) return;
+            if (_anchorCandleTimeUtc == DateTime.MinValue) return;
+            if (oldestNeededTimeUtc >= _anchorCandleTimeUtc) return;
+            if (_requestedCandleCount >= MaxCandleCount) return;
+            if (_knownTimeFrameSpan <= TimeSpan.Zero) return;
+
+            double missingCandles = (_anchorCandleTimeUtc - oldestNeededTimeUtc).TotalSeconds / _knownTimeFrameSpan.TotalSeconds;
+            int neededCount = _requestedCandleCount + (int)Math.Ceiling(missingCandles) + 20;
+            _requestedCandleCount = Math.Min(MaxCandleCount, Math.Max(_requestedCandleCount, neededCount));
         }
 
         private Position BuildChartPosition(JsonElement p, bool closed)
@@ -392,6 +444,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private static Order BuildChartOrder(string securityName, Side side, decimal price, decimal volume, DateTime time, OrderPositionConditionType conditionType, string idSuffix)
         {
+            string orderNumberMarket = "vps_order_" + idSuffix;
             Order order = new Order
             {
                 SecurityNameCode = securityName,
@@ -402,7 +455,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 State = OrderStateType.Done,
                 PositionConditionType = conditionType,
                 TimeCreate = time,
-                TimeDone = time
+                TimeDone = time,
+                // Order.SetTrade отвергает сделку, если MyTrade.NumberOrderParent != Order.NumberMarket
+                // (проверка принадлежности сделки ордеру) — без этого NumberMarket остаётся "" (дефолт
+                // конструктора Order) и НИКОГДА не совпадает с NumberOrderParent ниже, SetTrade молча
+                // ничего не добавляет в _trades, Position.MyTrades всегда пуст и PaintPositions нечего
+                // рисовать — это и есть причина, по которой значки входа/выхода не появлялись вообще.
+                NumberMarket = orderNumberMarket
             };
             order.SetTrade(new MyTrade
             {
@@ -412,7 +471,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 Side = side,
                 SecurityNameCode = securityName,
                 NumberTrade = "vps_" + idSuffix,
-                NumberOrderParent = "vps_order_" + idSuffix
+                NumberOrderParent = orderNumberMarket
             });
             return order;
         }
