@@ -5975,9 +5975,14 @@ namespace OsEngine.MCP.Modules
                 security_name = pos.SecurityName ?? string.Empty,
                 direction = direction,
                 state = pos.State.ToString(),
-                time_create = pos.TimeCreate == DateTime.MinValue ? null : pos.TimeCreate.ToString("O"),
-                open_time = pos.TimeOpen == DateTime.MinValue ? null : pos.TimeOpen.ToString("O"),
-                close_time = pos.TimeClose == DateTime.MinValue ? null : pos.TimeClose.ToString("O"),
+                // ToUniversalTime() — как в GetBotChartSnapshot для candle.TimeStart. Без него эти поля
+                // уезжали без явной зоны (DateTimeKind.Unspecified), а свечи — с явным "Z" (UTC), и удалённый
+                // график (RobotsVpsChartWindow.GetTimeIndex, сравнение по тикам DateTime) не мог сопоставить
+                // сделку со свечой при разнице между локальным временем сервера и UTC: маркеры входа/выхода
+                // просто не появлялись на графике.
+                time_create = pos.TimeCreate == DateTime.MinValue ? null : pos.TimeCreate.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                open_time = pos.TimeOpen == DateTime.MinValue ? null : pos.TimeOpen.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                close_time = pos.TimeClose == DateTime.MinValue ? null : pos.TimeClose.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
                 entry_price = pos.EntryPrice,
                 close_price = pos.ClosePrice,
                 price_step = pos.PriceStep,

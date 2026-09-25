@@ -727,8 +727,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 // ответе bot_journal_get_open_positions: сервер кладёт туда имя ВКЛАДКИ (tab.TabName), а не
                 // общее имя бота, и оно однозначно совпадает с _tabName этого окна.
                 if (!closed && !string.Equals(ReadString(p, "bot_name"), _tabName, StringComparison.OrdinalIgnoreCase)) continue;
-                int rowIndex = grid.Rows.Add();
-                DataGridViewRow row = grid.Rows[rowIndex];
+                // 1:1 с Journal/Internal/PositionController.GetRow (и с тем же фиксом в RobotsVpsJournalUi):
+                // каждая ячейка — DataGridViewTextBoxCell, включая колонки 0-4 (в DataGridFactory.GetDataGridPosition
+                // это DataGridViewButtonColumn). Обычный grid.Rows.Add() берёт CellTemplate колонки и создал бы там
+                // настоящие DataGridViewButtonCell — те рисуются системной 3D-кнопкой (светлая рамка), а не темой.
+                DataGridViewRow row = new DataGridViewRow();
+                for (int c = 0; c < grid.Columns.Count; c++)
+                {
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                }
+                grid.Rows.Add(row);
                 row.Cells[0].Value = ReadInt(p, "number");
                 row.Cells[1].Value = FormatRemoteTime(ReadString(p, "open_time"));
                 row.Cells[2].Value = closed ? FormatRemoteTime(ReadString(p, "close_time")) : string.Empty;
@@ -748,7 +756,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 row.Cells[16].Value = FormatRemoteNumber(ReadDecimal(p, "profit_order_price"));
                 row.Cells[17].Value = ReadString(p, "signal_type_open");
                 row.Cells[18].Value = ReadString(p, "signal_type_close");
-                grid.Rows.Add(row);
             }
             RestoreGridScroll(grid, first);
         }
