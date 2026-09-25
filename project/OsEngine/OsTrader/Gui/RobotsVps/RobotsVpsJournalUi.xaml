@@ -1,0 +1,44 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsJournalUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Journal" Height="820" Width="1200" MinWidth="800" MinHeight="500" Style="{StaticResource WindowStyleCanResize}" WindowStartupLocation="CenterScreen" Icon="/Images/OsLogo.ico">
+    <Grid>
+        <TabControl Name="TabControlPrime" BorderThickness="0" TabStripPlacement="Bottom">
+            <TabItem Name="TabItemEquity" Header="Equity" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostEquity" Margin="0,0,0,40"/>
+                    <Label Content="Chart type" HorizontalAlignment="Left" Margin="10,0,0,8" VerticalAlignment="Bottom"/>
+                    <ComboBox Name="ComboBoxEquityChartType" HorizontalAlignment="Left" Margin="90,0,0,8" VerticalAlignment="Bottom" Width="180" SelectionChanged="ComboBoxEquityChartType_SelectionChanged"/>
+                </Grid>
+            </TabItem>
+            <TabItem Name="TabItemStatistics" Header="Statistics" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostStatistics" Margin="10"/>
+                </Grid>
+            </TabItem>
+            <TabItem Name="TabItemDrawdown" Header="Drawdown" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostDrawdown" Margin="10"/>
+                </Grid>
+            </TabItem>
+            <TabItem Name="TabItemVolume" Header="Volume" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostVolume" Margin="10"/>
+                </Grid>
+            </TabItem>
+            <TabItem Name="TabItemOpenPositions" Header="Open positions" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostOpenPositions" Margin="10"/>
+                </Grid>
+            </TabItem>
+            <TabItem Name="TabItemClosedPositions" Header="Closed positions" Width="140">
+                <Grid>
+                    <WindowsFormsHost Name="HostClosedPositions" Margin="10"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

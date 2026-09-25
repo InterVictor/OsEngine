@@ -828,7 +828,21 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _remotePositionOpenWindow.Show();
         }
         private void ButtonStrategManualSettings_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
-        private void ButtonJournalCommunity_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
+        private RobotsVpsJournalUi _remoteJournalWindow;
+
+        private void ButtonJournalCommunity_Click(object sender, RoutedEventArgs e)
+        {
+            if (_remoteJournalWindow != null && _remoteJournalWindow.IsVisible)
+            {
+                if (_remoteJournalWindow.WindowState == WindowState.Minimized) _remoteJournalWindow.WindowState = WindowState.Normal;
+                _remoteJournalWindow.Activate();
+                return;
+            }
+
+            _remoteJournalWindow = new RobotsVpsJournalUi(_client, _botId) { Owner = this };
+            _remoteJournalWindow.Closed += (s, args) => _remoteJournalWindow = null;
+            _remoteJournalWindow.Show();
+        }
         private void ButtonRiskManager_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
         private void ButtonRedactTab_Click(object sender, RoutedEventArgs e)
         {
