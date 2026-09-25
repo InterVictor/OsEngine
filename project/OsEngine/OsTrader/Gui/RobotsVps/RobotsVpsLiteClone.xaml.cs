@@ -39,6 +39,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private DispatcherTimer _primeLogPollTimer;
         private RemoteMcpClient _client;
         private RobotsVpsCommunityJournalUi _communityJournalWindow;
+        private readonly Dictionary<string, RobotsVpsJournalUi> _botJournalWindows = new(StringComparer.OrdinalIgnoreCase);
+        // bot_id -> первый "Simple" tab_name из bot_get_sources. Позиции с агрегированных вкладок
+        // (bot_journal_get_open/closed_positions) не несут tab_name — тот же упрощающий приём,
+        // что и в OpenChartAsync (единственная торговая вкладка на бота).
+        private readonly Dictionary<string, string> _tabNameCache = new(StringComparer.OrdinalIgnoreCase);
+        // Ключ bot_id+":"+positionNumber — на вкладке "Positions" номера позиций не уникальны между ботами.
+        private readonly Dictionary<string, RobotsVpsPositionCloseUi> _positionCloseWindows = new(StringComparer.OrdinalIgnoreCase);
         private bool _pollInFlight;
         private bool _portfolioPollInFlight;
         private bool _positionsPollInFlight;
@@ -404,6 +411,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void SetClient(RemoteMcpClient client)
         {
             _client = client;
+            _tabNameCache.Clear();
             CheckBoxServerAutoOpen.IsEnabled = client != null && client.IsConnected;
             CheckBoxServerAutoOpen.IsChecked = false;
             if (client != null && client.IsConnected) _ = LoadAutoConnectAsync(client);
@@ -905,11 +913,23 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void CreatePositionTables()
         {
             if (_activePositionsGrid == null)
+            {
                 _activePositionsGrid = DataGridFactory.GetDataGridPosition();
+                // 1:1 с OsTrader/GlobalPositionViewer._gridAllPositions_Click (6 пунктов, тот же порядок/подписи).
+                _activePositionsGrid.Click += ActivePositionsGrid_Click;
+            }
             if (_stopLimitPositionsGrid == null)
+            {
                 _stopLimitPositionsGrid = DataGridFactory.GetDataGridBuyAtStopPositions();
+                // 1:1 с OsTrader/BuyAtStopPositionsViewer._grid_Click (2 пункта).
+                _stopLimitPositionsGrid.Click += StopLimitPositionsGrid_Click;
+            }
             if (_closedPositionsGrid == null)
+            {
                 _closedPositionsGrid = DataGridFactory.GetDataGridPosition();
+                // 1:1 с OsTrader/GlobalPositionViewer._gridClosePoses_Click (1 пункт).
+                _closedPositionsGrid.Click += ClosedPositionsGrid_Click;
+            }
 
             _activePositionsGrid.ScrollBars = ScrollBars.Vertical;
             _stopLimitPositionsGrid.ScrollBars = ScrollBars.Vertical;
@@ -1061,6 +1081,223 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (firstVisible >= 0 && firstVisible < grid.Rows.Count)
                 grid.FirstDisplayedScrollingRowIndex = firstVisible;
         }
+
+        #region Positions tab — right-click actions (1:1 с OsTrader/GlobalPositionViewer и BuyAtStopPositionsViewer)
+
+        // 1:1 с GlobalPositionViewer._gridAllPositions_Click: 6 пунктов, тот же порядок/подписи.
+        // RenderPositionRows кладёт bot_name в Cells[3] — этого достаточно (плюс ResolveTabNameAsync),
+        // security_name не нужен: bot_position_* требует его только для Screener-вкладок, а
+        // ResolveTabNameAsync намеренно берёт только "Simple" источник.
+        private void ActivePositionsGrid_Click(object sender, EventArgs e)
+        {
+            if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Right) return;
+            if (_activePositionsGrid.Rows.Count == 0 || _activePositionsGrid.CurrentCell == null) return;
+
+            int rowIndex = _activePositionsGrid.CurrentCell.RowIndex;
+            if (rowIndex < 0 || rowIndex >= _activePositionsGrid.Rows.Count) return;
+            DataGridViewRow row = _activePositionsGrid.Rows[rowIndex];
+
+            int positionNumber;
+            try { positionNumber = Convert.ToInt32(row.Cells[0].Value); }
+            catch { return; }
+            string botId = row.Cells[3].Value as string;
+            string securityName = row.Cells[4].Value as string;
+
+            ToolStripMenuItem[] items = new ToolStripMenuItem[6];
+
+            items[0] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem1 };
+            items[0].Click += (s, args) => _ = ActivePositionCloseAllAsync();
+
+            items[1] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem3 };
+            items[1].Click += (s, args) => _ = ActivePositionCloseOneAsync(botId, positionNumber);
+
+            items[2] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem14 };
+            items[2].Click += (s, args) => NotAvailableRemotely("Adding to a position"); // PositionAddingUi2 — не портирован
+
+            items[3] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem5 };
+            items[3].Click += (s, args) => OpenPositionCloseDialogAsync(botId, securityName, positionNumber, "Stop");
+
+            items[4] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem6 };
+            items[4].Click += (s, args) => OpenPositionCloseDialogAsync(botId, securityName, positionNumber, "Profit");
+
+            items[5] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem7 };
+            items[5].Click += (s, args) => _ = DeletePositionAsync(botId, positionNumber);
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.AddRange(items);
+            _activePositionsGrid.ContextMenuStrip = menu;
+            _activePositionsGrid.ContextMenuStrip.Show(_activePositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        // 1:1 с GlobalPositionViewer._gridClosePoses_Click: один пункт — удалить из журнала.
+        private void ClosedPositionsGrid_Click(object sender, EventArgs e)
+        {
+            if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Right) return;
+            if (_closedPositionsGrid.Rows.Count == 0 || _closedPositionsGrid.CurrentCell == null) return;
+
+            int rowIndex = _closedPositionsGrid.CurrentCell.RowIndex;
+            if (rowIndex < 0 || rowIndex >= _closedPositionsGrid.Rows.Count) return;
+            DataGridViewRow row = _closedPositionsGrid.Rows[rowIndex];
+
+            int positionNumber;
+            try { positionNumber = Convert.ToInt32(row.Cells[0].Value); }
+            catch { return; }
+            string botId = row.Cells[3].Value as string;
+
+            ToolStripMenuItem[] items = new ToolStripMenuItem[1];
+            items[0] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem7 };
+            items[0].Click += (s, args) => _ = DeletePositionAsync(botId, positionNumber);
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.AddRange(items);
+            _closedPositionsGrid.ContextMenuStrip = menu;
+            _closedPositionsGrid.ContextMenuStrip.Show(_closedPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        // BuyAtStopPositionsViewer._grid_Click в оригинале: 2 пункта ("Удалить все"/"Удалить выбранную").
+        // Явная заглушка на ОБА пункта: bot_journal_get_stop_limit_positions не отдаёт bot_name на строку
+        // (см. GetJournalStopLimitPositions в RobotsApi.cs — только number/tab_name/security_name/...), а
+        // bot_position_*/bot_chart_execute_action требуют bot_id. Без правки серверного DTO бота для
+        // конкретной строки надёжно не определить — показываем видимое сообщение, а не гадаем/бьём не туда.
+        private void StopLimitPositionsGrid_Click(object sender, EventArgs e)
+        {
+            if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Right) return;
+            if (_stopLimitPositionsGrid.Rows.Count == 0 || _stopLimitPositionsGrid.CurrentCell == null) return;
+
+            ToolStripMenuItem[] items = new ToolStripMenuItem[2];
+            items[0] = new ToolStripMenuItem { Text = OsLocalization.Trader.Label213 };
+            items[0].Click += (s, args) => NotAvailableRemotely("Cancelling stop-limit orders");
+            items[1] = new ToolStripMenuItem { Text = OsLocalization.Trader.Label214 };
+            items[1].Click += (s, args) => NotAvailableRemotely("Cancelling stop-limit orders");
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.AddRange(items);
+            _stopLimitPositionsGrid.ContextMenuStrip = menu;
+            _stopLimitPositionsGrid.ContextMenuStrip.Show(_stopLimitPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        private async System.Threading.Tasks.Task ActivePositionCloseAllAsync()
+        {
+            AcceptDialogUi ui = new AcceptDialogUi(OsLocalization.Journal.Message5) { Owner = Window.GetWindow(this) };
+            ui.ShowDialog();
+            if (ui.UserAcceptAction == false) return;
+
+            try
+            {
+                List<(string BotId, int Number)> targets = new();
+                foreach (DataGridViewRow row in _activePositionsGrid.Rows)
+                {
+                    if (row.Cells[0].Value == null || !int.TryParse(row.Cells[0].Value.ToString(), out int number)) continue;
+                    string botId = row.Cells[3].Value as string;
+                    if (string.IsNullOrWhiteSpace(botId)) continue;
+                    targets.Add((botId, number));
+                }
+
+                foreach ((string botId, int number) in targets)
+                {
+                    string tabName = await ResolveTabNameAsync(botId).ConfigureAwait(true);
+                    if (string.IsNullOrWhiteSpace(tabName)) continue;
+                    await _client.CallToolAsync("bot_position_close_at_market", new { bot_id = botId, tab_name = tabName, position_number = number }).ConfigureAwait(true);
+                }
+
+                await RefreshPositionsAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not close all positions: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ActivePositionCloseOneAsync(string botId, int positionNumber)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return;
+            try
+            {
+                string tabName = await ResolveTabNameAsync(botId).ConfigureAwait(true);
+                if (string.IsNullOrWhiteSpace(tabName))
+                {
+                    System.Windows.MessageBox.Show("For this robot the VPS API did not return a Simple trading source.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                await _client.CallToolAsync("bot_position_close_at_market", new { bot_id = botId, tab_name = tabName, position_number = positionNumber }).ConfigureAwait(true);
+                await RefreshPositionsAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not close the position: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private async System.Threading.Tasks.Task DeletePositionAsync(string botId, int positionNumber)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return;
+
+            AcceptDialogUi ui = new AcceptDialogUi(OsLocalization.Journal.Message3) { Owner = Window.GetWindow(this) };
+            ui.ShowDialog();
+            if (ui.UserAcceptAction == false) return;
+
+            try
+            {
+                string tabName = await ResolveTabNameAsync(botId).ConfigureAwait(true);
+                if (string.IsNullOrWhiteSpace(tabName))
+                {
+                    System.Windows.MessageBox.Show("For this robot the VPS API did not return a Simple trading source.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                await _client.CallToolAsync("bot_position_delete", new { bot_id = botId, tab_name = tabName, position_number = positionNumber }).ConfigureAwait(true);
+                await RefreshPositionsAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not delete the position: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // "Переставить стоп"/"Переставить профит" — тот же приём, что уже проверен в RobotsVpsChartWindow.
+        // OpenPositionCloseDialog: один и тот же диалог (RobotsVpsPositionCloseUi) с разной начальной вкладкой,
+        // одно окно на позицию (ключ bot_id+number — на этой вкладке номера позиций не уникальны между ботами).
+        private async void OpenPositionCloseDialogAsync(string botId, string securityName, int positionNumber, string initialTab)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return;
+            string key = botId + ":" + positionNumber;
+
+            if (_positionCloseWindows.TryGetValue(key, out RobotsVpsPositionCloseUi existing) && existing.IsVisible)
+            {
+                if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                existing.SelectTab(initialTab);
+                return;
+            }
+
+            try
+            {
+                string tabName = await ResolveTabNameAsync(botId).ConfigureAwait(true);
+                if (string.IsNullOrWhiteSpace(tabName))
+                {
+                    System.Windows.MessageBox.Show("For this robot the VPS API did not return a Simple trading source.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                RobotsVpsPositionCloseUi window = new RobotsVpsPositionCloseUi(_client, botId, tabName, securityName, positionNumber) { Owner = Window.GetWindow(this) };
+                window.SelectTab(initialTab);
+                window.Closed += (s, args) => _positionCloseWindows.Remove(key);
+                _positionCloseWindows[key] = window;
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open the position dialog: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void NotAvailableRemotely(string what)
+        {
+            System.Windows.MessageBox.Show(what + " is not available remotely yet.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        #endregion
 
         private static string FormatRemoteTime(string value)
         {
@@ -1375,12 +1612,74 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return;
             }
 
-            if (e.ColumnIndex != 8) return;
+            if (e.ColumnIndex == 8)
+            {
+                RobotsVpsParametersUi window = new RobotsVpsParametersUi(_client, bot.InternalName);
+                window.Owner = Window.GetWindow(this);
+                window.Show();
+                window.Activate();
+                return;
+            }
 
-            RobotsVpsParametersUi window = new RobotsVpsParametersUi(_client, bot.InternalName);
-            window.Owner = Window.GetWindow(this);
-            window.Show();
-            window.Activate();
+            // Column 9 — 1:1 с BotTabsPainter._grid_Click (coluIndex == 9): подтверждение через тот же
+            // диалог AcceptDialogUi(Label4), затем удаление робота.
+            if (e.ColumnIndex == 9)
+            {
+                DeleteRemoteBotAsync(bot);
+                return;
+            }
+
+            // Column 10 — 1:1 с BotTabsPainter._grid_Click (coluIndex == 10 -> bot.ShowJournalDialog()):
+            // журнал ОДНОГО робота — уже построенное окно RobotsVpsJournalUi, здесь просто открываем его,
+            // одно окно на бота (повторный клик активирует уже открытое), как оригинал.
+            if (e.ColumnIndex == 10)
+            {
+                ShowBotJournal(bot);
+            }
+        }
+
+        private async void DeleteRemoteBotAsync(VpsBotRow bot)
+        {
+            try
+            {
+                AcceptDialogUi ui = new AcceptDialogUi(OsLocalization.Trader.Label4) { Owner = Window.GetWindow(this) };
+                ui.ShowDialog();
+
+                if (ui.UserAcceptAction == false) return;
+
+                await _client.CallToolAsync("bot_delete", new { bot_id = bot.InternalName }).ConfigureAwait(true);
+                _botJournalWindows.Remove(bot.InternalName);
+                await RefreshBotsAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not delete VPS robot: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void ShowBotJournal(VpsBotRow bot)
+        {
+            try
+            {
+                if (_botJournalWindows.TryGetValue(bot.InternalName, out RobotsVpsJournalUi existing))
+                {
+                    if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                    existing.Activate();
+                    return;
+                }
+
+                RobotsVpsJournalUi journalWindow = new RobotsVpsJournalUi(_client, bot.InternalName);
+                journalWindow.Owner = Window.GetWindow(this);
+                string internalName = bot.InternalName;
+                journalWindow.Closed += (s, e) => _botJournalWindows.Remove(internalName);
+                _botJournalWindows[internalName] = journalWindow;
+                journalWindow.Show();
+                journalWindow.Activate();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open the robot journal: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private async void AddRemoteBotAsync()
@@ -1465,22 +1764,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             try
             {
-                JsonElement result = await _client.CallToolAsync("bot_get_sources", new { bot_id = bot.InternalName }).ConfigureAwait(true);
-                JsonElement sources = result.TryGetProperty("sources", out JsonElement sourceList) ? sourceList : default;
-                string tabName = null;
-                if (sources.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (JsonElement source in sources.EnumerateArray())
-                    {
-                        if (source.TryGetProperty("type", out JsonElement type)
-                            && type.GetString() == "Simple"
-                            && source.TryGetProperty("name", out JsonElement name))
-                        {
-                            tabName = name.GetString();
-                            break;
-                        }
-                    }
-                }
+                string tabName = await ResolveTabNameAsync(bot.InternalName).ConfigureAwait(true);
 
                 if (string.IsNullOrWhiteSpace(tabName))
                 {
@@ -1497,6 +1781,36 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             {
                 System.Windows.MessageBox.Show("Could not open the VPS chart: " + ex.Message, "VPS chart", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        // Первый "Simple" источник бота — тот же упрощающий приём, что был раньше только в OpenChartAsync;
+        // теперь общий, с кэшем на время жизни подключения (см. SetClient), нужен и для действий над
+        // позициями на вкладке "Positions" (bot_position_* требуют tab_name, а агрегированные списки
+        // bot_journal_get_open/closed_positions его не отдают).
+        private async System.Threading.Tasks.Task<string> ResolveTabNameAsync(string botId)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return null;
+            if (_tabNameCache.TryGetValue(botId, out string cached)) return cached;
+
+            JsonElement result = await _client.CallToolAsync("bot_get_sources", new { bot_id = botId }).ConfigureAwait(true);
+            JsonElement sources = result.TryGetProperty("sources", out JsonElement sourceList) ? sourceList : default;
+            string tabName = null;
+            if (sources.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement source in sources.EnumerateArray())
+                {
+                    if (source.TryGetProperty("type", out JsonElement type)
+                        && type.GetString() == "Simple"
+                        && source.TryGetProperty("name", out JsonElement name))
+                    {
+                        tabName = name.GetString();
+                        break;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(tabName)) _tabNameCache[botId] = tabName;
+            return tabName;
         }
 
         private async void SetBotStateAsync(VpsBotRow bot, bool setTrading, bool enabled)
