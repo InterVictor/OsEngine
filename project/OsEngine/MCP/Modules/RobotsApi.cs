@@ -2239,7 +2239,10 @@ namespace OsEngine.MCP.Modules
                             tail.Add(values[v]);
                         }
 
-                        dataSeriesDtos.Add(new { values = tail });
+                        // Цвет серии на сервере может отличаться от жёсткого дефолта, заданного в
+                        // OnStateChange индикатора (пользователь мог сменить его в настройках индикатора
+                        // на самом боте) — отдаём ARGB, чтобы клиент красил линию так же, как сервер.
+                        dataSeriesDtos.Add(new { values = tail, color_argb = series.Color.ToArgb() });
                     }
                 }
 

@@ -490,6 +490,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     changed = true;
                 }
 
+                // Реальный цвет серии на сервере (мог быть переопределён пользователем в настройках
+                // индикатора на самом боте) — иначе клиент красит жёстким дефолтом из OnStateChange,
+                // одинаковым для всех экземпляров одного класса (отсюда "все линии зелёные" у EmptyIndicator).
+                if (s.TryGetProperty("color_argb", out JsonElement colorEl) && colorEl.ValueKind == JsonValueKind.Number
+                    && colorEl.TryGetInt32(out int argb))
+                {
+                    localSeries[seriesIndex].Color = System.Drawing.Color.FromArgb(argb);
+                    changed = true;
+                }
+
                 seriesIndex++;
             }
 
