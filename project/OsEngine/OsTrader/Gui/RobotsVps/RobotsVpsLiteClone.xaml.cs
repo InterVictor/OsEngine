@@ -38,6 +38,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private DispatcherTimer _serversPollTimer;
         private DispatcherTimer _primeLogPollTimer;
         private RemoteMcpClient _client;
+        private RobotsVpsCommunityJournalUi _communityJournalWindow;
         private bool _pollInFlight;
         private bool _portfolioPollInFlight;
         private bool _positionsPollInFlight;
@@ -1346,6 +1347,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return;
             }
 
+            // Column 8 on the service row is "Journal common" (Label747) — 1:1 with
+            // BotTabsPainter.RobotsGrid_CellContentClick (coluIndex == 8 -> _master.ShowCommunityJournal(2, 0, 0)).
+            if (e.RowIndex == _robotsGrid.Rows.Count - 1 && e.ColumnIndex == 8)
+            {
+                ShowCommunityJournal();
+                return;
+            }
+
             if (_client == null || !_client.IsConnected) return;
 
             VpsBotRow bot = _robotsGrid.Rows[e.RowIndex].Tag as VpsBotRow;
@@ -1417,6 +1426,38 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             {
                 System.Windows.MessageBox.Show("Could not create VPS robot: " + ex.Message,
                     "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // 1:1 с OsTraderMaster.ShowCommunityJournal: одно окно на всё время жизни родительского окна,
+        // повторный клик активирует уже открытое, а не плодит дубликаты.
+        private void ShowCommunityJournal()
+        {
+            try
+            {
+                if (_client == null || !_client.IsConnected)
+                {
+                    System.Windows.MessageBox.Show("Connect to VPS first.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                if (_communityJournalWindow != null)
+                {
+                    if (_communityJournalWindow.WindowState == WindowState.Minimized)
+                        _communityJournalWindow.WindowState = WindowState.Normal;
+                    _communityJournalWindow.Activate();
+                    return;
+                }
+
+                _communityJournalWindow = new RobotsVpsCommunityJournalUi(_client);
+                _communityJournalWindow.Owner = Window.GetWindow(this);
+                _communityJournalWindow.Closed += (s, e) => _communityJournalWindow = null;
+                _communityJournalWindow.Show();
+                _communityJournalWindow.Activate();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open the community journal: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
