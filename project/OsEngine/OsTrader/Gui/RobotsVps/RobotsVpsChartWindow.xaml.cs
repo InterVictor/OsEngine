@@ -49,6 +49,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private string _securityName;
         private RobotsVpsPositionOpenUi _remotePositionOpenWindow;
         private readonly Dictionary<int, RobotsVpsPositionCloseUi> _remotePositionCloseWindows = new();
+        private RobotsVpsPositionSupportUi _remotePositionSupportWindow;
 
         public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
         {
@@ -827,7 +828,23 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _remotePositionOpenWindow.Closed += (s, args) => _remotePositionOpenWindow = null;
             _remotePositionOpenWindow.Show();
         }
-        private void ButtonStrategManualSettings_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
+        // 1:1 с OsTraderMaster.BotManualSettingsDialog -> BotTabSimple.ShowManualControlDialog: сервер уже
+        // полностью отдаёт/принимает этот DTO (bot_get_position_support/bot_set_position_support), поэтому
+        // это реальное окно, а не заглушка — одно окно на вкладку, повторный клик активирует уже открытое.
+        private void ButtonStrategManualSettings_Click(object sender, RoutedEventArgs e)
+        {
+            if (_remotePositionSupportWindow != null && _remotePositionSupportWindow.IsVisible)
+            {
+                if (_remotePositionSupportWindow.WindowState == WindowState.Minimized)
+                    _remotePositionSupportWindow.WindowState = WindowState.Normal;
+                _remotePositionSupportWindow.Activate();
+                return;
+            }
+
+            _remotePositionSupportWindow = new RobotsVpsPositionSupportUi(_client, _botId, _tabName) { Owner = this };
+            _remotePositionSupportWindow.Closed += (s, args) => _remotePositionSupportWindow = null;
+            _remotePositionSupportWindow.Show();
+        }
         private RobotsVpsJournalUi _remoteJournalWindow;
 
         private void ButtonJournalCommunity_Click(object sender, RoutedEventArgs e)
@@ -843,16 +860,28 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _remoteJournalWindow.Closed += (s, args) => _remoteJournalWindow = null;
             _remoteJournalWindow.Show();
         }
-        private void ButtonRiskManager_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
+        // OsTraderMaster.BotShowRiskManager -> BotPanel.ShowPanelRiskManagerDialog: открывает RiskManager,
+        // объект, который живёт только локально на сервере и не проброшен ни одним MCP-инструментом
+        // (в MCP/Modules/RobotsApi.cs таких tools нет вовсе). Явная заглушка, а не тихая подмена.
+        private void ButtonRiskManager_Click(object sender, RoutedEventArgs e) =>
+            NotAvailableRemotely("Risk manager settings are not exposed over MCP yet");
         private void ButtonRedactTab_Click(object sender, RoutedEventArgs e)
         {
             RobotsVpsDataSettingsUi window = new RobotsVpsDataSettingsUi(_client, _botId, _tabName) { Owner = this };
             window.ShowDialog();
         }
-        private void ButtonStrategIndividualSettings_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
-        private void NotAvailableRemotely()
+        // OsTraderMaster.BotIndividualSettings -> BotPanel.ShowIndividualSettingsDialog: виртуальный метод,
+        // который переопределяет КАЖДАЯ стратегия своим собственным, полностью произвольным WPF-диалогом
+        // (см. переопределения в OsEngine/Robots/*.cs) — это не единый настраиваемый DTO, а код конкретного
+        // робота, выполняющийся локально. Генерическим MCP-инструментом это принципиально не пробросить без
+        // отдельной серверной реализации на каждую стратегию. Явная заглушка.
+        private void ButtonStrategIndividualSettings_Click(object sender, RoutedEventArgs e) =>
+            NotAvailableRemotely("Bot trade settings are strategy-specific local dialogs, not a generic MCP endpoint");
+        private void NotAvailableRemotely(string reason = null)
         {
-            System.Windows.MessageBox.Show("This remote action is not available yet.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+            string message = "This remote action is not available yet.";
+            if (!string.IsNullOrEmpty(reason)) message += " " + reason + ".";
+            System.Windows.MessageBox.Show(message, "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private async System.Threading.Tasks.Task SendChartOrderAsync(string action, bool useLimitPrice = false)
