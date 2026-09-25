@@ -621,6 +621,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _equityChart.Series.Clear();
             _equityChart.ChartAreas.Clear();
+            // WindowsFormsHost не всегда перерисовывает уже размещённый WinForms-контрол сам по себе, когда
+            // его содержимое ОПУСТЕЛО (Series/ChartAreas.Clear() без единой новой серии) — тот же трюк, что
+            // и в оригинале для таблиц позиций (HostOpenPosition.Child = null; ...; = _openPositionGrid;),
+            // иначе при отключении всех ботов (например галочкой у группы) старый график остаётся на экране.
+            HostEquity.Child = null;
+            HostEquity.Child = _equityChart;
             if (deals.Count == 0) return;
 
             DateTime minDate = deals.Min(p => ReadTime(p, "open_time"));
@@ -787,6 +793,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _drawdownChart.Series.Clear();
             _drawdownChart.ChartAreas.Clear();
+            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
+            HostDrawdown.Child = null;
+            HostDrawdown.Child = _drawdownChart;
             if (deals.Count == 0) return;
 
             ChartArea absoluteArea = new ChartArea("ChartAreaDdPunct") { Position = { Height = 50, Width = 100, Y = 0 } };
@@ -948,6 +957,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _volumeChart.Series.Clear();
             _volumeChart.ChartAreas.Clear();
+            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
+            HostVolume.Child = null;
+            HostVolume.Child = _volumeChart;
             if (deals.Count == 0) { VolumeShowNumbers.Items.Clear(); return; }
 
             List<string> securities = deals.Select(p => ReadString(p, "security_name")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToList();

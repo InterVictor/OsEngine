@@ -51,6 +51,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private readonly HashSet<string> _securityFilter = new(StringComparer.OrdinalIgnoreCase);
         private int _openPageSize = 100, _closedPageSize = 100;
         private string _lastKnownGroup = string.Empty;
+        // Сохранённый в bot_journal_set_settings is_on сам по себе ничего не скрывает — на сервере он лишь
+        // хранится (и используется общим агрегатом других ботов). Оригинал (JournalUi2.GetActiveJournals)
+        // при IsOn=false исключает панель бота из ВСЕГО построения (эквити/таблицы/статистика). У нас одно
+        // окно = один бот, поэтому IsOn=false здесь означает "нечего показывать" — без этого чекбокс
+        // сохранялся, но график/таблицы не пустели.
+        private bool _isOn = true;
 
         public RobotsVpsJournalUi(RemoteMcpClient client, string botId)
         {
@@ -250,6 +256,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // общий источник для Equity/Volume графиков и обеих таблиц позиций.
         private List<JsonElement> FilteredPositionsChronological()
         {
+            if (!_isOn) return new List<JsonElement>();
+
             (DateTime? from, DateTime? to) = ReadDateRange();
 
             return _allOpenPositions.Concat(_allClosedPositions)
@@ -261,6 +269,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private IEnumerable<JsonElement> FilteredPositions(bool closed)
         {
+            if (!_isOn) return Enumerable.Empty<JsonElement>();
+
             (DateTime? from, DateTime? to) = ReadDateRange();
             IEnumerable<JsonElement> source = closed ? _allClosedPositions : _allOpenPositions;
 
@@ -366,6 +376,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             // Пустая группа с сервера — тот же случай, что и дефолт "none" в оригинале (BotPanelJournal.BotGroup).
             if (string.IsNullOrEmpty(group)) group = "none";
             _lastKnownGroup = group;
+            _isOn = isOn;
 
             DataGridViewComboBoxColumn groupColumn = (DataGridViewComboBoxColumn)_botsFilterGrid.Columns[0];
             groupColumn.Items.Clear();
@@ -420,13 +431,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 bool isOn = row.Cells[4].Value is bool b && b;
                 decimal mult = decimal.TryParse(row.Cells[5].Value?.ToString(), NumberStyles.Any, CultureInfo.CurrentCulture, out decimal m) ? m : 100m;
                 _lastKnownGroup = group;
+                _isOn = isOn;
 
                 await _client.CallToolAsync("bot_journal_set_settings", new
                 {
                     settings = new[] { new { bot_name = _botId, group, mult, is_on = isOn } }
                 });
 
-                // Mult влияет на кумулятивные суммы Equity/Drawdown/Statistics — перечитываем данные
+                // Mult и IsOn влияют на кумулятивные суммы Equity/Drawdown/Statistics и на то, показывать ли
+                // вообще что-то (см. _isOn) — перечитываем данные
                 await ReloadAsync();
             }
             catch (Exception ex) { ShowError(ex); }
@@ -518,6 +531,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _equityChart.Series.Clear();
             _equityChart.ChartAreas.Clear();
+            // WindowsFormsHost не всегда перерисовывает уже размещённый WinForms-контрол сам по себе, когда
+            // его содержимое ОПУСТЕЛО (Series/ChartAreas.Clear() без единой новой серии) — тот же трюк, что
+            // и в оригинале для таблиц позиций (HostOpenPosition.Child = null; ...; = _openPositionGrid;),
+            // иначе при отключении всех ботов старый график остаётся на экране визуально.
+            HostEquity.Child = null;
+            HostEquity.Child = _equityChart;
             if (deals.Count == 0) return;
 
             DateTime minDate = deals.Min(p => ReadTime(p, "open_time"));
@@ -684,6 +703,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _drawdownChart.Series.Clear();
             _drawdownChart.ChartAreas.Clear();
+            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
+            HostDrawdown.Child = null;
+            HostDrawdown.Child = _drawdownChart;
             if (deals.Count == 0) return;
 
             ChartArea absoluteArea = new ChartArea("ChartAreaDdPunct") { Position = { Height = 50, Width = 100, Y = 0 } };
@@ -854,6 +876,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _volumeChart.Series.Clear();
             _volumeChart.ChartAreas.Clear();
+            // См. комментарий в RefreshEquityChart — та же WindowsFormsHost-перерисовка при опустевших данных.
+            HostVolume.Child = null;
+            HostVolume.Child = _volumeChart;
             if (deals.Count == 0) { VolumeShowNumbers.Items.Clear(); return; }
 
             List<string> securities = deals.Select(p => ReadString(p, "security_name")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToList();

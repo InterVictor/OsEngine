@@ -3765,6 +3765,20 @@ namespace OsEngine.Journal
                     CreateOpenPositionTable();
                 }
 
+                // ComboBoxOpenPosesShowNumbers заполняется только через SelectOpenPosesPages(), а она сама
+                // вызывается либо из конструктора (один раз, до того как позиции могли реально загрузиться),
+                // либо из SelectionChanged этого же комбобокса. Если позиции появились ПОСЛЕ конструктора и
+                // юзер ни разу не трогал комбобокс руками, SelectedItem остаётся null навсегда — ниже
+                // startNum/endNum остаются 0/0, цикл рисования строк не выполняется ни разу, и таблица
+                // выглядит пустой при живых данных (лечится только сменой значения в комбобоксе количества
+                // на страницу — тогда SelectOpenPosesPages() наконец отрабатывает). Досоздаём страницы здесь
+                // лениво, как только видим, что есть что показывать, а список страниц ещё не готов.
+                if ((ComboBoxOpenPosesShowNumbers.Items == null || ComboBoxOpenPosesShowNumbers.Items.Count == 0)
+                    && positionsAll != null && positionsAll.Count > 0)
+                {
+                    SelectOpenPosesPages();
+                }
+
                 int startNum = 0;
                 int endNum = 0;
 
@@ -4592,6 +4606,14 @@ namespace OsEngine.Journal
 
                 _closePositionGrid.Rows.Clear();
                 _closePositionGrid.ClearSelection();
+
+                // См. комментарий в PaintOpenPositionGrid — тот же расклад для закрытых позиций:
+                // SelectCLosePosesPages() из конструктора могла отработать до того, как появились закрытые
+                // сделки, и без ручного клика на комбобокс страниц таблица так и останется пустой навсегда.
+                if ((ComboBoxClosePosesShowNumbers.Items == null || ComboBoxClosePosesShowNumbers.Items.Count == 0))
+                {
+                    SelectCLosePosesPages();
+                }
 
                 if (ComboBoxClosePosesShowNumbers.Items == null ||
                     ComboBoxClosePosesShowNumbers.Items.Count == 0)

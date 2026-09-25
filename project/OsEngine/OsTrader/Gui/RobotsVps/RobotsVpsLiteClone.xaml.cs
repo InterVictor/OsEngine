@@ -39,6 +39,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private DispatcherTimer _primeLogPollTimer;
         private RemoteMcpClient _client;
         private RobotsVpsCommunityJournalUi _communityJournalWindow;
+        private RobotsVpsMigrationUi _migrationWindow;
         private readonly Dictionary<string, RobotsVpsJournalUi> _botJournalWindows = new(StringComparer.OrdinalIgnoreCase);
         // bot_id -> первый "Simple" tab_name из bot_get_sources. Позиции с агрегированных вкладок
         // (bot_journal_get_open/closed_positions) не несут tab_name — тот же упрощающий приём,
@@ -1592,6 +1593,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return;
             }
 
+            // Column 10 on the service row is "Migration" — 1:1 with BotTabsPainter.RobotsGrid_CellContentClick
+            // (rowTag == _addRowTag, coluIndex == 10 -> new BotsMigrationUi(_master)).
+            if (e.RowIndex == _robotsGrid.Rows.Count - 1 && e.ColumnIndex == 10)
+            {
+                ShowMigration();
+                return;
+            }
+
             if (_client == null || !_client.IsConnected) return;
 
             VpsBotRow bot = _robotsGrid.Rows[e.RowIndex].Tag as VpsBotRow;
@@ -1757,6 +1766,38 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             catch (Exception ex)
             {
                 System.Windows.MessageBox.Show("Could not open the community journal: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // 1:1 с BotTabsPainter (rowTag == _addRowTag, coluIndex == 10 -> new BotsMigrationUi(_master)):
+        // одно окно на всё время жизни родительского окна, повторный клик активирует уже открытое.
+        private void ShowMigration()
+        {
+            try
+            {
+                if (_client == null || !_client.IsConnected)
+                {
+                    System.Windows.MessageBox.Show("Connect to VPS first.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                if (_migrationWindow != null)
+                {
+                    if (_migrationWindow.WindowState == WindowState.Minimized)
+                        _migrationWindow.WindowState = WindowState.Normal;
+                    _migrationWindow.Activate();
+                    return;
+                }
+
+                _migrationWindow = new RobotsVpsMigrationUi(_client);
+                _migrationWindow.Owner = Window.GetWindow(this);
+                _migrationWindow.Closed += (s, e) => _migrationWindow = null;
+                _migrationWindow.Show();
+                _migrationWindow.Activate();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open migration: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 

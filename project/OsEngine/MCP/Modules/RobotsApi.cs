@@ -232,6 +232,14 @@ namespace OsEngine.MCP.Modules
                         response.Result = SetJournalSettings(request.Params);
                         break;
 
+                    case "bots_migration_export":
+                        response.Result = ExportBotsMigrationPreset(request.Params);
+                        break;
+
+                    case "bots_migration_import":
+                        response.Result = ImportBotsMigrationPreset(request.Params);
+                        break;
+
                     case "bot_journal_get_summary":
                         response.Result = GetJournalSummary(request.Params);
                         break;
@@ -1116,6 +1124,34 @@ namespace OsEngine.MCP.Modules
                             }
                         },
                         required = new[] { "settings" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bots_migration_export",
+                    Description = "Export all robots (and their saved parameter files) as a portable text preset — same content OsTraderMaster.SaveBotsPreset writes to a file locally on the desktop app, but returned as text here since the remote client is expected to save it on its own machine, not on this server",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            prefix = new { type = "string", description = "Optional suffix appended to every robot's unique name in the exported preset. Must not contain '@' or ':'" }
+                        },
+                        required = new string[0]
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bots_migration_import",
+                    Description = "Import robots from a preset previously produced by bots_migration_export (or the desktop app's own Migration/Save) — same format OsTraderMaster.LoadBotsPreset reads from a file locally, but the preset text is supplied directly here since the remote client reads its own local file",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            content = new { type = "string", description = "Full text content of the preset file, unmodified" }
+                        },
+                        required = new[] { "content" }
                     }
                 },
                 new McpTool
@@ -5366,6 +5402,111 @@ namespace OsEngine.MCP.Modules
             SaveJournalSettings(master._startProgram, current);
 
             return new { updated = updated, updated_count = updated.Count };
+        }
+
+        // Роботы.VPS: "Миграция" на главном экране (BotTabsPainter, сервисная строка, coluIndex == 10 ->
+        // new BotsMigrationUi(_master)). OsTraderMaster.SaveBotsPreset/LoadBotsPreset читают/пишут ПУТЬ К
+        // ФАЙЛУ напрямую — на десктопе это локальный путь, потому что приложение и движок это один процесс.
+        // Пользователь явно попросил, чтобы Save/Load работали через файл на ЕГО машине, а не на сервере —
+        // поэтому эти два инструмента отдают/принимают содержимое пресета ТЕКСТОМ, а сам файл на диске
+        // создаёт/читает клиент (RobotsVpsMigrationUi), через собственный SaveFileDialog/OpenFileDialog.
+        // Экспорт/импорт всё равно идёт через SaveBotsPreset/LoadBotsPreset (не дублируем их логику) —
+        // просто с временным файлом на сервере, который тут же читается/удаляется.
+        private object ExportBotsMigrationPreset(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+
+            if (master.PanelsArray == null || master.PanelsArray.Count == 0)
+            {
+                throw new InvalidOperationException("No robots to export");
+            }
+
+            string prefix = (GetOptionalString(parameters, "prefix") ?? string.Empty).Trim();
+
+            if (prefix.Contains("@") || prefix.Contains(":"))
+            {
+                throw new ArgumentException("prefix must not contain '@' or ':'");
+            }
+
+            int botCount = master.PanelsArray.Count;
+            string tempPath = Path.Combine("Engine", "mcp_migration_export_" + Guid.NewGuid().ToString("N") + ".txt");
+
+            try
+            {
+                master.SaveBotsPreset(tempPath, prefix);
+
+                if (!File.Exists(tempPath))
+                {
+                    throw new InvalidOperationException("Export failed — see the OsEngine log for details");
+                }
+
+                string content = File.ReadAllText(tempPath);
+                return new { content = content, bot_count = botCount };
+            }
+            finally
+            {
+                TryDeleteFile(tempPath);
+                TryDeleteFile(tempPath + ".tmp");
+            }
+        }
+
+        private object ImportBotsMigrationPreset(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+            string content = GetRequiredString(parameters, "content");
+
+            // Те же две проверки формата, что LoadBotsPreset делает перед показом
+            // CustomMessageBoxUi.ShowDialog() — на headless-сервере такой модальный диалог повис бы навсегда
+            // в ожидании клика, которого никогда не будет, поэтому здесь бросаем обычную ошибку раньше,
+            // не давая дойти до LoadBotsPreset с заведомо невалидным содержимым.
+            string[] lines = content.Replace("\r\n", "\n").Split('\n');
+
+            if (lines.Length == 0 || !lines[0].StartsWith("OsEngine Bots Preset v"))
+            {
+                throw new ArgumentException("Not a valid bots preset (missing or incorrect header)");
+            }
+
+            if (Array.IndexOf(lines, "---") < 0)
+            {
+                throw new ArgumentException("Not a valid bots preset (missing '---' separator)");
+            }
+
+            int botCountBefore = master.PanelsArray?.Count ?? 0;
+            string tempPath = Path.Combine("Engine", "mcp_migration_import_" + Guid.NewGuid().ToString("N") + ".txt");
+
+            try
+            {
+                File.WriteAllText(tempPath, content);
+                master.LoadBotsPreset(tempPath);
+            }
+            finally
+            {
+                TryDeleteFile(tempPath);
+            }
+
+            int botCountAfter = master.PanelsArray?.Count ?? 0;
+            return new
+            {
+                status = "Ok",
+                bots_before = botCountBefore,
+                bots_after = botCountAfter,
+                bots_added = botCountAfter - botCountBefore
+            };
+        }
+
+        private static void TryDeleteFile(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // временный файл миграции — сбой очистки не должен рушить сам экспорт/импорт
+            }
         }
 
         private string GetOptionalBotName(JsonElement parameters)
