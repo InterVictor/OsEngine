@@ -91,6 +91,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -112,6 +113,7 @@
                         <DataGridTextColumn Header="MCP port" Width="80" Binding="{Binding Port}"/>
                         <DataGridTextColumn Header="Service" Width="100" Binding="{Binding State}"/>
                         <DataGridTextColumn Header="Memory" Width="90" Binding="{Binding Memory}"/>
+                        <DataGridTextColumn Header="Build" Width="90" Binding="{Binding Build}"/>
                         <DataGridTextColumn Header="Connection" Width="110" Binding="{Binding Connection}"/>
                     </DataGrid.Columns>
                 </DataGrid>
@@ -133,6 +135,25 @@
                         <Button Name="ButtonTerminalRemove" Content="Remove" Height="24" Margin="2,2,0,0" Click="ButtonTerminalRemove_Click"/>
                     </UniformGrid>
                 </StackPanel>
+
+                <!-- Обслуживание: обновление сборки, роботы, логи, перезагрузка VPS -->
+                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Name="PanelMaintenanceButtons">
+                        <Button Name="ButtonUpdateBuild" Content="Update build" Width="120" Height="26" Margin="0,0,5,0" Click="ButtonUpdateBuild_Click"
+                                ToolTip="Installs the local build package (VpsServer folder) on every running terminal, one by one; a terminal that does not start with the new build is rolled back automatically"/>
+                        <Button Name="ButtonUploadRobots" Content="Upload robots..." Width="120" Height="26" Margin="0,0,5,0" Click="ButtonUploadRobots_Click"
+                                ToolTip="Copies robot scripts (*.cs) into Custom/Robots of the selected terminal and restarts it to compile them"/>
+                        <Button Name="ButtonCleanLogs" Content="Clean logs" Width="100" Height="26" Margin="0,0,5,0" Click="ButtonCleanLogs_Click"
+                                ToolTip="Deletes the selected terminal's log files except today's and trims the system journal to 7 days"/>
+                        <Button Name="ButtonRebootVps" Content="Reboot VPS" Width="100" Height="26" Margin="0,0,5,0" Click="ButtonRebootVps_Click"
+                                ToolTip="Restarts the whole server; the terminals start with it and the connection comes back by itself"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Name="TextBlockPackage" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" TextWrapping="Wrap"/>
+                </Grid>
             </Grid>
         </Border>
 

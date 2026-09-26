@@ -46,6 +46,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             LogDataGrid.ItemsSource = _log;
             DataGridTerminals.ItemsSource = _terminalRows;
+            UpdatePackageText();
 
             TextBoxSshKeyPath.Text = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "ff_server");
@@ -617,6 +618,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     Port = instance.Port,
                     State = instance.State,
                     Memory = instance.MemoryText,
+                    Build = string.IsNullOrEmpty(instance.Build) ? "—" : instance.Build,
                     Connection = _terminals.TryGetValue(instance.Name, out TerminalConnection t)
                         ? (t.Reconnecting ? "reconnecting" : "connected")
                         : "—"
@@ -782,6 +784,237 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         #endregion
 
+        #region Maintenance: update build, upload robots, clean logs, reboot VPS
+
+        private void UpdatePackageText()
+        {
+            try
+            {
+                string version = VpsProvisioner.LocalPackageVersion();
+                string path = VpsProvisioner.LocalPath(VpsProvisioner.PackageFileName);
+
+                TextBlockPackage.Text = version == null
+                    ? "No build package in the VpsServer folder — \"Update build\" is not available"
+                    : $"Build package on this computer: {version} ({File.GetLastWriteTime(path):dd.MM.yyyy HH:mm})";
+            }
+            catch (Exception ex)
+            {
+                TextBlockPackage.Text = "Build package: " + ex.Message;
+            }
+        }
+
+        // The terminal selected in the list, or the only one when the VPS runs just one.
+        private VpsInstance SelectedOrOnlyInstance()
+        {
+            if (DataGridTerminals.SelectedItem == null && _instances.Count == 1)
+            {
+                return _instances[0];
+            }
+
+            return SelectedInstance();
+        }
+
+        private async Task RunMaintenanceAsync(Func<Task> action)
+        {
+            PanelMaintenanceButtons.IsEnabled = false;
+            PanelTerminalButtons.IsEnabled = false;
+
+            try
+            {
+                await action().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                AppendLog("Failed: " + ex.Message);
+            }
+            finally
+            {
+                PanelMaintenanceButtons.IsEnabled = true;
+                PanelTerminalButtons.IsEnabled = true;
+                await SyncTerminalsAsync().ConfigureAwait(true);
+            }
+        }
+
+        private async void ButtonUpdateBuild_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+
+            UpdatePackageText();
+            string version = VpsProvisioner.LocalPackageVersion();
+
+            if (version == null)
+            {
+                MessageBox.Show("Put the server build package into the VpsServer folder first:\n"
+                    + VpsProvisioner.LocalPath(VpsProvisioner.PackageFileName));
+                return;
+            }
+
+            // a stopped terminal stays stopped: the update restarts the service, so only running ones are updated
+            List<VpsInstance> running = _instances.Where(i => i.IsActive).ToList();
+            List<VpsInstance> toUpdate = running.Where(i => i.Build != version).ToList();
+
+            if (toUpdate.Count == 0)
+            {
+                MessageBox.Show(running.Count == 0 ? "No terminal is running" : $"All running terminals already run build {version}");
+                return;
+            }
+
+            string list = string.Join("\n", toUpdate.Select(i => $"  {i.Name}: {(string.IsNullOrEmpty(i.Build) ? "unknown" : i.Build)} -> {version}"));
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Update the OsEngine build?\n\n{list}\n\nTerminals are updated one by one; each one's robots stop for about "
+                + "10–30 s. If a terminal does not start with the new build, its previous build is put back automatically. "
+                + "Robots, settings, journals and keys are not touched.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials = CreateCredentials();
+
+            await RunMaintenanceAsync(async () =>
+            {
+                AppendLog($"=== Update build {version} ===");
+                await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .UpdateBuildAsync(toUpdate, CancellationToken.None)).ConfigureAwait(true);
+                AppendLog("Build update finished");
+            }).ConfigureAwait(true);
+        }
+
+        private async void ButtonUploadRobots_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedOrOnlyInstance();
+            if (instance == null) return;
+
+            Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = $"Robot scripts for terminal \"{instance.Name}\"",
+                Filter = "Robot scripts (*.cs)|*.cs",
+                Multiselect = true
+            };
+
+            if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
+
+            string[] files = dialog.FileNames;
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Upload {files.Length} robot script(s) to terminal \"{instance.Name}\" and restart it?\n\n"
+                + string.Join("\n", files.Select(f => "  " + Path.GetFileName(f)))
+                + "\n\nA script with the same name is replaced (the old copy is kept in Custom/Robots-backup). "
+                + "The restart compiles the new code; the terminal's robots stop for about 10–30 s.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials = CreateCredentials();
+
+            await RunMaintenanceAsync(async () =>
+            {
+                AppendLog($"=== Upload robots to terminal \"{instance.Name}\" ===");
+                List<string> classNames = await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .UploadRobotsAsync(instance, files, CancellationToken.None)).ConfigureAwait(true);
+
+                AppendLog($"Restarting terminal \"{instance.Name}\" to compile the new code...");
+                await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+
+                await CheckRobotsCompileAsync(instance, classNames).ConfigureAwait(true);
+            }).ConfigureAwait(true);
+        }
+
+        // After the restart asks the terminal to build each uploaded robot (wiki_robot_info compiles a script on
+        // demand). A compile error is taken from the service journal, where BotFactory writes the compiler output.
+        private async Task CheckRobotsCompileAsync(VpsInstance instance, List<string> classNames)
+        {
+            List<string> pending = new List<string>(classNames);
+            DateTime deadline = DateTime.UtcNow.AddSeconds(120);
+
+            while (pending.Count > 0 && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(true);
+                await SyncTerminalsAsync().ConfigureAwait(true);
+
+                RemoteMcpClient client = VpsRemoteSession.GetClient(instance.Name);
+                if (client == null || !client.IsConnected) continue;
+
+                foreach (string className in pending.ToList())
+                {
+                    try
+                    {
+                        await client.CallToolAsync("wiki_robot_info", new { class_name = className, is_script = true }).ConfigureAwait(true);
+                        AppendLog($"Robot {className}: compiled OK");
+                        pending.Remove(className);
+                    }
+                    catch (Exception ex) when (ex.Message.Contains("MCP tool", StringComparison.Ordinal))
+                    {
+                        // the terminal answered: the script does not build — show the compiler output
+                        string details = "";
+                        try
+                        {
+                            details = (await _sshTunnel.RunCommandAsync(
+                                $"journalctl -u {instance.Service} --since '-5 min' --no-pager | grep -A4 'compilation problem (Path: Custom/Robots/{className}.cs' | tail -5 || true")
+                                .ConfigureAwait(true)).Trim();
+                        }
+                        catch
+                        {
+                            // the journal is only a hint
+                        }
+
+                        AppendLog($"Robot {className}: DOES NOT COMPILE — {ex.Message}" + (details.Length > 0 ? "\n" + details : ""));
+                        pending.Remove(className);
+                    }
+                    catch
+                    {
+                        // terminal still starting — try again
+                        break;
+                    }
+                }
+            }
+
+            foreach (string className in pending)
+            {
+                AppendLog($"Robot {className}: could not check — the terminal did not answer in time");
+            }
+        }
+
+        private async void ButtonCleanLogs_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedOrOnlyInstance();
+            if (instance == null) return;
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Clean the logs of terminal \"{instance.Name}\"?\n\nIts OsEngine log files are deleted except today's; "
+                + "the system journal of the VPS keeps the last 7 days. Robots keep working.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials = CreateCredentials();
+
+            await RunMaintenanceAsync(async () =>
+            {
+                string report = await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .CleanLogsAsync(instance, CancellationToken.None)).ConfigureAwait(true);
+                AppendLog($"Logs of terminal \"{instance.Name}\" cleaned: {report}");
+            }).ConfigureAwait(true);
+        }
+
+        private async void ButtonRebootVps_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Reboot the whole VPS {TextBoxSshHost.Text.Trim()}?\n\nAll terminals and their robots stop and start again with the "
+                + "server, usually within 1–2 minutes. The connection comes back by itself.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials = CreateCredentials();
+
+            await RunMaintenanceAsync(async () =>
+            {
+                await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread).RebootAsync(CancellationToken.None)).ConfigureAwait(true);
+                AppendLog("VPS is rebooting — the connection comes back by itself in 1–2 minutes");
+            }).ConfigureAwait(true);
+        }
+
+        #endregion
+
         #region Small helpers
 
         private void AppendLog(string message)
@@ -811,6 +1044,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         public int Port { get; set; }
         public string State { get; set; }
         public string Memory { get; set; }
+        public string Build { get; set; }
         public string Connection { get; set; }
     }
 }

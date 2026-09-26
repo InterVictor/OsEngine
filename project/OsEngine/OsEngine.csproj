@@ -159,6 +159,10 @@
       <Link>VpsServer\osengine-setup.sh</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="OsTrader\Gui\RobotsVps\Provisioning\osengine-update.sh">
+      <Link>VpsServer\osengine-update.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup Condition=" '$(Platform)' == 'AnyCPU' ">
     <Content Include="bin\$(Configuration)\libcrypto-3-x64.dll">

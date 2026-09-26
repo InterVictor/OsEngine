@@ -21,6 +21,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         public string State { get; set; }
         public long MemoryBytes { get; set; }
 
+        // first 8 chars of the SHA-256 of the installed build package ("" = installed before versioning)
+        public string Build { get; set; }
+
         public bool IsMain => string.Equals(Name, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase);
         public bool IsActive => State == "active";
         public string BaseFolder => VpsInstances.BaseFolderFor(Name);
@@ -56,7 +59,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 "key=$(echo \"$ex\" | sed -n 's/.*--mcp-key-file \\([^ ]*\\).*/\\1/p'); " +
                 "state=$(systemctl is-active \"$svc\"); " +
                 "mem=$(systemctl show \"$svc\" -p MemoryCurrent --value); " +
-                "echo \"$svc|$port|$root|$key|$state|$mem\"; " +
+                "ver=$(cut -c1-8 \"$(dirname \"$root\")/app/.package-sha256\" 2>/dev/null); " +
+                "echo \"$svc|$port|$root|$key|$state|$mem|$ver\"; " +
                 "done; true";
 
             string output = await run(script).ConfigureAwait(false);
@@ -80,7 +84,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     DataRoot = parts[2],
                     KeyFile = parts[3],
                     State = parts[4],
-                    MemoryBytes = long.TryParse(parts[5], out long memory) ? memory : 0
+                    MemoryBytes = long.TryParse(parts[5], out long memory) ? memory : 0,
+                    Build = parts.Length > 6 ? parts[6] : ""
                 });
             }
 

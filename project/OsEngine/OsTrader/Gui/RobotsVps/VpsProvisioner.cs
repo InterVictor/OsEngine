@@ -1,5 +1,6 @@
 // Robots.VPS server provisioning: deploy OsEngine on a VPS and register this computer's SSH key.
 using System;
+using System.Collections.Generic;
 using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
@@ -114,6 +115,163 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 Run(ssh, $"rm -f {RemoteScript} {RemotePackage} {RemoteCustom}");
             }
         }
+
+        public const string UpdateScriptFileName = "osengine-update.sh";
+        private const string RemoteUpdateScript = "/tmp/osengine-update.sh";
+
+        // SHA-256 of the local build package, first 8 chars — the same short id the server shows per terminal.
+        public static string LocalPackageVersion()
+        {
+            string path = LocalPath(PackageFileName);
+            if (!File.Exists(path)) return null;
+
+            using FileStream stream = File.OpenRead(path);
+            byte[] hash = System.Security.Cryptography.SHA256.HashData(stream);
+            return Convert.ToHexString(hash).ToLowerInvariant().Substring(0, 8);
+        }
+
+        // Uploads the local build package once and updates the terminals one by one with osengine-update.sh
+        // (new build next to the old one, switch, health check, automatic rollback). Terminals that already run
+        // this package are skipped. Throws if any terminal failed (the others are still updated).
+        public async Task UpdateBuildAsync(IReadOnlyList<VpsInstance> instances, CancellationToken cancel)
+        {
+            string scriptPath = LocalPath(UpdateScriptFileName);
+            string packagePath = LocalPath(PackageFileName);
+            if (!File.Exists(scriptPath)) throw new FileNotFoundException("Update script not found", scriptPath);
+            if (!File.Exists(packagePath)) throw new FileNotFoundException("Server build package not found", packagePath);
+
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
+
+            List<string> failed = new List<string>();
+
+            try
+            {
+                string script = File.ReadAllText(scriptPath).Replace("\r\n", "\n");
+                await UploadAsync(sftp, new MemoryStream(Encoding.UTF8.GetBytes(script)), RemoteUpdateScript, "update script", cancel).ConfigureAwait(false);
+
+                using (FileStream package = File.OpenRead(packagePath))
+                {
+                    await UploadAsync(sftp, package, RemotePackage, "OsEngine build", cancel).ConfigureAwait(false);
+                }
+
+                foreach (VpsInstance instance in instances)
+                {
+                    _log($"=== Updating terminal \"{instance.Name}\" ===");
+                    int exitCode = await RunStreamingAsync(ssh,
+                        $"{InstanceEnvironment(instance)} bash {RemoteUpdateScript} {RemotePackage}", cancel).ConfigureAwait(false);
+
+                    if (exitCode != 0) failed.Add(instance.Name);
+                }
+            }
+            finally
+            {
+                Run(ssh, $"rm -f {RemoteUpdateScript} {RemotePackage}");
+            }
+
+            if (failed.Count > 0)
+            {
+                throw new InvalidOperationException("Update failed for: " + string.Join(", ", failed) + " — see the lines above");
+            }
+        }
+
+        // Puts robot scripts (*.cs) into Custom/Robots of a terminal. A replaced script is kept in
+        // Custom/Robots-backup/<name>-<time>.cs; its line in the robot description cache (BotsDescription.txt)
+        // is removed so "Add bot" shows the new sources/indicators. Returns the robot class names.
+        // The terminal must be restarted afterwards to compile the new code.
+        public async Task<List<string>> UploadRobotsAsync(VpsInstance instance, IReadOnlyList<string> files, CancellationToken cancel)
+        {
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
+
+            string stamp = DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ");
+            string remoteDir = "/tmp/osengine-robots-" + stamp;
+            List<string> classNames = new List<string>();
+
+            try
+            {
+                sftp.CreateDirectory(remoteDir);
+
+                foreach (string file in files)
+                {
+                    string fileName = Path.GetFileName(file);
+                    classNames.Add(Path.GetFileNameWithoutExtension(file));
+
+                    using FileStream source = File.OpenRead(file);
+                    await UploadAsync(sftp, source, remoteDir + "/" + fileName, fileName, cancel).ConfigureAwait(false);
+                }
+
+                string data = instance.DataRoot;
+                string script =
+                    "set -e\n" +
+                    $"R='{data}/Custom/Robots'; B='{data}/Custom/Robots-backup'; D='{data}/BotsDescription.txt'\n" +
+                    "mkdir -p \"$R\" \"$B\"\n" +
+                    $"for f in {remoteDir}/*.cs; do\n" +
+                    "  n=$(basename \"$f\"); c=${n%.cs}\n" +
+                    $"  if [ -f \"$R/$n\" ]; then cp \"$R/$n\" \"$B/$c-{stamp}.cs\"; echo \"OK $n replaced (previous copy: Custom/Robots-backup/$c-{stamp}.cs)\";\n" +
+                    "  else echo \"OK $n added\"; fi\n" +
+                    "  cp \"$f\" \"$R/$n\"\n" +
+                    "  [ -f \"$D\" ] && sed -i \"/^$c&/d\" \"$D\"\n" +
+                    "done\n" +
+                    "chown -R osengine:osengine \"$R\" \"$B\"\n" +
+                    "[ -f \"$D\" ] && chown osengine:osengine \"$D\"\n" +
+                    "true\n";
+
+                int exitCode = await RunStreamingAsync(ssh, "bash -c " + ShellQuote(script), cancel).ConfigureAwait(false);
+
+                if (exitCode != 0)
+                {
+                    throw new InvalidOperationException($"Could not put the robot scripts in place (exit code {exitCode})");
+                }
+            }
+            finally
+            {
+                Run(ssh, $"rm -rf {remoteDir}");
+            }
+
+            return classNames;
+        }
+
+        // Deletes the terminal's OsEngine log files except today's (those are still being written) and trims the
+        // systemd journal to the last 7 days. Returns a short report.
+        public async Task<string> CleanLogsAsync(VpsInstance instance, CancellationToken cancel)
+        {
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+
+            string log = instance.DataRoot + "/Engine/Log";
+            string script =
+                $"L='{log}'\n" +
+                "before=$(du -sk \"$L\" 2>/dev/null | cut -f1)\n" +
+                "count=$(find \"$L\" -type f ! -newermt \"$(date +%Y-%m-%d)\" 2>/dev/null | wc -l)\n" +
+                "find \"$L\" -type f ! -newermt \"$(date +%Y-%m-%d)\" -delete 2>/dev/null\n" +
+                "after=$(du -sk \"$L\" 2>/dev/null | cut -f1)\n" +
+                "jb=$(journalctl --disk-usage | grep -o '[0-9.]*[KMG]' | head -1)\n" +
+                "journalctl --vacuum-time=7d >/dev/null 2>&1\n" +
+                "ja=$(journalctl --disk-usage | grep -o '[0-9.]*[KMG]' | head -1)\n" +
+                "echo \"OsEngine logs: $count files deleted, $((before/1024)) MB -> $((after/1024)) MB; systemd journal: $jb -> $ja\"\n";
+
+            using SshCommand command = ssh.RunCommand("bash -c " + ShellQuote(script));
+            return command.Result.Trim();
+        }
+
+        // Reboots the whole VPS. The command returns at once; the SSH tunnel reconnects by itself and the
+        // terminals start with the server (their services are enabled).
+        public async Task RebootAsync(CancellationToken cancel)
+        {
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+            Run(ssh, "nohup sh -c 'sleep 2; systemctl reboot' >/dev/null 2>&1 &");
+        }
+
+        private static string InstanceEnvironment(VpsInstance instance) =>
+            $"OSENGINE_BASE={instance.BaseFolder} OSENGINE_SERVICE={instance.Service} OSENGINE_MCP_PORT={instance.Port}";
+
+        private static string ShellQuote(string value) => "'" + value.Replace("'", "'\\''") + "'";
 
         // Creates a key pair for this computer on the server, authorizes its public half for the login user
         // and returns the private half. The client keeps it (DPAPI-encrypted) and logs in with it from then on,

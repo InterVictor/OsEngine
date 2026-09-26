@@ -27,13 +27,13 @@ UNIT="/etc/systemd/system/$SERVICE.service"
 
 fail() { echo "FAIL $*"; exit 1; }
 
-echo "STEP 1/11 checking the system"
+echo "STEP 1/12 checking the system"
 [ "$(id -u)" = "0" ] || fail "must run as root"
 command -v apt-get >/dev/null || fail "apt-get not found: only Ubuntu/Debian is supported"
 . /etc/os-release
 echo "OK $PRETTY_NAME, $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB RAM, $(df -h / | awk 'NR==2 {print $4}') free disk"
 
-echo "STEP 2/11 time: UTC + NTP"
+echo "STEP 2/12 time: UTC + NTP"
 if [ "$(timedatectl show -p Timezone --value)" != "UTC" ]; then
     timedatectl set-timezone UTC && echo "OK timezone set to UTC"
 else
@@ -51,7 +51,7 @@ else
 fi
 timedatectl set-ntp true
 
-echo "STEP 3/11 packages: ufw, fail2ban, curl, openssl"
+echo "STEP 3/12 packages: ufw, fail2ban, curl, openssl"
 MISSING=""
 for p in ufw fail2ban curl openssl tar; do
     dpkg -s "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"
@@ -63,7 +63,7 @@ else
     echo "SKIP all packages present"
 fi
 
-echo "STEP 4/11 firewall: only SSH is open"
+echo "STEP 4/12 firewall: only SSH is open"
 ufw allow OpenSSH >/dev/null
 if ufw status | grep -q "Status: active"; then
     echo "SKIP ufw already active"
@@ -71,7 +71,7 @@ else
     ufw --force enable >/dev/null && echo "OK ufw enabled (incoming denied except SSH; MCP port $MCP_PORT stays closed)"
 fi
 
-echo "STEP 5/11 fail2ban for SSH password login"
+echo "STEP 5/12 fail2ban for SSH password login"
 JAIL=/etc/fail2ban/jail.d/osengine-sshd.local
 if [ ! -f "$JAIL" ]; then
     printf '[sshd]\nenabled  = true\nbackend  = systemd\nmaxretry = 5\nfindtime = 10m\nbantime  = 1h\n' > "$JAIL"
@@ -83,18 +83,18 @@ else
     echo "SKIP fail2ban already configured"
 fi
 
-echo "STEP 6/11 service user osengine"
+echo "STEP 6/12 service user osengine"
 if id osengine >/dev/null 2>&1; then
     echo "SKIP user exists"
 else
     useradd --system --home-dir "$BASE" --shell /usr/sbin/nologin osengine && echo "OK user created"
 fi
 
-echo "STEP 7/11 folders"
+echo "STEP 7/12 folders"
 mkdir -p "$APP" "$DATA"
 echo "OK $APP, $DATA"
 
-echo "STEP 8/11 OsEngine build"
+echo "STEP 8/12 OsEngine build"
 if [ -x "$APP/OsEngine" ]; then
     echo "SKIP build already installed (updates are a separate action)"
 elif [ -z "$APP_PACKAGE" ] && [ "$BASE" != "/opt/osengine" ] && [ -x /opt/osengine/app/OsEngine ]; then
@@ -105,10 +105,11 @@ else
     [ -n "$APP_PACKAGE" ] && [ -f "$APP_PACKAGE" ] || fail "build package not found: $APP_PACKAGE"
     tar xzf "$APP_PACKAGE" -C "$APP" || fail "unpack $APP_PACKAGE"
     chmod +x "$APP/OsEngine"
+    sha256sum "$APP_PACKAGE" | cut -c1-64 > "$APP/.package-sha256"   # build version, used by osengine-update.sh
     echo "OK build installed ($(du -sh "$APP" | cut -f1))"
 fi
 
-echo "STEP 9/11 robot scripts (Custom)"
+echo "STEP 9/12 robot scripts (Custom)"
 if [ -d "$DATA/Custom/Robots" ]; then
     echo "SKIP Custom already present ($(ls "$DATA/Custom/Robots" | wc -l) robot files)"
 elif [ -n "$CUSTOM_PACKAGE" ] && [ -f "$CUSTOM_PACKAGE" ]; then
@@ -123,7 +124,7 @@ else
     echo "WARN no Custom package given — robot scripts must be uploaded later"
 fi
 
-echo "STEP 10/11 MCP API key"
+echo "STEP 10/12 MCP API key"
 if [ -s "$KEY_FILE" ]; then
     echo "SKIP key exists (kept)"
 else
@@ -134,7 +135,31 @@ chown osengine:osengine "$KEY_FILE"
 chmod 600 "$KEY_FILE"
 chown -R osengine:osengine "$BASE"
 
-echo "STEP 11/11 systemd service"
+echo "STEP 11/12 log retention"
+mkdir -p /etc/systemd/journald.conf.d
+if [ ! -f /etc/systemd/journald.conf.d/osengine.conf ]; then
+    printf '[Journal]\nSystemMaxUse=200M\n' > /etc/systemd/journald.conf.d/osengine.conf
+    systemctl restart systemd-journald
+    journalctl --vacuum-size=200M >/dev/null 2>&1
+    echo "OK systemd journal limited to 200 MB"
+else
+    echo "SKIP systemd journal limit already set"
+fi
+if [ ! -f /etc/cron.daily/osengine-logs ]; then
+    # every terminal: /opt/osengine/data and /opt/osengine-<name>/data
+    cat > /etc/cron.daily/osengine-logs <<'CRON'
+#!/bin/sh
+# written by osengine-setup.sh: OsEngine logs older than 30 days, every terminal
+find /opt/osengine*/data/Engine/Log -type f -mtime +30 -delete 2>/dev/null
+exit 0
+CRON
+    chmod +x /etc/cron.daily/osengine-logs
+    echo "OK OsEngine logs older than 30 days are deleted daily"
+else
+    echo "SKIP daily log cleanup already set"
+fi
+
+echo "STEP 12/12 systemd service"
 NEW_UNIT=$(cat <<EOF
 # systemd unit of the headless OsEngine build (written by osengine-setup.sh)
 [Unit]
