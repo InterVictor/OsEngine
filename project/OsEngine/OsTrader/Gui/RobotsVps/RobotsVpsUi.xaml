@@ -102,8 +102,12 @@
                 <Label Grid.Row="0" Grid.Column="0" Content="Server" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" Name="TextBlockComputerKey" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="Gray"
                            Text="SSH key of this computer: not registered — connect once with the root password"/>
-                <Button Grid.Row="0" Grid.Column="2" Name="ButtonDeployServer" Content="Deploy / repair server" Width="170" Height="28" Click="ButtonDeployServer_Click"
+                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+                    <Button Name="ButtonComputers" Content="Computers..." Width="100" Height="28" Margin="0,0,5,0" Click="ButtonComputers_Click"
+                            ToolTip="Computers whose SSH keys may log in to the VPS; revoke a lost or replaced one"/>
+                    <Button Name="ButtonDeployServer" Content="Deploy / repair server" Width="170" Height="28" Click="ButtonDeployServer_Click"
                         ToolTip="Sets up OsEngine on the VPS over SSH (IP, user and password above). Safe to run again on a working server: only missing parts are added."/>
+                </StackPanel>
 
                 <!-- Терминалы на VPS: службы osengine / osengine-<name>, у каждого свои папка, порт MCP и ключ -->
                 <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="DataGridTerminals" Height="120" Margin="0,6,10,0"

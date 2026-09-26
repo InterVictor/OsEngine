@@ -214,6 +214,21 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
+        private void ButtonComputers_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+
+            // the keys this computer logs in with: its registered key and the key file, if any
+            string[] mine =
+            {
+                VpsComputers.Fingerprint(_computerKey, null),
+                VpsComputers.Fingerprint(null, Environment.ExpandEnvironmentVariables(TextBoxSshKeyPath.Text.Trim().Trim('"')))
+            };
+
+            RobotsVpsComputersUi window = new RobotsVpsComputersUi(_sshTunnel.RunCommandAsync, mine, AppendLog) { Owner = this };
+            window.ShowDialog();
+        }
+
         private async void ButtonDeployServer_Click(object sender, RoutedEventArgs e)
         {
             VpsSshCredentials credentials;
