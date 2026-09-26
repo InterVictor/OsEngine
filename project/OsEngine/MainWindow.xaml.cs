@@ -330,6 +330,15 @@ namespace OsEngine
                 return;
             }
 
+            if (e.Exception != null
+                && e.Exception.InnerExceptions.Count > 0
+                && System.Linq.Enumerable.All(e.Exception.InnerExceptions, ex => ex is Renci.SshNet.Common.SshException))
+            { // Роботы.VPS: при обрыве SSH-соединения посреди команды SSH.NET оставляет свою внутреннюю задачу с ошибкой,
+              // которую никто не ждёт. Наш вызов эту ошибку уже обработал, туннель переподключается сам — это не сбой терминала
+                e.SetObserved();
+                return;
+            }
+
             string message = OsLocalization.MainWindow.Message5 + " TASK " + e.Exception.ToString();
 
             message = _startProgram + "  " + message;
@@ -1761,31 +1770,29 @@ namespace OsEngine
             }
         }
 
+        // Fork (feature/robots-vps): information only. The built-in updater (UpdateModuleUi) downloads the official binaries
+        // into bin\Debug and replaces the files that differ — this fork's OsEngine.dll always differs, so Robots.VPS and the
+        // other fork changes would be gone. The count still tells that the official OsEngine has news; they are taken into
+        // the fork through git (D:\ff-research\tools\check-upstream.sh shows what changed).
         private void ButtonNewCommits_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Hide();
-                UpdateModuleUi ui = new UpdateModuleUi(_updServerResp);
-                ui.ShowDialog();
+                string count = _commitsCount > 0 ? _commitsCount.ToString() : _commitsCount == 0 ? "0" : "?";
 
-                if(ui.IsUpdated == true)
-                {
-                    Close();
-                    ProccesIsWorked = false;
-                    Thread.Sleep(5000);
-                    Process.GetCurrentProcess().Kill();
-                }
-                else
-                {
-                    Show();
-                }
+                CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.ConvertToLocString(
+                    "Eng:New changes in the official OsEngine: " + count + ".\n\n" +
+                    "This terminal is a fork, so the built-in updater is switched off: it would replace this build with the official one and remove Robots.VPS. " +
+                    "Official changes are merged into the fork through git — ask Claude to \"pull the main branch\"._" +
+                    "Ru:Новых изменений в официальном OsEngine: " + count + ".\n\n" +
+                    "Этот терминал — форк, поэтому встроенное обновление отключено: оно заменило бы эту сборку официальной и убрало бы Роботы.VPS. " +
+                    "Изменения основной ветки вносятся в форк через git — попросите Claude «подтянуть основную ветку»._"));
+                ui.ShowDialog();
             }
             catch (Exception error)
             {
                 MessageBox.Show(error.ToString());
             }
-           
         }
 
         private void ButtCommits_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
