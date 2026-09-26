@@ -272,6 +272,14 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetJournalStopLimitPositions(request.Params);
                         break;
 
+                    case "bot_journal_get_panels":
+                        response.Result = GetJournalPanels(request.Params);
+                        break;
+
+                    case "bot_journal_delete_position":
+                        response.Result = DeleteJournalPosition(request.Params);
+                        break;
+
                     default:
                         response.Error = new McpJsonRpcError
                         {
@@ -1271,6 +1279,36 @@ namespace OsEngine.MCP.Modules
                             bot_name = new { type = "string", description = "Optional unique robot name" }
                         },
                         required = new string[0]
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_journal_get_panels",
+                    Description = "Get robot journals in the same shape the Journal window receives them locally (BotPanelJournal): bot name, class and, per journal tab, all positions serialized with Position.GetStringForSave()",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_name = new { type = "string", description = "Optional unique robot name. If omitted, returns journals of all robots" }
+                        },
+                        required = new string[0]
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_journal_delete_position",
+                    Description = "Remove a position (open or closed) from a robot's journal without sending any order — the Journal window's 'Delete selected' / 'Delete all' context-menu action. Does not touch the exchange",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_name = new { type = "string", description = "Unique robot name" },
+                            tab_num = new { type = "integer", description = "Journal index as returned by bot_journal_get_panels" },
+                            position_number = new { type = "integer", description = "Position number" }
+                        },
+                        required = new[] { "bot_name", "tab_num", "position_number" }
                     }
                 }
             };
@@ -5964,6 +6002,113 @@ namespace OsEngine.MCP.Modules
             {
                 positions = positions.Select(p => PositionToDto(p)).ToList(),
                 count = positions.Count
+            };
+        }
+
+        // Same data OsTraderMaster/BotPanel pass to JournalUi2 (List<BotPanelJournal>): one entry per robot,
+        // one tab per journal from bot.GetJournals(), positions in their native save format so the client
+        // can rebuild real Position objects via Position.SetDealFromString().
+        private object GetJournalPanels(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+            string botName = GetOptionalBotName(parameters);
+            ValidateBotNameIfSpecified(master, botName);
+            List<object> bots = new List<object>();
+
+            if (master.PanelsArray != null)
+            {
+                for (int i = 0; i < master.PanelsArray.Count; i++)
+                {
+                    BotPanel bot = master.PanelsArray[i];
+
+                    if (botName != null && bot.NameStrategyUniq != botName)
+                    {
+                        continue;
+                    }
+
+                    List<JournalClass> journals = bot.GetJournals();
+
+                    if (journals == null)
+                    {
+                        continue;
+                    }
+
+                    List<object> tabs = new List<object>();
+
+                    for (int j = 0; j < journals.Count; j++)
+                    {
+                        List<string> positions = new List<string>();
+                        List<Position> all = journals[j]?.AllPosition ?? new List<Position>();
+
+                        for (int k = 0; k < all.Count; k++)
+                        {
+                            if (all[k] != null)
+                            {
+                                positions.Add(all[k].GetStringForSave().ToString());
+                            }
+                        }
+
+                        tabs.Add(new { tab_num = j, positions = positions });
+                    }
+
+                    bots.Add(new
+                    {
+                        bot_name = bot.NameStrategyUniq,
+                        bot_class = bot.GetNameStrategyType(),
+                        tabs = tabs
+                    });
+                }
+            }
+
+            return new { bots = bots, count = bots.Count };
+        }
+
+        // 1:1 with JournalUi2.DeletePosition: find the position by number in the given journal and call
+        // Journal.DeletePosition — works for open and closed positions alike, no order is sent.
+        private object DeleteJournalPosition(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+            string botName = GetRequiredString(parameters, "bot_name");
+            int tabNum = GetRequiredInt(parameters, "tab_num");
+            int positionNumber = GetRequiredInt(parameters, "position_number");
+
+            BotPanel bot = master.PanelsArray?.Find(b => b.NameStrategyUniq == botName);
+
+            if (bot == null)
+            {
+                throw new ArgumentException($"Robot '{botName}' not found");
+            }
+
+            List<JournalClass> journals = bot.GetJournals();
+
+            if (journals == null || tabNum < 0 || tabNum >= journals.Count || journals[tabNum] == null)
+            {
+                throw new ArgumentException($"Journal {tabNum} not found for robot '{botName}'");
+            }
+
+            JournalClass journal = journals[tabNum];
+            Position position = journal.AllPosition?.Find(p => p != null && p.Number == positionNumber);
+
+            if (position == null)
+            {
+                throw new ArgumentException($"Position {positionNumber} not found in journal {tabNum} of robot '{botName}'");
+            }
+
+            if (MainWindow.GetDispatcher.CheckAccess())
+            {
+                journal.DeletePosition(position);
+            }
+            else
+            {
+                MainWindow.GetDispatcher.Invoke(() => journal.DeletePosition(position));
+            }
+
+            return new
+            {
+                bot_name = botName,
+                tab_num = tabNum,
+                position_number = positionNumber,
+                state = position.State.ToString()
             };
         }
 

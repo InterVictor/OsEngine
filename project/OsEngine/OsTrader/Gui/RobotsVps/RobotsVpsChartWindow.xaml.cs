@@ -16,6 +16,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using OsEngine.Charts.CandleChart;
 using OsEngine.Entity;
+using OsEngine.Journal;
 using OsEngine.Indicators;
 using OsEngine.Language;
 using OsEngine.Layout;
@@ -1204,7 +1205,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         }
         private RobotsVpsJournalUi _remoteJournalWindow;
 
-        private void ButtonJournalCommunity_Click(object sender, RoutedEventArgs e)
+        private async void ButtonJournalCommunity_Click(object sender, RoutedEventArgs e)
         {
             if (_remoteJournalWindow != null && _remoteJournalWindow.IsVisible)
             {
@@ -1213,9 +1214,27 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return;
             }
 
-            _remoteJournalWindow = new RobotsVpsJournalUi(_client, _botId) { Owner = this };
-            _remoteJournalWindow.Closed += (s, args) => _remoteJournalWindow = null;
-            _remoteJournalWindow.Show();
+            try
+            {
+                List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, _botId).ConfigureAwait(true);
+
+                if (_remoteJournalWindow != null)
+                {
+                    return;
+                }
+
+                _remoteJournalWindow = new RobotsVpsJournalUi(panelsJournal, StartProgram.IsOsTrader) { Owner = this };
+                RemoteMcpClient journalClient = _client;
+                string journalBotName = _botId;
+                _remoteJournalWindow.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, journalBotName, panelsJournal);
+                _remoteJournalWindow.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, name, tabNum, number);
+                _remoteJournalWindow.Closed += (s, args) => _remoteJournalWindow = null;
+                _remoteJournalWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open the robot journal: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
         // OsTraderMaster.BotShowRiskManager -> BotPanel.ShowPanelRiskManagerDialog: открывает RiskManager,
         // объект, который живёт только локально на сервере и не проброшен ни одним MCP-инструментом

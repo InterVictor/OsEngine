@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Threading;
 using OsEngine.Entity;
+using OsEngine.Journal;
 using OsEngine.Language;
 using OsEngine.MCP.Client;
 using OsEngine.Market;
@@ -1666,7 +1667,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
-        private void ShowBotJournal(VpsBotRow bot)
+        private async void ShowBotJournal(VpsBotRow bot)
         {
             try
             {
@@ -1677,7 +1678,19 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     return;
                 }
 
-                RobotsVpsJournalUi journalWindow = new RobotsVpsJournalUi(_client, bot.InternalName);
+                // 1:1 с BotPanel.ShowJournal: один BotPanelJournal с журналами всех вкладок робота.
+                List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, bot.InternalName).ConfigureAwait(true);
+
+                if (_botJournalWindows.ContainsKey(bot.InternalName))
+                {
+                    return;
+                }
+
+                RobotsVpsJournalUi journalWindow = new RobotsVpsJournalUi(panelsJournal, StartProgram.IsOsTrader);
+                RemoteMcpClient journalClient = _client;
+                string journalBotName = bot.InternalName;
+                journalWindow.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, journalBotName, panelsJournal);
+                journalWindow.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, name, tabNum, number);
                 journalWindow.Owner = Window.GetWindow(this);
                 string internalName = bot.InternalName;
                 journalWindow.Closed += (s, e) => _botJournalWindows.Remove(internalName);
@@ -1739,7 +1752,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         // 1:1 с OsTraderMaster.ShowCommunityJournal: одно окно на всё время жизни родительского окна,
         // повторный клик активирует уже открытое, а не плодит дубликаты.
-        private void ShowCommunityJournal()
+        private async void ShowCommunityJournal()
         {
             try
             {
@@ -1757,7 +1770,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     return;
                 }
 
-                _communityJournalWindow = new RobotsVpsCommunityJournalUi(_client);
+                // 1:1 с OsTraderMaster.ShowCommunityJournal: по BotPanelJournal на каждого робота.
+                List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, null).ConfigureAwait(true);
+
+                if (_communityJournalWindow != null)
+                {
+                    return;
+                }
+
+                _communityJournalWindow = new RobotsVpsCommunityJournalUi(panelsJournal, StartProgram.IsOsTrader);
+                RemoteMcpClient journalClient = _client;
+                _communityJournalWindow.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, null, panelsJournal);
+                _communityJournalWindow.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, name, tabNum, number);
                 _communityJournalWindow.Owner = Window.GetWindow(this);
                 _communityJournalWindow.Closed += (s, e) => _communityJournalWindow = null;
                 _communityJournalWindow.Show();
