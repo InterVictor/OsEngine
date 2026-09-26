@@ -51,6 +51,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="190"/>
                     <ColumnDefinition Width="105"/>
+                    <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="90"/>
                     <ColumnDefinition Width="95"/>
@@ -64,17 +65,21 @@
                     <TextBox Name="TextBoxSshUser" Height="24" Text="root"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                    <TextBlock Text="OpenSSH private key file (passphrase-free key)" FontSize="11" Foreground="Gray"/>
-                    <TextBox Name="TextBoxSshKeyPath" Height="24"/>
+                    <TextBlock Text="SSH password" FontSize="11" Foreground="Gray"/>
+                    <PasswordBox Name="PasswordBoxSshPassword" Height="24"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" Margin="0,0,8,0">
+                    <TextBlock Text="OpenSSH private key file (optional if a password is set)" FontSize="11" Foreground="Gray"/>
+                    <TextBox Name="TextBoxSshKeyPath" Height="24"/>
+                    <CheckBox Name="CheckBoxAutoConnectSsh" Content="Connect SSH automatically on program start" Margin="0,4,0,0" Click="CheckBoxAutoConnectSsh_Click"/>
+                </StackPanel>
+                <StackPanel Grid.Column="4" Margin="0,0,8,0">
                     <TextBlock Text="Local port" FontSize="11" Foreground="Gray"/>
                     <TextBox Name="TextBoxSshLocalPort" Height="24" Text="6510"/>
                 </StackPanel>
-                <StackPanel Grid.Column="4">
+                <StackPanel Grid.Column="5">
                     <TextBlock Text="VPS API port" FontSize="11" Foreground="Gray"/>
                     <TextBox Name="TextBoxSshRemotePort" Height="24" Text="6500"/>
-                    <CheckBox Name="CheckBoxAutoConnectSsh" Content="Connect SSH automatically on program start" Margin="0,4,0,0" Click="CheckBoxAutoConnectSsh_Click"/>
                 </StackPanel>
             </Grid>
         </Grid>

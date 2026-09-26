@@ -9,6 +9,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -99,7 +101,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 if (lines.Length > 1 && !string.IsNullOrWhiteSpace(lines[1]))
                 {
-                    PasswordBoxApiKey.Password = lines[1];
+                    PasswordBoxApiKey.Password = UnprotectSecret(lines[1]);
                 }
 
                 if (lines.Length > 2) TextBoxSshHost.Text = lines[2];
@@ -108,11 +110,30 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (lines.Length > 5 && !string.IsNullOrWhiteSpace(lines[5])) TextBoxSshLocalPort.Text = lines[5];
                 if (lines.Length > 6 && !string.IsNullOrWhiteSpace(lines[6])) TextBoxSshRemotePort.Text = lines[6];
                 if (lines.Length > 7 && bool.TryParse(lines[7], out bool autoConnect)) CheckBoxAutoConnectSsh.IsChecked = autoConnect;
+                if (lines.Length > 8 && !string.IsNullOrWhiteSpace(lines[8])) PasswordBoxSshPassword.Password = UnprotectSecret(lines[8]);
             }
             catch (Exception ex)
             {
                 AppendLog("Settings load failed: " + ex.Message);
             }
+        }
+
+        // Secrets (MCP API key, SSH password) are stored encrypted for the current Windows user (DPAPI).
+        // Values saved by older versions in plain text are still read and get encrypted on the next save.
+        private const string ProtectedPrefix = "dpapi:";
+
+        private static string ProtectSecret(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            byte[] data = ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser);
+            return ProtectedPrefix + Convert.ToBase64String(data);
+        }
+
+        private static string UnprotectSecret(string stored)
+        {
+            if (string.IsNullOrEmpty(stored) || !stored.StartsWith(ProtectedPrefix, StringComparison.Ordinal)) return stored ?? "";
+            byte[] data = ProtectedData.Unprotect(Convert.FromBase64String(stored.Substring(ProtectedPrefix.Length)), null, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(data);
         }
 
         private void SaveSettings()
@@ -123,13 +144,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 File.WriteAllLines(SettingsFile, new[]
                 {
                     TextBoxUrl.Text.Trim(),
-                    PasswordBoxApiKey.Password,
+                    ProtectSecret(PasswordBoxApiKey.Password),
                     TextBoxSshHost.Text.Trim(),
                     TextBoxSshUser.Text.Trim(),
                     TextBoxSshKeyPath.Text.Trim(),
                     TextBoxSshLocalPort.Text.Trim(),
                     TextBoxSshRemotePort.Text.Trim(),
-                    (CheckBoxAutoConnectSsh.IsChecked == true).ToString()
+                    (CheckBoxAutoConnectSsh.IsChecked == true).ToString(),
+                    ProtectSecret(PasswordBoxSshPassword.Password)
                 });
             }
             catch (Exception ex)
@@ -175,17 +197,40 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                         TextBoxSshHost.Text.Trim(),
                         TextBoxSshUser.Text.Trim(),
                         TextBoxSshKeyPath.Text,
+                        PasswordBoxSshPassword.Password,
                         localPort,
                         remotePort,
                         message => Dispatcher.BeginInvoke(new Action(() => AppendLog(message))));
 
                     url = $"http://127.0.0.1:{localPort}/api/v2/mcp";
                     TextBoxUrl.Text = url;
+
+                    // The MCP API key lives on the VPS (/opt/osengine/mcp.key); read it over the same SSH
+                    // connection instead of relying on what was typed into the API Key box.
+                    if (tunnel.StartedByThisWindow)
+                    {
+                        try
+                        {
+                            string serverKey = (await tunnel.RunCommandAsync("cat /opt/osengine/mcp.key").ConfigureAwait(true)).Trim();
+
+                            if (serverKey.Length > 0)
+                            {
+                                if (serverKey != apiKey) AppendLog("MCP API key read from the VPS");
+                                apiKey = serverKey;
+                                PasswordBoxApiKey.Password = serverKey;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            AppendLog("Could not read the MCP API key from the VPS, using the API Key box: " + ex.Message);
+                        }
+                    }
                 }
 
                 client = new RemoteMcpClient(url, apiKey);
                 client.EventReceived += Client_EventReceived;
                 client.Disconnected += Client_Disconnected;
+                client.Reconnected += Client_Reconnected;
                 await client.ConnectAsync().ConfigureAwait(true);
 
                 _client = client;
@@ -205,6 +250,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 {
                     client.EventReceived -= Client_EventReceived;
                     client.Disconnected -= Client_Disconnected;
+                    client.Reconnected -= Client_Reconnected;
                     client.Dispose();
                 }
                 tunnel?.Dispose();
@@ -229,6 +275,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
                 _client.EventReceived -= Client_EventReceived;
                 _client.Disconnected -= Client_Disconnected;
+                _client.Reconnected -= Client_Reconnected;
                 _client.Dispose();
                 _client = null;
             }
@@ -241,17 +288,33 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (stoppedTunnel) AppendLog("SSH tunnel stopped");
             }
 
+            _reconnecting = false;
             ButtonConnect.IsEnabled = true;
             ButtonDisconnect.IsEnabled = false;
             SetStatus("Disconnected", Brushes.Gray);
         }
+
+        // Raised on every failed retry (~2 s) while the server is unreachable — log only the first one.
+        private bool _reconnecting;
 
         private void Client_Disconnected(Exception ex)
         {
             Dispatcher.Invoke(() =>
             {
                 SetStatus("Reconnecting...", Brushes.Orange);
-                AppendLog("SSE stream dropped: " + ex.Message);
+                if (_reconnecting) return;
+                _reconnecting = true;
+                AppendLog("Connection to the VPS lost, reconnecting: " + ex.Message);
+            });
+        }
+
+        private void Client_Reconnected()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _reconnecting = false;
+                SetStatus("Connected", Brushes.Green);
+                AppendLog("Connection to the VPS restored");
             });
         }
 
@@ -268,6 +331,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     AppendLog("Emergency alert received from VPS: " + botName);
                     return;
                 }
+
+                // heartbeat arrives every 5 s just to keep the stream alive — not worth a log line
+                if (eventName == "heartbeat") return;
 
                 AppendLog(eventName);
             });

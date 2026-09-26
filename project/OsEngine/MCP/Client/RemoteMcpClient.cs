@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -53,6 +54,15 @@ namespace OsEngine.MCP.Client
         /// </summary>
         public event Action<Exception> Disconnected;
 
+        /// <summary>
+        /// fired when the SSE stream is open again after a Disconnected (tunnel restored, server back after a
+        /// restart — in that case the session is re-initialized automatically). Raised on the SSE reader thread.
+        /// </summary>
+        public event Action Reconnected;
+
+        private readonly SemaphoreSlim _reinitializeLock = new SemaphoreSlim(1, 1);
+        private bool _streamBroken;
+
         private readonly HttpClient _httpClient;
         private string _sessionId;
         private readonly object _sessionLocker = new object();
@@ -75,6 +85,16 @@ namespace OsEngine.MCP.Client
         /// </summary>
         public async Task ConnectAsync(CancellationToken cancel = default)
         {
+            await InitializeSessionAsync(cancel).ConfigureAwait(false);
+
+            IsConnected = true;
+
+            _sseCts = new CancellationTokenSource();
+            _sseTask = Task.Run(() => SseReaderLoop(_sseCts.Token));
+        }
+
+        private async Task InitializeSessionAsync(CancellationToken cancel)
+        {
             // capabilities.logging обязателен: без него McpMaster не включает LoggingEnabled для сессии
             // и события (server_instance.*, terminal.*) в GET-поток не идут — только тихий ответ на tools/call.
             await SendRequestAsync("initialize", new
@@ -85,11 +105,34 @@ namespace OsEngine.MCP.Client
             }, cancel).ConfigureAwait(false);
 
             await SendInitializedNotificationAsync(cancel).ConfigureAwait(false);
+        }
 
-            IsConnected = true;
+        // The server answers 404 "Session not found" once it has been restarted (service restart, update,
+        // VPS reboot): sessions live only in its memory. Open a new one, as the MCP spec requires. Several
+        // callers may hit the 404 at once — only the first re-initializes, the rest reuse the new session.
+        private async Task ReinitializeSessionAsync(string staleSessionId, CancellationToken cancel)
+        {
+            await _reinitializeLock.WaitAsync(cancel).ConfigureAwait(false);
 
-            _sseCts = new CancellationTokenSource();
-            _sseTask = Task.Run(() => SseReaderLoop(_sseCts.Token));
+            try
+            {
+                lock (_sessionLocker)
+                {
+                    if (_sessionId != staleSessionId)
+                    {
+                        return;
+                    }
+
+                    _sessionId = null;
+                }
+
+                await InitializeSessionAsync(cancel).ConfigureAwait(false);
+                ServerMaster.SendNewLogMessage("RemoteMcpClient: server session expired, new session opened", LogMessageType.System);
+            }
+            finally
+            {
+                _reinitializeLock.Release();
+            }
         }
 
         public void Disconnect()
@@ -152,8 +195,10 @@ namespace OsEngine.MCP.Client
 
         #region JSON-RPC transport
 
-        private async Task<JsonElement> SendRequestAsync(string method, object parameters, CancellationToken cancel)
+        private async Task<JsonElement> SendRequestAsync(string method, object parameters, CancellationToken cancel, bool allowReinitialize = true)
         {
+            string usedSessionId = null;
+
             var request = new
             {
                 jsonrpc = "2.0",
@@ -176,6 +221,7 @@ namespace OsEngine.MCP.Client
                 {
                     if (_sessionId != null)
                     {
+                        usedSessionId = _sessionId;
                         httpRequest.Headers.Add("Mcp-Session-Id", _sessionId);
                         httpRequest.Headers.Add("MCP-Protocol-Version", ProtocolVersion);
                     }
@@ -184,6 +230,12 @@ namespace OsEngine.MCP.Client
 
             using HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, cancel).ConfigureAwait(false);
             string body = await response.Content.ReadAsStringAsync(cancel).ConfigureAwait(false);
+
+            if (response.StatusCode == HttpStatusCode.NotFound && usedSessionId != null && allowReinitialize)
+            {
+                await ReinitializeSessionAsync(usedSessionId, cancel).ConfigureAwait(false);
+                return await SendRequestAsync(method, parameters, cancel, false).ConfigureAwait(false);
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -298,7 +350,21 @@ namespace OsEngine.MCP.Client
 
                     using HttpResponseMessage response = await _httpClient
                         .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel).ConfigureAwait(false);
+
+                    if (response.StatusCode == HttpStatusCode.NotFound)
+                    {
+                        // server restarted — our session is gone; open a new one and reconnect the stream
+                        await ReinitializeSessionAsync(sessionId, cancel).ConfigureAwait(false);
+                        continue;
+                    }
+
                     response.EnsureSuccessStatusCode();
+
+                    if (_streamBroken)
+                    {
+                        _streamBroken = false;
+                        Reconnected?.Invoke();
+                    }
 
                     using Stream stream = await response.Content.ReadAsStreamAsync(cancel).ConfigureAwait(false);
                     using StreamReader reader = new StreamReader(stream, Encoding.UTF8);
@@ -309,6 +375,7 @@ namespace OsEngine.MCP.Client
 
                         if (line == null)
                         {
+                            _streamBroken = true;
                             break; // сервер закрыл поток — переподключаемся во внешнем while
                         }
 
@@ -326,6 +393,7 @@ namespace OsEngine.MCP.Client
                 }
                 catch (Exception ex)
                 {
+                    _streamBroken = true;
                     Disconnected?.Invoke(ex);
                 }
 
