@@ -1460,6 +1460,7 @@ namespace OsEngine.MCP
                     case "server_instance_get_non_trade_periods":
                     case "server_instance_set_non_trade_periods":
                     case "server_instance_get_portfolios":
+                    case "server_instance_close_position_on_board":
                     case "server_instance_get_status":
                     case "server_instance_get_active_orders":
                     case "server_instance_get_historical_orders":

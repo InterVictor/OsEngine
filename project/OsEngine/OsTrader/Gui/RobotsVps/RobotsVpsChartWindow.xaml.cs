@@ -748,7 +748,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             items[2].Click += (s, args) => OpenPositionCloseDialog(positionNumber, "Limit");
 
             items[3] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem14 };
-            items[3].Click += (s, args) => NotAvailableRemotely(); // PositionAddingUi2 — не портирован
+            items[3].Click += (s, args) => OpenPositionAddingDialog(positionNumber);
 
             items[4] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem5 };
             items[4].Click += (s, args) => OpenPositionCloseDialog(positionNumber, "Stop");
@@ -768,6 +768,26 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // "Закрыть выбранную" / "Переставить стоп" / "Переставить профит" в оригинале — один и тот же
         // диалог (PositionCloseUi2) с разной начальной вкладкой; повторный вызов для той же позиции
         // активирует уже открытое окно и переключает вкладку, как и оригинал.
+        // BotTabSimple.ShowPositionAddingDialog: one PositionAddingUi2 per position, opened on the Limit tab
+        private readonly Dictionary<int, RobotsVpsPositionAddingUi> _remotePositionAddingWindows = new();
+
+        private void OpenPositionAddingDialog(int positionNumber)
+        {
+            if (_remotePositionAddingWindows.TryGetValue(positionNumber, out RobotsVpsPositionAddingUi existing) && existing.IsVisible)
+            {
+                if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                existing.SelectTab(0);
+                return;
+            }
+
+            RobotsVpsPositionAddingUi window = new RobotsVpsPositionAddingUi(_client, _botId, _tabName, _securityName, positionNumber) { Owner = this };
+            window.SelectTab(0);
+            window.Closed += (s, args) => _remotePositionAddingWindows.Remove(positionNumber);
+            _remotePositionAddingWindows[positionNumber] = window;
+            window.Show();
+        }
+
         private void OpenPositionCloseDialog(int positionNumber, string initialTab)
         {
             if (_remotePositionCloseWindows.TryGetValue(positionNumber, out RobotsVpsPositionCloseUi existing) && existing.IsVisible)
@@ -1236,11 +1256,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 System.Windows.MessageBox.Show("Could not open the robot journal: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
-        // OsTraderMaster.BotShowRiskManager -> BotPanel.ShowPanelRiskManagerDialog: открывает RiskManager,
-        // объект, который живёт только локально на сервере и не проброшен ни одним MCP-инструментом
-        // (в MCP/Modules/RobotsApi.cs таких tools нет вовсе). Явная заглушка, а не тихая подмена.
-        private void ButtonRiskManager_Click(object sender, RoutedEventArgs e) =>
-            NotAvailableRemotely("Risk manager settings are not exposed over MCP yet");
+        // OsTraderMaster.BotShowRiskManager -> BotPanel.ShowPanelRiskManagerDialog: the robot's RiskManagerUi,
+        // here backed by bot_risk_manager_get/set (modal, like the original ShowDialog).
+        private void ButtonRiskManager_Click(object sender, RoutedEventArgs e)
+        {
+            RobotsVpsRiskManagerUi window = new RobotsVpsRiskManagerUi(_client, _botId) { Owner = this };
+            window.ShowDialog();
+        }
         private void ButtonRedactTab_Click(object sender, RoutedEventArgs e)
         {
             RobotsVpsDataSettingsUi window = new RobotsVpsDataSettingsUi(_client, _botId, _tabName) { Owner = this };

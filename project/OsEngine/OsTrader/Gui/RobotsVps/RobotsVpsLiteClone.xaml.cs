@@ -1120,7 +1120,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             items[1].Click += (s, args) => _ = ActivePositionCloseOneAsync(botId, positionNumber);
 
             items[2] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem14 };
-            items[2].Click += (s, args) => NotAvailableRemotely("Adding to a position"); // PositionAddingUi2 — не портирован
+            items[2].Click += (s, args) => OpenPositionAddingDialogAsync(botId, securityName, positionNumber);
 
             items[3] = new ToolStripMenuItem { Text = OsLocalization.Journal.PositionMenuItem5 };
             items[3].Click += (s, args) => OpenPositionCloseDialogAsync(botId, securityName, positionNumber, "Stop");
@@ -1162,11 +1162,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _closedPositionsGrid.ContextMenuStrip.Show(_closedPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
         }
 
-        // BuyAtStopPositionsViewer._grid_Click в оригинале: 2 пункта ("Удалить все"/"Удалить выбранную").
-        // Явная заглушка на ОБА пункта: bot_journal_get_stop_limit_positions не отдаёт bot_name на строку
-        // (см. GetJournalStopLimitPositions в RobotsApi.cs — только number/tab_name/security_name/...), а
-        // bot_position_*/bot_chart_execute_action требуют bot_id. Без правки серверного DTO бота для
-        // конкретной строки надёжно не определить — показываем видимое сообщение, а не гадаем/бьём не туда.
+        // BuyAtStopPositionsViewer._grid_Click в оригинале: 2 пункта ("Удалить все"/"Удалить выбранную") с теми же
+        // подтверждениями; сервер повторяет OsTraderMaster._buyAtStopPosViewer_UserSelectActionEvent (bot_stop_limit_cancel):
+        // номер стоп-лимита уникален, поэтому робот для строки не нужен.
         private void StopLimitPositionsGrid_Click(object sender, EventArgs e)
         {
             if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Right) return;
@@ -1174,14 +1172,40 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             ToolStripMenuItem[] items = new ToolStripMenuItem[2];
             items[0] = new ToolStripMenuItem { Text = OsLocalization.Trader.Label213 };
-            items[0].Click += (s, args) => NotAvailableRemotely("Cancelling stop-limit orders");
+            items[0].Click += (s, args) => _ = CancelStopLimitsAsync(null);
             items[1] = new ToolStripMenuItem { Text = OsLocalization.Trader.Label214 };
-            items[1].Click += (s, args) => NotAvailableRemotely("Cancelling stop-limit orders");
+            items[1].Click += (s, args) =>
+            {
+                int number;
+                try { number = Convert.ToInt32(_stopLimitPositionsGrid.Rows[_stopLimitPositionsGrid.CurrentCell.RowIndex].Cells[0].Value); }
+                catch { return; }
+                _ = CancelStopLimitsAsync(number);
+            };
 
             ContextMenuStrip menu = new ContextMenuStrip();
             menu.Items.AddRange(items);
             _stopLimitPositionsGrid.ContextMenuStrip = menu;
             _stopLimitPositionsGrid.ContextMenuStrip.Show(_stopLimitPositionsGrid, new System.Drawing.Point(mouse.X, mouse.Y));
+        }
+
+        // number == null: "Delete all" (Label215 confirmation), otherwise "Delete selected" (Label216) — as in the original
+        private async System.Threading.Tasks.Task CancelStopLimitsAsync(int? number)
+        {
+            RemoteMcpClient client = _client;
+            if (client == null || !client.IsConnected) return;
+
+            AcceptDialogUi ui = new AcceptDialogUi(number == null ? OsLocalization.Trader.Label215 : OsLocalization.Trader.Label216) { Owner = Window.GetWindow(this) };
+            ui.ShowDialog();
+            if (!ui.UserAcceptAction) return;
+
+            try
+            {
+                await client.CallToolAsync("bot_stop_limit_cancel", number == null ? (object)new { } : new { number = number.Value }).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not cancel the stop-limit orders: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private async System.Threading.Tasks.Task ActivePositionCloseAllAsync()
@@ -1266,6 +1290,43 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // "Переставить стоп"/"Переставить профит" — тот же приём, что уже проверен в RobotsVpsChartWindow.
         // OpenPositionCloseDialog: один и тот же диалог (RobotsVpsPositionCloseUi) с разной начальной вкладкой,
         // одно окно на позицию (ключ bot_id+number — на этой вкладке номера позиций не уникальны между ботами).
+        // BotTabSimple.ShowPositionAddingDialog: one PositionAddingUi2 per position, opened on the Limit tab
+        private readonly Dictionary<string, RobotsVpsPositionAddingUi> _positionAddingWindows = new(StringComparer.OrdinalIgnoreCase);
+
+        private async void OpenPositionAddingDialogAsync(string botId, string securityName, int positionNumber)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return;
+            string key = botId + ":" + positionNumber;
+
+            if (_positionAddingWindows.TryGetValue(key, out RobotsVpsPositionAddingUi existing) && existing.IsVisible)
+            {
+                if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                existing.SelectTab(0);
+                return;
+            }
+
+            try
+            {
+                string tabName = await ResolveTabNameAsync(botId).ConfigureAwait(true);
+                if (string.IsNullOrWhiteSpace(tabName))
+                {
+                    System.Windows.MessageBox.Show("For this robot the VPS API did not return a Simple trading source.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                RobotsVpsPositionAddingUi window = new RobotsVpsPositionAddingUi(_client, botId, tabName, securityName, positionNumber) { Owner = Window.GetWindow(this) };
+                window.SelectTab(0);
+                window.Closed += (s, args) => _positionAddingWindows.Remove(key);
+                _positionAddingWindows[key] = window;
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not open the position dialog: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         private async void OpenPositionCloseDialogAsync(string botId, string securityName, int positionNumber, string initialTab)
         {
             if (string.IsNullOrWhiteSpace(botId)) return;
@@ -1298,11 +1359,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             {
                 System.Windows.MessageBox.Show("Could not open the position dialog: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
-        }
-
-        private void NotAvailableRemotely(string what)
-        {
-            System.Windows.MessageBox.Show(what + " is not available remotely yet.", "VPS", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         #endregion
@@ -1441,11 +1497,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     row.Cells[10].Value = position.UnrealizedPnl;
                     DataGridViewButtonCell action = new DataGridViewButtonCell
                     {
-                        Value = OsLocalization.Market.Label82,
-                        ToolTipText = "Remote close action is not available in the current VPS UI API."
+                        Value = OsLocalization.Market.Label82
                     };
                     action.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
                     row.Cells[11] = action;
+                    row.Tag = new RemotePortfolioPositionRow { Portfolio = portfolio, Position = position };
                     _portfolioGrid.Rows.Add(row);
                 }
             }
@@ -1496,11 +1552,46 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 return;
 
             DataGridViewRow row = _portfolioGrid.Rows[e.RowIndex];
+
+            // ServerMasterPortfoliosPainter.ClosePositionOnBoardClick: close the position on the exchange
+            if (row.Tag is RemotePortfolioPositionRow positionRow && row.Cells[e.ColumnIndex].Value?.ToString() == OsLocalization.Market.Label82)
+            {
+                _ = ClosePositionOnBoardAsync(positionRow);
+                return;
+            }
+
             if (row.Tag is RemotePortfolio portfolio && row.Cells[e.ColumnIndex].Value?.ToString() == OsLocalization.Market.Label135)
             {
                 RobotsVpsComparePositionsUi window = new RobotsVpsComparePositionsUi(
                     _client, portfolio.ServerType, portfolio.ServerNumber, portfolio.Number);
                 window.Show();
+            }
+        }
+
+        // Same as the original: confirm, then the server cancels the robots' orders and deletes their open positions in this
+        // security and closes what is left on the exchange with a market order (server_instance_close_position_on_board).
+        private async System.Threading.Tasks.Task ClosePositionOnBoardAsync(RemotePortfolioPositionRow positionRow)
+        {
+            RemoteMcpClient client = _client;
+            if (client == null || !client.IsConnected) return;
+
+            string securityName = positionRow.Position.SecurityName;
+            AcceptDialogUi confirm = new AcceptDialogUi(securityName + OsLocalization.Market.Label83);
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            try
+            {
+                await client.CallToolAsync("server_instance_close_position_on_board", new
+                {
+                    type = positionRow.Portfolio.ServerType,
+                    number = positionRow.Portfolio.ServerNumber,
+                    security_name = securityName
+                }).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show("Could not close the position on the exchange: " + ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -2051,6 +2142,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
                 return portfolio;
             }
+        }
+
+        // tag of a position row in the portfolio table: the position and the portfolio (server) it belongs to
+        private sealed class RemotePortfolioPositionRow
+        {
+            public RemotePortfolio Portfolio;
+            public RemotePortfolioPosition Position;
         }
 
         private sealed class RemotePortfolioPosition

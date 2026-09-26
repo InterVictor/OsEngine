@@ -166,6 +166,10 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetServerPortfolios(request.Params);
                         break;
 
+                    case "server_instance_close_position_on_board":
+                        response.Result = ClosePositionOnBoard(request.Params);
+                        break;
+
                     case "server_instance_get_status":
                         response.Result = GetServerStatus(request.Params);
                         break;
@@ -404,6 +408,22 @@ namespace OsEngine.MCP.Modules
                             }
                         },
                         required = new[] { "type" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "server_instance_close_position_on_board",
+                    Description = "The \"Close\" button of a position in the portfolio table: cancels the robots' orders and deletes their open positions in this security, then closes the remaining exchange position with a market order. The server must be connected",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            type = new { type = "string", description = "Server type name, e.g. BinanceFutures" },
+                            number = new { type = "integer", description = "Server instance number (default: 0)" },
+                            security_name = new { type = "string", description = "Position name as in server_instance_get_portfolios (securityNameCode)" }
+                        },
+                        required = new[] { "type", "security_name" }
                     }
                 },
                 new McpTool
@@ -1256,6 +1276,63 @@ namespace OsEngine.MCP.Modules
                 number = serverNumber,
                 count = result.Count,
                 portfolios = result
+            };
+        }
+
+        // Mirrors ServerMasterPortfoliosPainter.ClosePositionOnBoardClick (without its confirmation dialog — the client asks).
+        private static object ClosePositionOnBoard(JsonElement parameters)
+        {
+            ServerType serverType = ParseServerType(parameters);
+            int serverNumber = ParseServerNumber(parameters);
+
+            AServer server = FindServer(serverType, serverNumber);
+
+            if (server == null)
+            {
+                throw new ArgumentException($"Server {serverType}#{serverNumber} not found");
+            }
+
+            if (!parameters.TryGetProperty("security_name", out JsonElement nameElement)
+                || string.IsNullOrWhiteSpace(nameElement.GetString()))
+            {
+                throw new ArgumentException("security_name is required");
+            }
+
+            string fullName = nameElement.GetString();
+
+            // OsTraderMaster only writes "server must be connected" to its log and returns — say it to the caller instead
+            if (server.ServerStatus != ServerConnectStatus.Connect)
+            {
+                throw new InvalidOperationException($"Server {serverType}#{serverNumber} is not connected");
+            }
+
+            PositionOnBoard position = null;
+
+            for (int i = 0; server.Portfolios != null && i < server.Portfolios.Count && position == null; i++)
+            {
+                List<PositionOnBoard> positions = server.Portfolios[i].GetPositionOnBoard();
+                position = positions?.Find(p => p != null && p.SecurityNameCode == fullName);
+            }
+
+            if (position == null)
+            {
+                throw new ArgumentException($"No position \"{fullName}\" in the portfolios of {serverType}#{serverNumber}");
+            }
+
+            string securityName = ServerMaster.TrimSecurityNameForClosing(fullName, server);
+            decimal volume = position.ValueCurrent;
+
+            // like the painter: run the robots' cleanup and the closing order in the background
+            System.Threading.Tasks.Task.Run(() => ServerMaster.ClearPositionOnBoard(securityName, server, fullName));
+
+            return new
+            {
+                type = serverType.ToString(),
+                number = serverNumber,
+                security_name = fullName,
+                order_security = securityName,
+                value_current = volume,
+                requested = true
             };
         }
 

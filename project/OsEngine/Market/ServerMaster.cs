@@ -2127,6 +2127,52 @@ namespace OsEngine.Market
             }
         }
 
+        /// <summary>
+        /// Same as the "Close" button of a position in the portfolio table (ServerMasterPortfoliosPainter.ClosePositionOnBoardClick),
+        /// for callers without that table (the MCP API of a headless server): OsTraderMaster cancels the robots' orders and
+        /// deletes their open positions in this security, then closes what is left on the exchange with a market order.
+        /// secName — security name trimmed for the order (see TrimSecurityNameForClosing), fullName — PositionOnBoard.SecurityNameCode.
+        /// </summary>
+        public static void ClearPositionOnBoard(string secName, IServer server, string fullName)
+        {
+            _painterPortfolios_ClearPositionOnBoardEvent(secName, server, fullName);
+        }
+
+        /// <summary>
+        /// Copy of ServerMasterPortfoliosPainter.TrimmSecName: removes the connector's ManuallyClosePositionOnBoard_ValuesForTrimmingName
+        /// suffixes from a portfolio position name to get the security name for the closing order.
+        /// </summary>
+        public static string TrimSecurityNameForClosing(string secName, IServer server)
+        {
+            string trueNameSec = secName;
+
+            if (server.ServerType == ServerType.Tester)
+            {
+                return trueNameSec;
+            }
+
+            IServerPermission permission = GetServerPermission(server.ServerType);
+
+            if (permission != null)
+            {
+                string[] trimValues = permission.ManuallyClosePositionOnBoard_ValuesForTrimmingName;
+
+                for (int i = 0; trimValues != null && i < trimValues.Length; i++)
+                {
+                    string value = trimValues[i];
+
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        continue;
+                    }
+
+                    trueNameSec = trueNameSec.Replace(value, "");
+                }
+            }
+
+            return trueNameSec;
+        }
+
         private static void _ordersStorage_RevokeOrderToEmulatorEvent(Order order)
         {
             try

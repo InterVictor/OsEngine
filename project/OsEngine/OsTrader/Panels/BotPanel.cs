@@ -1749,6 +1749,11 @@ position => position.State != PositionStateType.OpeningFail
         private RiskManager.RiskManager _riskManager;
 
         /// <summary>
+        /// risk manager of this robot, for remote settings (MCP bot_risk_manager_get/set); the UI uses ShowPanelRiskManagerDialog
+        /// </summary>
+        public RiskManager.RiskManager PanelRiskManager => _riskManager;
+
+        /// <summary>
         /// an alert came from a risk manager
         /// </summary>
         void _riskManager_RiskManagerAlarmEvent(RiskManagerReactionType reactionType)
@@ -1778,6 +1783,13 @@ position => position.State != PositionStateType.OpeningFail
         {
             try
             {
+                // no screen (headless VPS build): forward the warning as an emergency alert, which reaches the remote client over MCP
+                if (AlertMessageManager.TextBoxFromStaThread == null)
+                {
+                    AlertMessageManager.ThrowAlert(null, NameStrategyUniq, message);
+                    return;
+                }
+
                 if (!MainWindow.GetDispatcher.CheckAccess())
                 {
                     MainWindow.GetDispatcher.Invoke(new Action<string>(ShowMessageInNewThread), message);

@@ -200,6 +200,18 @@ namespace OsEngine.MCP.Modules
                         response.Result = CloseBotPositionAtLimit(request.Params);
                         break;
 
+                    case "bot_risk_manager_get":
+                        response.Result = GetBotRiskManager(request.Params);
+                        break;
+
+                    case "bot_risk_manager_set":
+                        response.Result = SetBotRiskManager(request.Params);
+                        break;
+
+                    case "bot_position_add":
+                        response.Result = AddToBotPosition(request.Params);
+                        break;
+
                     case "bot_position_close_at_stop":
                         response.Result = CloseBotPositionAtStop(request.Params);
                         break;
@@ -270,6 +282,10 @@ namespace OsEngine.MCP.Modules
 
                     case "bot_journal_get_stop_limit_positions":
                         response.Result = GetJournalStopLimitPositions(request.Params);
+                        break;
+
+                    case "bot_stop_limit_cancel":
+                        response.Result = CancelStopLimits(request.Params);
                         break;
 
                     case "bot_journal_get_panels":
@@ -979,6 +995,63 @@ namespace OsEngine.MCP.Modules
                 },
                 new McpTool
                 {
+                    Name = "bot_risk_manager_get",
+                    Description = "Risk manager of a robot (Bot Station chart -> Risk manager): is_active, max_drawdown_to_day_percent (maximum loss per day in %), reaction_type (ShowDialog, CloseAndOff, None)",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" }
+                        },
+                        required = new[] { "bot_id" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_risk_manager_set",
+                    Description = "Change the risk manager of a robot and save it (RiskManagerUi Accept). Omitted fields keep their values. CloseAndOff closes all the robot's positions at market and turns it off when the daily loss limit is exceeded",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            is_active = new { type = "boolean", description = "Risk manager on/off" },
+                            max_drawdown_to_day_percent = new { type = "number", description = "Maximum loss per day in %" },
+                            reaction_type = new { type = "string", description = "ShowDialog, CloseAndOff or None" }
+                        },
+                        required = new[] { "bot_id" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_position_add",
+                    Description = "Add volume to an open position in its own direction (Bot Station \"Add to position\" dialog, PositionAddingUi2): order_type Limit, Market, Stop (stop-limit; server_stop=true places it on the exchange), StopMarket (server_stop the same) or Fake",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Tab name from bot_get_sources" },
+                            position_number = new { type = "integer", description = "Position number from bot_position_get_open" },
+                            order_type = new { type = "string", description = "Limit, Market, Stop, StopMarket or Fake" },
+                            volume = new { type = "number", description = "Volume to add" },
+                            price = new { type = "number", description = "Limit / Stop order price / Fake price" },
+                            activation_price = new { type = "number", description = "Stop and StopMarket activation price" },
+                            server_stop = new { type = "boolean", description = "Stop / StopMarket: place a real stop order on the exchange instead of local tracking (default false)" },
+                            stop_activate_type = new { type = "string", description = "Local stop: HigherOrEqual or LowerOrEqual (default HigherOrEqual)" },
+                            lifetime_type = new { type = "string", description = "Local stop: CandlesCount or NoLifeTime (default CandlesCount)" },
+                            lifetime_bars = new { type = "integer", description = "Local stop: lifetime in candles (default 1)" },
+                            time_local = new { type = "string", description = "Fake: time of the trade, round-trip DateTime (default now)" },
+                            security_name = new { type = "string", description = "Security name (required for Screener tabs)" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "position_number", "order_type", "volume" }
+                    }
+                },
+                new McpTool
+                {
                     Name = "bot_position_close_at_stop",
                     Description = "Arm a stop-limit close for a position (Bot Station position-close dialog, Stop tab). By default the stop is tracked locally (fires a limit close when price crosses the activation level); server_side=true places a real stop order on the exchange (requires volume)",
                     InputSchema = new
@@ -1277,6 +1350,20 @@ namespace OsEngine.MCP.Modules
                         properties = new
                         {
                             bot_name = new { type = "string", description = "Optional unique robot name" }
+                        },
+                        required = new string[0]
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_stop_limit_cancel",
+                    Description = "The Stop Limit table menu of Bot Station: with number — removes that stop-limit position opener from whichever robot tab holds it (\"Delete selected\"); without number — cancels all buy and sell stop-limit openers on every tab of every robot (\"Delete all\"). No exchange order is involved",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            number = new { type = "integer", description = "Opener number from bot_journal_get_stop_limit_positions; omit to cancel all" }
                         },
                         required = new string[0]
                     }
@@ -4419,6 +4506,164 @@ namespace OsEngine.MCP.Modules
         }
 
         // Bot Station: диалог закрытия позиции, вкладка Stop -> Tab.CloseAtStop / CloseAtStopOnServer
+        // RiskManagerUi of a robot (OsTraderMaster.BotShowRiskManager -> BotPanel.ShowPanelRiskManagerDialog):
+        // "Is on", maximum loss per day in %, reaction to exceeding it.
+        private object GetBotRiskManager(JsonElement parameters)
+        {
+            BotPanel bot = FindBotForRiskManager(parameters);
+            OsEngine.OsTrader.RiskManager.RiskManager risk = bot.PanelRiskManager ?? throw new InvalidOperationException($"Robot '{bot.NameStrategyUniq}' has no risk manager");
+
+            return new
+            {
+                bot_name = bot.NameStrategyUniq,
+                is_active = risk.IsActive,
+                max_drawdown_to_day_percent = risk.MaxDrowDownToDayPersent,
+                reaction_type = risk.ReactionType.ToString(),
+                reaction_types = Enum.GetNames(typeof(OsEngine.OsTrader.RiskManager.RiskManagerReactionType))
+            };
+        }
+
+        // Same as RiskManagerUi.ButtonAccept_Click: set the three values and RiskManager.Save()
+        private object SetBotRiskManager(JsonElement parameters)
+        {
+            BotPanel bot = FindBotForRiskManager(parameters);
+            OsEngine.OsTrader.RiskManager.RiskManager risk = bot.PanelRiskManager ?? throw new InvalidOperationException($"Robot '{bot.NameStrategyUniq}' has no risk manager");
+
+            bool? isActive = GetOptionalBool(parameters, "is_active");
+            decimal? maxDrawdown = parameters.TryGetProperty("max_drawdown_to_day_percent", out _)
+                ? GetRequiredDecimal(parameters, "max_drawdown_to_day_percent")
+                : (decimal?)null;
+            string reactionText = GetOptionalString(parameters, "reaction_type");
+
+            OsEngine.OsTrader.RiskManager.RiskManagerReactionType reaction = risk.ReactionType;
+            if (!string.IsNullOrWhiteSpace(reactionText) && !Enum.TryParse(reactionText, false, out reaction))
+            {
+                throw new ArgumentException("reaction_type must be one of: " + string.Join(", ", Enum.GetNames(typeof(OsEngine.OsTrader.RiskManager.RiskManagerReactionType))));
+            }
+
+            if (isActive.HasValue) risk.IsActive = isActive.Value;
+            if (maxDrawdown.HasValue) risk.MaxDrowDownToDayPersent = maxDrawdown.Value;
+            risk.ReactionType = reaction;
+            risk.Save();
+
+            return GetBotRiskManager(parameters);
+        }
+
+        private BotPanel FindBotForRiskManager(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+
+            if (!parameters.TryGetProperty("bot_id", out JsonElement botIdElement))
+            {
+                throw new ArgumentException("bot_id is required");
+            }
+
+            return FindBot(master, botIdElement);
+        }
+
+        // 1:1 with PositionAddingUi2's buttons: the same BotTabSimple *ToPosition method, Buy* for a long and Sell* for a short.
+        private object AddToBotPosition(JsonElement parameters)
+        {
+            (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
+            string orderType = GetOptionalString(parameters, "order_type") ?? "";
+            decimal volume = GetRequiredDecimal(parameters, "volume");
+            bool buy = position.Direction == Side.Buy;
+
+            if (volume <= 0) throw new ArgumentException("volume must be greater than zero");
+
+            switch (orderType.ToLowerInvariant())
+            {
+                case "limit":
+                {
+                    decimal price = GetRequiredDecimal(parameters, "price");
+                    if (price == 0) throw new ArgumentException("price must not be zero");
+                    RunOnDispatcher(() =>
+                    {
+                        if (buy) tab.BuyAtLimitToPositionUnsafe(position, price, volume);
+                        else tab.SellAtLimitToPositionUnsafe(position, price, volume);
+                    });
+                    return new { position_number = position.Number, order_type = "Limit", volume, price };
+                }
+                case "market":
+                {
+                    RunOnDispatcher(() =>
+                    {
+                        if (buy) tab.BuyAtMarketToPosition(position, volume);
+                        else tab.SellAtMarketToPosition(position, volume);
+                    });
+                    return new { position_number = position.Number, order_type = "Market", volume };
+                }
+                case "stop":
+                case "stopmarket":
+                {
+                    bool stopMarket = orderType.Equals("stopmarket", StringComparison.OrdinalIgnoreCase);
+                    decimal activationPrice = GetRequiredDecimal(parameters, "activation_price");
+                    decimal price = stopMarket ? 0 : GetRequiredDecimal(parameters, "price");
+                    if (activationPrice == 0 || (!stopMarket && price == 0)) throw new ArgumentException("price and activation_price must not be zero");
+
+                    bool serverStop = GetOptionalBool(parameters, "server_stop", false);
+                    if (serverStop && !tab.ServerIsSupportStopOrders) throw new InvalidOperationException("This connector does not support server stop orders");
+
+                    StopActivateType activateType = Enum.TryParse(GetOptionalString(parameters, "stop_activate_type"), true, out StopActivateType parsedActivate)
+                        ? parsedActivate : StopActivateType.HigherOrEqual;
+                    PositionOpenerToStopLifeTimeType lifeType = Enum.TryParse(GetOptionalString(parameters, "lifetime_type"), true, out PositionOpenerToStopLifeTimeType parsedLife)
+                        ? parsedLife : PositionOpenerToStopLifeTimeType.CandlesCount;
+                    int lifeTime = GetOptionalInt(parameters, "lifetime_bars") ?? 1;
+
+                    RunOnDispatcher(() =>
+                    {
+                        if (stopMarket)
+                        {
+                            if (serverStop)
+                            {
+                                if (buy) tab.BuyAtStopMarketOnServerToPosition(position, volume, activationPrice);
+                                else tab.SellAtStopMarketOnServerToPosition(position, volume, activationPrice);
+                            }
+                            else
+                            {
+                                if (buy) tab.BuyAtStopMarketToPosition(position, volume, activationPrice, activateType, lifeTime, lifeType);
+                                else tab.SellAtStopMarketToPosition(position, volume, activationPrice, activateType, lifeTime, lifeType);
+                            }
+                        }
+                        else
+                        {
+                            if (serverStop)
+                            {
+                                if (buy) tab.BuyAtStopOnServerToPosition(position, volume, price, activationPrice);
+                                else tab.SellAtStopOnServerToPosition(position, volume, price, activationPrice);
+                            }
+                            else
+                            {
+                                if (buy) tab.BuyAtStopToPosition(position, volume, price, activationPrice, activateType, lifeTime, lifeType);
+                                else tab.SellAtStopToPosition(position, volume, price, activationPrice, activateType, lifeTime, lifeType);
+                            }
+                        }
+                    });
+
+                    return new { position_number = position.Number, order_type = stopMarket ? "StopMarket" : "Stop", volume, price, activation_price = activationPrice, server_stop = serverStop };
+                }
+                case "fake":
+                {
+                    decimal price = GetRequiredDecimal(parameters, "price");
+                    if (price <= 0) throw new ArgumentException("price must be greater than zero");
+                    DateTime time = DateTime.Now;
+                    string timeText = GetOptionalString(parameters, "time_local");
+                    if (!string.IsNullOrWhiteSpace(timeText)
+                        && !DateTime.TryParse(timeText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out time))
+                        throw new ArgumentException("time_local must be a round-trip DateTime");
+
+                    RunOnDispatcher(() =>
+                    {
+                        if (buy) tab.BuyAtFakeToPosition(position, volume, price, time);
+                        else tab.SellAtFakeToPosition(position, volume, price, time);
+                    });
+                    return new { position_number = position.Number, order_type = "Fake", volume, price, time_local = time.ToString("O") };
+                }
+                default:
+                    throw new ArgumentException("order_type must be Limit, Market, Stop, StopMarket or Fake");
+            }
+        }
+
         private object CloseBotPositionAtStop(JsonElement parameters)
         {
             (BotPanel _, BotTabSimple tab, Position position) = ResolveOpenPositionCommand(parameters);
@@ -6110,6 +6355,74 @@ namespace OsEngine.MCP.Modules
                 position_number = positionNumber,
                 state = position.State.ToString()
             };
+        }
+
+        // 1:1 with OsTraderMaster._buyAtStopPosViewer_UserSelectActionEvent (Stop Limit table menu): all simple tabs and
+        // screener child tabs of all robots; "all" = BuyAtStopCancel + SellAtStopCancel on each tab, one = remove the opener
+        // with that number and UpdateStopLimits.
+        private object CancelStopLimits(JsonElement parameters)
+        {
+            OsTraderMaster master = GetMasterRequired();
+            int? number = GetOptionalInt(parameters, "number");
+
+            List<BotTabSimple> allTabs = new List<BotTabSimple>();
+
+            for (int i = 0; master.PanelsArray != null && i < master.PanelsArray.Count; i++)
+            {
+                BotPanel bot = master.PanelsArray[i];
+
+                if (bot.TabsSimple != null) allTabs.AddRange(bot.TabsSimple);
+
+                for (int j = 0; bot.TabsScreener != null && j < bot.TabsScreener.Count; j++)
+                {
+                    if (bot.TabsScreener[j]?.Tabs != null) allTabs.AddRange(bot.TabsScreener[j].Tabs);
+                }
+            }
+
+            int cancelled = 0;
+
+            void Cancel()
+            {
+                for (int i = 0; i < allTabs.Count; i++)
+                {
+                    BotTabSimple tab = allTabs[i];
+
+                    if (number == null)
+                    {
+                        cancelled += tab.PositionOpenerToStop?.Count ?? 0;
+                        tab.BuyAtStopCancel();
+                        tab.SellAtStopCancel();
+                        continue;
+                    }
+
+                    for (int k = 0; tab.PositionOpenerToStop != null && k < tab.PositionOpenerToStop.Count; k++)
+                    {
+                        if (tab.PositionOpenerToStop[k].Number == number.Value)
+                        {
+                            tab.PositionOpenerToStop.RemoveAt(k);
+                            tab.UpdateStopLimits();
+                            cancelled = 1;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (MainWindow.GetDispatcher.CheckAccess())
+            {
+                Cancel();
+            }
+            else
+            {
+                MainWindow.GetDispatcher.Invoke(Cancel);
+            }
+
+            if (number != null && cancelled == 0)
+            {
+                throw new ArgumentException($"Stop-limit opener {number.Value} not found");
+            }
+
+            return new { number = number, cancelled_count = cancelled };
         }
 
         private object GetJournalStopLimitPositions(JsonElement parameters)

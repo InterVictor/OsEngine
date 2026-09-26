@@ -1283,6 +1283,13 @@ namespace OsEngine.OsTrader
         {
             try
             {
+                // no screen (headless VPS build): forward the warning as an emergency alert, which reaches the remote client over MCP
+                if (AlertMessageManager.TextBoxFromStaThread == null)
+                {
+                    AlertMessageManager.ThrowAlert(null, "GlobalRiskManager", OsLocalization.Trader.Label3);
+                    return;
+                }
+
                 if (!_hostGlass.Dispatcher.CheckAccess())
                 {
                     _hostGlass.Dispatcher.Invoke(ShowRiskManagerAlert);
