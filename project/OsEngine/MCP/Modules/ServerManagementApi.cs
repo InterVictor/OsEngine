@@ -6,10 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using OsEngine.Entity;
 using OsEngine.Logging;
 using OsEngine.Market;
 using OsEngine.Market.Servers;
 using OsEngine.MCP.Json;
+using OsEngine.OsData;
 
 namespace OsEngine.MCP.Modules
 {
@@ -79,6 +81,10 @@ namespace OsEngine.MCP.Modules
 
                     case "server_management_set_auto_connect":
                         response.Result = SetAutoConnect(request.Params);
+                        break;
+
+                    case "server_management_get_data_timeframes":
+                        response.Result = GetDataTimeFrames(request.Params);
                         break;
 
                     default:
@@ -190,6 +196,24 @@ namespace OsEngine.MCP.Modules
                         type = "object",
                         properties = new { enabled = new { type = "boolean" } },
                         required = new[] { "enabled" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "server_management_get_data_timeframes",
+                    Description = "Get the list of timeframes supported for OsData download from a connector type. 'MarketDepthHistory' means historical market depth",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            type = new
+                            {
+                                type = "string",
+                                description = "Server type name, e.g. TInvest, BinanceSpot, MoexDataServer"
+                            }
+                        },
+                        required = new[] { "type" }
                     }
                 }
             };
@@ -351,6 +375,49 @@ namespace OsEngine.MCP.Modules
             ServerMaster.NeedToConnectAuto = value.GetBoolean();
             ServerMaster.Save();
             return new { enabled = ServerMaster.NeedToConnectAuto };
+        }
+
+        private static object GetDataTimeFrames(JsonElement parameters)
+        {
+            ServerType serverType = ParseServerType(parameters);
+
+            IServerPermission permission = ServerMaster.GetServerPermission(serverType);
+
+            List<string> timeframes = new List<string>();
+
+            if (permission != null)
+            {
+                TimeFrame[] all = (TimeFrame[])Enum.GetValues(typeof(TimeFrame));
+
+                for (int i = 0; i < all.Length; i++)
+                {
+                    if (all[i] == TimeFrame.MarketDepth)
+                    {
+                        continue;
+                    }
+
+                    if (OsDataMaster.IsTimeFrameSupportedByServer(all[i], permission))
+                    {
+                        timeframes.Add(all[i].ToString());
+                    }
+                }
+
+                if (permission.DataFeedTfMarketDepthCanLoad)
+                {
+                    timeframes.Add(TimeFrame.MarketDepth.ToString());
+                }
+
+                if (permission.DataFeedTfMarketDepthHistoryCanLoad)
+                {
+                    timeframes.Add("MarketDepthHistory");
+                }
+            }
+
+            return new
+            {
+                type = serverType.ToString(),
+                timeframes = timeframes
+            };
         }
 
         private static ServerType ParseServerType(JsonElement parameters)

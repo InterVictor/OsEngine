@@ -1564,7 +1564,7 @@ namespace OsEngine.OsOptimizer
                 errors.Add("No strategy selected (optimizer_bot_set)");
             }
 
-            if (_parametersOn == null)
+            if (_parametersOn == null || _parameters == null)
             {
                 errors.Add("Optimization parameters are not loaded");
             }
@@ -1613,6 +1613,11 @@ namespace OsEngine.OsOptimizer
 
         private bool HaveSecurityAndTfInStorageHeadless(string secName, TimeFrame timeFrame)
         {
+            if (Storage == null || Storage.SecuritiesTester == null)
+            {
+                return false;
+            }
+
             for (int j = 0; j < Storage.SecuritiesTester.Count; j++)
             {
                 if (Storage.SecuritiesTester[j].Security.Name == secName
@@ -1652,6 +1657,37 @@ namespace OsEngine.OsOptimizer
                 if (NeedToMoveUiToEvent != null)
                 {
                     NeedToMoveUiToEvent(NeedToMoveUiTo.Fazes);
+                }
+                return false;
+            }
+
+            // хранилище проверяем до обращения к Storage.SecuritiesTester
+            if ((string.IsNullOrEmpty(Storage.ActiveSet)
+                && Storage.SourceDataType == TesterSourceDataType.Set)
+                ||
+                Storage.SecuritiesTester == null
+                ||
+                Storage.SecuritiesTester.Count == 0)
+            {
+                CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.Optimizer.Message16);
+                ui.ShowDialog();
+                SendLogMessage(OsLocalization.Optimizer.Message16, LogMessageType.System);
+
+                if (NeedToMoveUiToEvent != null)
+                {
+                    NeedToMoveUiToEvent(NeedToMoveUiTo.Storage);
+                }
+                return false;
+            }
+
+            if (BotToTest == null)
+            {
+                CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.Optimizer.Message17);
+                ui.ShowDialog();
+                SendLogMessage(OsLocalization.Optimizer.Message17, LogMessageType.System);
+                if (NeedToMoveUiToEvent != null)
+                {
+                    NeedToMoveUiToEvent(NeedToMoveUiTo.NameStrategy);
                 }
                 return false;
             }
@@ -1755,24 +1791,6 @@ namespace OsEngine.OsOptimizer
                 }
             }
 
-            if ((string.IsNullOrEmpty(Storage.ActiveSet)
-                && Storage.SourceDataType == TesterSourceDataType.Set)
-                ||
-                Storage.SecuritiesTester == null
-                ||
-                Storage.SecuritiesTester.Count == 0)
-            {
-                CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.Optimizer.Message16);
-                ui.ShowDialog();
-                SendLogMessage(OsLocalization.Optimizer.Message16, LogMessageType.System);
-
-                if (NeedToMoveUiToEvent != null)
-                {
-                    NeedToMoveUiToEvent(NeedToMoveUiTo.Storage);
-                }
-                return false;
-            }
-
             if (string.IsNullOrEmpty(_strategyName))
             {
                 CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.Optimizer.Message17);
@@ -1816,6 +1834,18 @@ namespace OsEngine.OsOptimizer
                 return false;
             }
 
+            if (_parameters == null)
+            {
+                CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.Optimizer.Message44);
+                ui.ShowDialog();
+                SendLogMessage(OsLocalization.Optimizer.Message44, LogMessageType.System);
+
+                if (NeedToMoveUiToEvent != null)
+                {
+                    NeedToMoveUiToEvent(NeedToMoveUiTo.Parameters);
+                }
+                return false;
+            }
 
             // проверка наличия и состояния параметра Regime 
             bool onRgimeOff = false;
@@ -1857,6 +1887,11 @@ namespace OsEngine.OsOptimizer
 
         private bool HaveSecurityAndTfInStorage(string secName, TimeFrame timeFrame)
         {
+            if (Storage == null || Storage.SecuritiesTester == null)
+            {
+                return false;
+            }
+
             // проверяем наличие тайм-фрейма в обойме
 
             bool isInArray = false;

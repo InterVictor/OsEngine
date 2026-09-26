@@ -1446,6 +1446,7 @@ namespace OsEngine.MCP
                     case "server_management_get_connector_permissions":
                     case "server_management_get_auto_connect":
                     case "server_management_set_auto_connect":
+                    case "server_management_get_data_timeframes":
                         response = _serverManagementApi.Handle(request);
                         break;
 
