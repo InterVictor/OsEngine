@@ -1,29 +1,19 @@
 // SSH tunnel lifecycle helper for Robots.VPS (in-process, SSH.NET).
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Renci.SshNet;
-using Renci.SshNet.Common;
 
 namespace OsEngine.OsTrader.Gui.RobotsVps
 {
     // Local port forward 127.0.0.1:localPort -> VPS 127.0.0.1:remotePort over one SSH connection, run inside
-    // the terminal process (no external ssh.exe). Authenticates with a private key file and/or a password,
-    // pins the server host key on first use (like ssh's known_hosts) and keeps the tunnel up by itself:
+    // the terminal process (no external ssh.exe). Logs in with VpsSshCredentials (stored key / key file /
+    // password), pins the server host key on first use (VpsKnownHosts) and keeps the tunnel up by itself:
     // after a network drop or a VPS reboot it reconnects with a growing pause until Dispose.
     internal sealed class SshTunnel : IDisposable
     {
-        private const string KnownHostsFile = @"Engine\RobotsVpsKnownHosts.txt";
-        private static readonly object KnownHostsLocker = new object();
-
-        private readonly string _host;
-        private readonly int _port;
-        private readonly string _user;
-        private readonly string _keyPath;
-        private readonly string _password;
+        private readonly VpsSshCredentials _credentials;
         private readonly int _localPort;
         private readonly int _remotePort;
         private readonly Action<string> _log;
@@ -31,57 +21,27 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private SshClient _client;
         private ForwardedPortLocal _forward;
-        private string _hostKeyError;
         private bool _ownsTunnel;
 
         // False when another program (e.g. a manually started ssh -L) already listens on the local port and
         // this tunnel simply reuses it — such a listener is never touched.
         public bool StartedByThisWindow => _ownsTunnel;
 
-        private SshTunnel(string host, int port, string user, string keyPath, string password,
-            int localPort, int remotePort, Action<string> log)
+        private SshTunnel(VpsSshCredentials credentials, int localPort, int remotePort, Action<string> log)
         {
-            _host = host;
-            _port = port;
-            _user = user;
-            _keyPath = keyPath;
-            _password = password;
+            _credentials = credentials;
             _localPort = localPort;
             _remotePort = remotePort;
             _log = log;
         }
 
-        public static async Task<SshTunnel> StartAsync(
-            string host, string user, string keyPath, string password, int localPort, int remotePort,
+        public static async Task<SshTunnel> StartAsync(VpsSshCredentials credentials, int localPort, int remotePort,
             Action<string> log, CancellationToken cancel = default)
         {
-            if (string.IsNullOrWhiteSpace(host)) throw new ArgumentException("SSH host is required");
-            if (string.IsNullOrWhiteSpace(user)) throw new ArgumentException("SSH user is required");
             if (localPort < 1 || localPort > 65535) throw new ArgumentOutOfRangeException(nameof(localPort));
             if (remotePort < 1 || remotePort > 65535) throw new ArgumentOutOfRangeException(nameof(remotePort));
 
-            keyPath = string.IsNullOrWhiteSpace(keyPath) ? null : Environment.ExpandEnvironmentVariables(keyPath.Trim().Trim('"'));
-            if (keyPath != null && !Path.IsPathRooted(keyPath)) keyPath = Path.GetFullPath(keyPath);
-            if (keyPath != null && !File.Exists(keyPath))
-            {
-                if (string.IsNullOrEmpty(password)) throw new FileNotFoundException("SSH private key file was not found", keyPath);
-                log?.Invoke("SSH key file not found, using the password: " + keyPath);
-                keyPath = null;
-            }
-            if (keyPath == null && string.IsNullOrEmpty(password))
-                throw new ArgumentException("Enter an SSH key file or an SSH password");
-
-            // host may be "ip" or "ip:port"
-            int port = 22;
-            string hostOnly = host.Trim();
-            int colon = hostOnly.LastIndexOf(':');
-            if (colon > 0 && int.TryParse(hostOnly.Substring(colon + 1), out int parsedPort))
-            {
-                port = parsedPort;
-                hostOnly = hostOnly.Substring(0, colon);
-            }
-
-            SshTunnel tunnel = new SshTunnel(hostOnly, port, user.Trim(), keyPath, password, localPort, remotePort, log);
+            SshTunnel tunnel = new SshTunnel(credentials, localPort, remotePort, log);
 
             // A manually started tunnel may already be listening. Reuse it, but never terminate a
             // process this window did not create.
@@ -103,7 +63,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 throw;
             }
 
-            log?.Invoke($"SSH tunnel ready: 127.0.0.1:{localPort} → {hostOnly}:127.0.0.1:{remotePort}");
+            log?.Invoke($"SSH tunnel ready: 127.0.0.1:{localPort} → {credentials.Host}:127.0.0.1:{remotePort}");
             _ = tunnel.SuperviseAsync();
             return tunnel;
         }
@@ -112,28 +72,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             CloseConnection();
 
-            List<AuthenticationMethod> methods = new List<AuthenticationMethod>();
-            if (_keyPath != null) methods.Add(new PrivateKeyAuthenticationMethod(_user, new PrivateKeyFile(_keyPath)));
-            if (!string.IsNullOrEmpty(_password)) methods.Add(new PasswordAuthenticationMethod(_user, _password));
-
-            ConnectionInfo info = new ConnectionInfo(_host, _port, _user, methods.ToArray())
-            {
-                Timeout = TimeSpan.FromSeconds(15)
-            };
-
-            SshClient client = new SshClient(info) { KeepAliveInterval = TimeSpan.FromSeconds(30) };
-            _hostKeyError = null;
-            client.HostKeyReceived += Client_HostKeyReceived;
+            SshClient client = new SshClient(_credentials.CreateConnectionInfo()) { KeepAliveInterval = TimeSpan.FromSeconds(30) };
             client.ErrorOccurred += (s, e) => _log?.Invoke("SSH: " + e.Exception.Message);
 
             try
             {
-                await client.ConnectAsync(cancel).ConfigureAwait(false);
-            }
-            catch (SshConnectionException) when (_hostKeyError != null)
-            {
-                client.Dispose();
-                throw new InvalidOperationException(_hostKeyError);
+                await _credentials.ConnectAsync(client, _log, cancel).ConfigureAwait(false);
             }
             catch
             {
@@ -229,65 +173,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     delaySeconds = Math.Min(delaySeconds * 2, 60);
                 }
             }
-        }
-
-        // Trust on first use, like ssh's known_hosts: the first fingerprint seen for host:port is stored in
-        // Engine\RobotsVpsKnownHosts.txt; later connections must present the same key.
-        private void Client_HostKeyReceived(object sender, HostKeyEventArgs e)
-        {
-            string hostId = _host + ":" + _port;
-            string fingerprint = e.FingerPrintSHA256;
-
-            lock (KnownHostsLocker)
-            {
-                Dictionary<string, string> known = ReadKnownHosts();
-
-                if (known.TryGetValue(hostId, out string pinned))
-                {
-                    e.CanTrust = string.Equals(pinned, fingerprint, StringComparison.Ordinal);
-
-                    if (!e.CanTrust)
-                    {
-                        _hostKeyError = $"SSH host key of {hostId} has CHANGED (expected SHA256:{pinned}, got SHA256:{fingerprint}). "
-                            + "Connection refused. If the server was reinstalled, remove its line from " + KnownHostsFile;
-                    }
-                    return;
-                }
-
-                known[hostId] = fingerprint;
-                WriteKnownHosts(known);
-                e.CanTrust = true;
-                _log?.Invoke($"SSH host key of {hostId} saved: SHA256:{fingerprint}");
-            }
-        }
-
-        private static Dictionary<string, string> ReadKnownHosts()
-        {
-            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            if (!File.Exists(KnownHostsFile))
-            {
-                return result;
-            }
-
-            foreach (string line in File.ReadAllLines(KnownHostsFile))
-            {
-                string[] parts = line.Split(' ');
-                if (parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0)
-                {
-                    result[parts[0]] = parts[1];
-                }
-            }
-
-            return result;
-        }
-
-        private static void WriteKnownHosts(Dictionary<string, string> known)
-        {
-            Directory.CreateDirectory("Engine");
-            List<string> lines = new List<string>();
-            foreach (KeyValuePair<string, string> pair in known) lines.Add(pair.Key + " " + pair.Value);
-            File.WriteAllLines(KnownHostsFile, lines);
         }
 
         private static async Task<bool> IsListeningAsync(int port, CancellationToken cancel)

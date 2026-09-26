@@ -12,12 +12,14 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using OsEngine.Alerts;
+using OsEngine.Entity;
 using OsEngine.Logging;
 using OsEngine.Market;
 using OsEngine.MCP.Client;
@@ -49,6 +51,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "ff_server");
 
             LoadSettings();
+            UpdateComputerKeyStatus();
 
             Closing += (s, e) =>
             {
@@ -106,11 +109,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 if (lines.Length > 2) TextBoxSshHost.Text = lines[2];
                 if (lines.Length > 3) TextBoxSshUser.Text = lines[3];
-                if (lines.Length > 4 && !string.IsNullOrWhiteSpace(lines[4])) TextBoxSshKeyPath.Text = lines[4];
+                // an empty key path is a valid choice (password or registered key only) — keep it empty
+                if (lines.Length > 4) TextBoxSshKeyPath.Text = lines[4];
                 if (lines.Length > 5 && !string.IsNullOrWhiteSpace(lines[5])) TextBoxSshLocalPort.Text = lines[5];
                 if (lines.Length > 6 && !string.IsNullOrWhiteSpace(lines[6])) TextBoxSshRemotePort.Text = lines[6];
                 if (lines.Length > 7 && bool.TryParse(lines[7], out bool autoConnect)) CheckBoxAutoConnectSsh.IsChecked = autoConnect;
                 if (lines.Length > 8 && !string.IsNullOrWhiteSpace(lines[8])) PasswordBoxSshPassword.Password = UnprotectSecret(lines[8]);
+                if (lines.Length > 9 && !string.IsNullOrWhiteSpace(lines[9])) _computerKey = UnprotectSecret(lines[9]);
+                if (lines.Length > 10) _computerKeyComment = lines[10];
             }
             catch (Exception ex)
             {
@@ -151,12 +157,110 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     TextBoxSshLocalPort.Text.Trim(),
                     TextBoxSshRemotePort.Text.Trim(),
                     (CheckBoxAutoConnectSsh.IsChecked == true).ToString(),
-                    ProtectSecret(PasswordBoxSshPassword.Password)
+                    ProtectSecret(PasswordBoxSshPassword.Password),
+                    ProtectSecret(_computerKey ?? ""),
+                    _computerKeyComment ?? ""
                 });
             }
             catch (Exception ex)
             {
                 AppendLog("Settings save failed: " + ex.Message);
+            }
+        }
+
+        #endregion
+
+        #region Server: deploy over SSH + SSH key of this computer
+
+        // Registered SSH key of this computer (private key text, DPAPI-encrypted in the settings file) and its
+        // comment in the server's ~/.ssh/authorized_keys (osengine-client-<computer>-<date>).
+        private string _computerKey;
+        private string _computerKeyComment;
+
+        private VpsSshCredentials CreateCredentials() =>
+            VpsSshCredentials.Create(TextBoxSshHost.Text, TextBoxSshUser.Text, TextBoxSshKeyPath.Text,
+                _computerKey, PasswordBoxSshPassword.Password, LogFromAnyThread);
+
+        private void LogFromAnyThread(string message) =>
+            Dispatcher.BeginInvoke(new Action(() => AppendLog(message)));
+
+        private void UpdateComputerKeyStatus()
+        {
+            TextBlockComputerKey.Text = _computerKey != null
+                ? $"SSH key of this computer: registered ({_computerKeyComment}). The root password is not stored."
+                : "SSH key of this computer: not registered — connect once with the root password";
+        }
+
+        private async Task RegisterComputerKeyAsync(VpsSshCredentials credentials)
+        {
+            try
+            {
+                (string privateKey, string comment) = await new VpsProvisioner(credentials, LogFromAnyThread)
+                    .RegisterThisComputerAsync(CancellationToken.None).ConfigureAwait(true);
+
+                _computerKey = privateKey;
+                _computerKeyComment = comment;
+                PasswordBoxSshPassword.Password = "";
+                SaveSettings();
+                UpdateComputerKeyStatus();
+                AppendLog("From now on this computer logs in with its own key; the root password was removed from the settings");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("Could not register the SSH key of this computer (the password keeps working): " + ex.Message);
+            }
+        }
+
+        private async void ButtonDeployServer_Click(object sender, RoutedEventArgs e)
+        {
+            VpsSshCredentials credentials;
+
+            try
+            {
+                credentials = CreateCredentials();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Set up OsEngine on {credentials.HostId} as {credentials.User}?\n\n"
+                + "Time zone UTC + NTP, firewall (only SSH open), fail2ban, service user, OsEngine build, "
+                + "robot scripts, MCP key and the systemd service. Parts that already exist are kept as they are.");
+            confirm.ShowDialog();
+
+            if (!confirm.UserAcceptAction)
+            {
+                return;
+            }
+
+            ButtonDeployServer.IsEnabled = false;
+            SaveSettings();
+
+            try
+            {
+                AppendLog("=== Deploy / repair server " + credentials.HostId + " ===");
+                await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread).DeployAsync(CancellationToken.None)).ConfigureAwait(true);
+
+                if (_computerKey == null && credentials.Password != null)
+                {
+                    await RegisterComputerKeyAsync(credentials).ConfigureAwait(true);
+                }
+
+                if (_client == null)
+                {
+                    ButtonConnect_Click(null, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog("Deploy failed: " + ex.Message);
+            }
+            finally
+            {
+                ButtonDeployServer.IsEnabled = true;
             }
         }
 
@@ -193,17 +297,18 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                         throw new FormatException("SSH local and VPS API ports must be whole numbers");
                     }
 
-                    tunnel = await SshTunnel.StartAsync(
-                        TextBoxSshHost.Text.Trim(),
-                        TextBoxSshUser.Text.Trim(),
-                        TextBoxSshKeyPath.Text,
-                        PasswordBoxSshPassword.Password,
-                        localPort,
-                        remotePort,
-                        message => Dispatcher.BeginInvoke(new Action(() => AppendLog(message))));
+                    VpsSshCredentials credentials = CreateCredentials();
+                    tunnel = await SshTunnel.StartAsync(credentials, localPort, remotePort, LogFromAnyThread);
 
                     url = $"http://127.0.0.1:{localPort}/api/v2/mcp";
                     TextBoxUrl.Text = url;
+
+                    // First login with the root password from this computer: create and register its own key,
+                    // so the password is not needed (nor stored) from now on.
+                    if (tunnel.StartedByThisWindow && _computerKey == null && !string.IsNullOrEmpty(PasswordBoxSshPassword.Password))
+                    {
+                        await RegisterComputerKeyAsync(credentials).ConfigureAwait(true);
+                    }
 
                     // The MCP API key lives on the VPS (/opt/osengine/mcp.key); read it over the same SSH
                     // connection instead of relying on what was typed into the API Key box.

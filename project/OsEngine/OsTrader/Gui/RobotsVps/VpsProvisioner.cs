@@ -1,0 +1,213 @@
+// Robots.VPS server provisioning: deploy OsEngine on a VPS and register this computer's SSH key.
+using System;
+using System.Formats.Tar;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Renci.SshNet;
+
+namespace OsEngine.OsTrader.Gui.RobotsVps
+{
+    // Everything runs over plain SSH/SFTP with the root login, so it works on a fresh server where
+    // OsEngine (and its MCP API) does not exist yet.
+    internal sealed class VpsProvisioner
+    {
+        // Files shipped next to OsEngine.exe: the setup script (copied by the build) and the headless
+        // linux-x64 build package (produced in D:\ff-research\headless, not stored in git — ~60 MB).
+        public const string PackageFolder = "VpsServer";
+        public const string ScriptFileName = "osengine-setup.sh";
+        public const string PackageFileName = "osengine-headless-linux-x64.tgz";
+
+        private const string RemoteScript = "/tmp/osengine-setup.sh";
+        private const string RemotePackage = "/tmp/osengine-app.tgz";
+        private const string RemoteCustom = "/tmp/osengine-custom.tgz";
+
+        private readonly VpsSshCredentials _credentials;
+        private readonly Action<string> _log;
+
+        public VpsProvisioner(VpsSshCredentials credentials, Action<string> log)
+        {
+            _credentials = credentials;
+            _log = log;
+        }
+
+        public static string LocalPath(string fileName) =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, PackageFolder, fileName);
+
+        // Uploads what the server is missing and runs osengine-setup.sh, showing its progress in the log.
+        // Safe on a working server: the script only fills in what is absent ("repair" mode).
+        public async Task DeployAsync(CancellationToken cancel)
+        {
+            string scriptPath = LocalPath(ScriptFileName);
+            if (!File.Exists(scriptPath)) throw new FileNotFoundException("Setup script not found", scriptPath);
+
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+
+            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
+
+            _log("Connected to " + _credentials.HostId + " as " + _credentials.User);
+
+            try
+            {
+                // Windows checkouts may turn LF into CRLF — bash needs LF.
+                string script = File.ReadAllText(scriptPath).Replace("\r\n", "\n");
+                await UploadAsync(sftp, new MemoryStream(Encoding.UTF8.GetBytes(script)), RemoteScript, "setup script", cancel).ConfigureAwait(false);
+
+                bool appInstalled = Run(ssh, "test -x /opt/osengine/app/OsEngine") == 0;
+                string packageArg = "";
+
+                if (appInstalled)
+                {
+                    _log("OsEngine build is already installed on the server — package upload skipped");
+                }
+                else
+                {
+                    string packagePath = LocalPath(PackageFileName);
+                    if (!File.Exists(packagePath)) throw new FileNotFoundException("Server build package not found", packagePath);
+
+                    using FileStream package = File.OpenRead(packagePath);
+                    await UploadAsync(sftp, package, RemotePackage, "OsEngine build", cancel).ConfigureAwait(false);
+                    packageArg = RemotePackage;
+                }
+
+                bool customPresent = Run(ssh, "test -d /opt/osengine/data/Custom/Robots") == 0;
+                string customArg = "";
+                string customFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Custom");
+
+                if (customPresent)
+                {
+                    _log("Robot scripts (Custom) are already on the server — upload skipped");
+                }
+                else if (Directory.Exists(customFolder))
+                {
+                    using MemoryStream custom = PackFolder(customFolder);
+                    await UploadAsync(sftp, custom, RemoteCustom, "robot scripts (Custom)", cancel).ConfigureAwait(false);
+                    customArg = RemoteCustom;
+                }
+
+                _log("Running the setup script on the server...");
+                int exitCode = await RunStreamingAsync(ssh, $"bash {RemoteScript} '{packageArg}' '{customArg}'", cancel).ConfigureAwait(false);
+
+                if (exitCode != 0)
+                {
+                    throw new InvalidOperationException($"Setup script failed (exit code {exitCode}) — see the lines above");
+                }
+
+                _log("Server is ready");
+            }
+            finally
+            {
+                Run(ssh, $"rm -f {RemoteScript} {RemotePackage} {RemoteCustom}");
+            }
+        }
+
+        // Creates a key pair for this computer on the server, authorizes its public half for the login user
+        // and returns the private half. The client keeps it (DPAPI-encrypted) and logs in with it from then on,
+        // so the root password is needed only once per computer. The comment names the computer, so the key
+        // can be found and revoked in ~/.ssh/authorized_keys later.
+        public async Task<(string PrivateKey, string Comment)> RegisterThisComputerAsync(CancellationToken cancel)
+        {
+            string machine = new string(Environment.MachineName.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+            string comment = $"osengine-client-{machine}-{DateTime.UtcNow:yyyyMMdd}";
+
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+
+            string script =
+                "set -e\n" +
+                "d=$(mktemp -d)\n" +
+                $"ssh-keygen -q -t ed25519 -N '' -C '{comment}' -f \"$d/k\" >/dev/null\n" +
+                "mkdir -p ~/.ssh && chmod 700 ~/.ssh\n" +
+                "touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\n" +
+                "cat \"$d/k.pub\" >> ~/.ssh/authorized_keys\n" +
+                "cat \"$d/k\"\n" +
+                "rm -rf \"$d\"\n";
+
+            using SshCommand command = ssh.RunCommand(script);
+
+            if (!(command.ExitStatus is int status) || status != 0 || !command.Result.Contains("PRIVATE KEY"))
+            {
+                throw new InvalidOperationException("Could not create an SSH key on the server: " + command.Error.Trim());
+            }
+
+            string privateKey = command.Result;
+
+            // make sure the new key really opens the server before relying on it
+            VpsSshCredentials keyOnly = VpsSshCredentials.Create(_credentials.HostId, _credentials.User, null, privateKey, null, _log);
+            using (SshClient check = new SshClient(keyOnly.CreateConnectionInfo()))
+            {
+                await keyOnly.ConnectAsync(check, _log, cancel).ConfigureAwait(false);
+            }
+
+            _log($"SSH key of this computer registered on the server ({comment})");
+            return (privateKey, comment);
+        }
+
+        private async Task UploadAsync(SftpClient sftp, Stream source, string remotePath, string what, CancellationToken cancel)
+        {
+            long total = source.CanSeek ? source.Length : 0;
+            int lastTenth = -1;
+
+            Progress<UploadFileProgressReport> progress = new Progress<UploadFileProgressReport>(report =>
+            {
+                if (total <= 0) return;
+                int tenth = (int)((long)report.TotalBytesUploaded * 10 / total);
+                if (tenth > lastTenth && tenth < 10)
+                {
+                    lastTenth = tenth;
+                    _log($"Uploading {what}: {tenth * 10} %");
+                }
+            });
+
+            await sftp.UploadFileAsync(source, remotePath, true, progress, cancel).ConfigureAwait(false);
+            _log($"Uploaded {what}" + (total > 0 ? $" ({total / 1024 / 1024.0:0.#} MB)" : ""));
+        }
+
+        // Runs a command and passes every output line to the log as it arrives.
+        private async Task<int> RunStreamingAsync(SshClient ssh, string commandText, CancellationToken cancel)
+        {
+            using SshCommand command = ssh.CreateCommand(commandText + " 2>&1");
+            Task execution = command.ExecuteAsync(cancel);
+
+            using StreamReader reader = new StreamReader(command.OutputStream, Encoding.UTF8);
+            Task reading = Task.Run(async () =>
+            {
+                string line;
+                while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
+                {
+                    if (line.Length > 0) _log("  " + line);
+                }
+            });
+
+            await execution.ConfigureAwait(false);
+            await Task.WhenAny(reading, Task.Delay(3000)).ConfigureAwait(false);
+
+            return command.ExitStatus is int status ? status : -1;
+        }
+
+        private static int Run(SshClient ssh, string commandText)
+        {
+            using SshCommand command = ssh.RunCommand(commandText);
+            return command.ExitStatus is int status ? status : -1;
+        }
+
+        // Custom folder -> Custom.tgz with "Custom/..." entries (unpacked into /opt/osengine/data).
+        private static MemoryStream PackFolder(string folder)
+        {
+            MemoryStream result = new MemoryStream();
+
+            using (GZipStream gzip = new GZipStream(result, CompressionLevel.Optimal, true))
+            {
+                TarFile.CreateFromDirectory(folder, gzip, true);
+            }
+
+            result.Position = 0;
+            return result;
+        }
+    }
+}

@@ -153,6 +153,13 @@
     <PackageReference Include="WinForms.DataVisualization" Version="1.10.0" />
     <PackageReference Include="WTelegramClient" Version="4.3.4" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- VPS setup script, uploaded by Robots.VPS "Deploy server"; the headless build package is placed next to it -->
+    <None Update="OsTrader\Gui\RobotsVps\Provisioning\osengine-setup.sh">
+      <Link>VpsServer\osengine-setup.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <ItemGroup Condition=" '$(Platform)' == 'AnyCPU' ">
     <Content Include="bin\$(Configuration)\libcrypto-3-x64.dll">
       <Link>libcrypto-3-x64.dll</Link>
