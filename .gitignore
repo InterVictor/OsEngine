@@ -345,3 +345,6 @@ __pycache__/
 project/CONTEXT_MCP_API_DEVELOPMENT.md
 # Headless server build package for Robots.VPS "Deploy server" (~60 MB, produced by D:/ff-research/headless)
 VpsServer/
+
+# Robots.VPS data backups (bots, journals, MCP keys) — private, never commit
+VpsBackups/

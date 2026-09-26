@@ -15,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="100"/>
         </Grid.RowDefinitions>
 
@@ -112,6 +113,7 @@
                         <DataGridTextColumn Header="Terminal" Width="*" Binding="{Binding Name}"/>
                         <DataGridTextColumn Header="MCP port" Width="80" Binding="{Binding Port}"/>
                         <DataGridTextColumn Header="Service" Width="100" Binding="{Binding State}"/>
+                        <DataGridTextColumn Header="CPU" Width="70" Binding="{Binding Cpu}"/>
                         <DataGridTextColumn Header="Memory" Width="90" Binding="{Binding Memory}"/>
                         <DataGridTextColumn Header="Build" Width="90" Binding="{Binding Build}"/>
                         <DataGridTextColumn Header="Connection" Width="110" Binding="{Binding Connection}"/>
@@ -157,8 +159,46 @@
             </Grid>
         </Border>
 
+        <!-- Мониторинг нагрузки VPS (по SSH из /proc) и резервные копии данных терминалов -->
+        <Border Grid.Row="2" Margin="5,5,5,0" Padding="8,6" BorderThickness="1" BorderBrush="{DynamicResource PanelAltBorderBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="200"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                    <TextBlock Name="TextBlockCpu" Text="CPU: —" Margin="0,0,0,2"/>
+                    <local:VpsSparkline x:Name="SparklineCpu" Height="50" Threshold="90"
+                                        ToolTip="CPU load of the VPS, last hour. Alert: above 90 % for 1 minute"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                    <TextBlock Name="TextBlockRam" Text="RAM: —" Margin="0,0,0,2"/>
+                    <local:VpsSparkline x:Name="SparklineRam" Height="50" Threshold="85"
+                                        ToolTip="Memory used on the VPS, last hour. Alert: above 85 %"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                    <TextBlock Name="TextBlockDisk" Text="Disk: —" Margin="0,0,0,2"/>
+                    <local:VpsSparkline x:Name="SparklineDisk" Height="50" Threshold="90"
+                                        ToolTip="Disk used on the VPS, last hour. Alert: above 90 %"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Name="PanelBackupButtons">
+                    <TextBlock Name="TextBlockVpsInfo" Text="Uptime: —" Foreground="Gray" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                    <UniformGrid Columns="2">
+                        <Button Name="ButtonBackupData" Content="Backup data" Height="24" Margin="0,0,2,0" Click="ButtonBackupData_Click"
+                                ToolTip="Downloads the selected terminal's data (bots, settings, journals, robot scripts, MCP key; no logs) to the VpsBackups folder of this computer"/>
+                        <Button Name="ButtonRestoreData" Content="Restore..." Height="24" Margin="2,0,0,0" Click="ButtonRestoreData_Click"
+                                ToolTip="Replaces the selected terminal's data with a backup; the current data stays on the VPS as data.before-restore-*"/>
+                    </UniformGrid>
+                    <CheckBox Name="CheckBoxDailyBackup" Content="Daily backup to this computer" Margin="0,4,0,0" Click="CheckBoxDailyBackup_Click"
+                              ToolTip="While connected, each running terminal is backed up once a day; the newest 14 archives per terminal are kept"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Лог: события SSE удалённого сервера (server_instance.*, terminal.*) + сообщения этого окна -->
-        <Grid Grid.Row="2" Name="LogGrid" Margin="5" Background="{DynamicResource PanelAltBrush}">
+        <Grid Grid.Row="3" Name="LogGrid" Margin="5" Background="{DynamicResource PanelAltBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>

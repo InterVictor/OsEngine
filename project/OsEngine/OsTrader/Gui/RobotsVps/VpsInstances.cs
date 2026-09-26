@@ -24,6 +24,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // first 8 chars of the SHA-256 of the installed build package ("" = installed before versioning)
         public string Build { get; set; }
 
+        // total CPU time used by the service (systemd CPUUsageNSec); the load is the difference between two readings
+        public long CpuNanoseconds { get; set; }
+
         public bool IsMain => string.Equals(Name, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase);
         public bool IsActive => State == "active";
         public string BaseFolder => VpsInstances.BaseFolderFor(Name);
@@ -60,7 +63,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 "state=$(systemctl is-active \"$svc\"); " +
                 "mem=$(systemctl show \"$svc\" -p MemoryCurrent --value); " +
                 "ver=$(cut -c1-8 \"$(dirname \"$root\")/app/.package-sha256\" 2>/dev/null); " +
-                "echo \"$svc|$port|$root|$key|$state|$mem|$ver\"; " +
+                "cpu=$(systemctl show \"$svc\" -p CPUUsageNSec --value); " +
+                "echo \"$svc|$port|$root|$key|$state|$mem|$ver|$cpu\"; " +
                 "done; true";
 
             string output = await run(script).ConfigureAwait(false);
@@ -85,7 +89,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     KeyFile = parts[3],
                     State = parts[4],
                     MemoryBytes = long.TryParse(parts[5], out long memory) ? memory : 0,
-                    Build = parts.Length > 6 ? parts[6] : ""
+                    Build = parts.Length > 6 ? parts[6] : "",
+                    CpuNanoseconds = parts.Length > 7 && long.TryParse(parts[7], out long cpu) ? cpu : 0
                 });
             }
 

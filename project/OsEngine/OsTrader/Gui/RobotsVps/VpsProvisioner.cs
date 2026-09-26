@@ -268,6 +268,115 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             Run(ssh, "nohup sh -c 'sleep 2; systemctl reboot' >/dev/null 2>&1 &");
         }
 
+        // Local folder for data backups: VpsBackups\<host>\<terminal> next to OsEngine.exe.
+        public static string BackupFolder(string host, string instanceName) =>
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VpsBackups", host.Replace(':', '_'), instanceName);
+
+        public const int BackupsToKeep = 14;
+
+        // Packs the terminal's data (robots, bots, settings, journals, Custom scripts) and its MCP key — without the
+        // log files — on the server and downloads the archive to this computer. The terminal keeps running: the
+        // archive is a live snapshot (files changed while being read are taken as they were at that moment).
+        // Returns the local file. Keeps the newest BackupsToKeep archives of the terminal.
+        public async Task<string> BackupAsync(VpsInstance instance, CancellationToken cancel)
+        {
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
+
+            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string remote = $"/tmp/osengine-backup-{instance.Name}-{stamp}.tgz";
+
+            try
+            {
+                // tar exit code 1 = "some files changed while being read" — fine for a live snapshot
+                string script =
+                    $"cd '{instance.BaseFolder}' && " +
+                    $"tar czf '{remote}' --warning=no-file-changed --exclude='data/Engine/Log' data $( [ -f mcp.key ] && echo mcp.key ); " +
+                    "rc=$?; [ $rc -le 1 ] || exit $rc";
+
+                using (SshCommand command = ssh.RunCommand(script))
+                {
+                    if (!(command.ExitStatus is int status) || status != 0)
+                    {
+                        throw new InvalidOperationException("Could not pack the data on the server: " + command.Error.Trim());
+                    }
+                }
+
+                string folder = BackupFolder(_credentials.Host, instance.Name);
+                Directory.CreateDirectory(folder);
+                string local = Path.Combine(folder, $"{instance.Name}-{stamp}.tgz");
+
+                await Task.Run(() =>
+                {
+                    using FileStream output = File.Create(local);
+                    sftp.DownloadFile(remote, output);
+                }, cancel).ConfigureAwait(false);
+
+                foreach (FileInfo old in new DirectoryInfo(folder).GetFiles("*.tgz")
+                             .OrderByDescending(f => f.LastWriteTimeUtc).Skip(BackupsToKeep))
+                {
+                    old.Delete();
+                }
+
+                return local;
+            }
+            finally
+            {
+                Run(ssh, $"rm -f '{remote}'");
+            }
+        }
+
+        // Replaces the terminal's data with a backup archive (from this terminal or another one — e.g. to move
+        // robots to a new VPS). The current data is not deleted: it is kept as data.before-restore-<time>.
+        // The terminal is stopped for the swap and started again; its MCP key comes from the archive.
+        public async Task RestoreAsync(VpsInstance instance, string localArchive, CancellationToken cancel)
+        {
+            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
+            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
+            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
+
+            string stamp = DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ");
+            string remote = $"/tmp/osengine-restore-{stamp}.tgz";
+
+            try
+            {
+                using (FileStream source = File.OpenRead(localArchive))
+                {
+                    await UploadAsync(sftp, source, remote, "backup archive", cancel).ConfigureAwait(false);
+                }
+
+                string b = instance.BaseFolder;
+                string script =
+                    "set -e\n" +
+                    $"tar tzf '{remote}' | grep -q '^data/' || {{ echo 'FAIL not an OsEngine data backup (no data/ folder inside)'; exit 1; }}\n" +
+                    $"systemctl stop {instance.Service}\n" +
+                    $"mv '{b}/data' '{b}/data.before-restore-{stamp}'\n" +
+                    // any failure from here on: put the previous data back and start the terminal again
+                    $"trap \"rm -rf '{b}/data'; mv '{b}/data.before-restore-{stamp}' '{b}/data'; systemctl start {instance.Service}; " +
+                    "echo 'FAIL restore failed — the previous data was put back'\" ERR\n" +
+                    $"[ -f '{b}/mcp.key' ] && cp '{b}/mcp.key' '{b}/mcp.key.before-restore-{stamp}'\n" +
+                    $"tar xzf '{remote}' -C '{b}'\n" +
+                    $"mkdir -p '{b}/data/Engine/Log'\n" +
+                    $"chown -R osengine:osengine '{b}/data' && [ -f '{b}/mcp.key' ] && chown osengine:osengine '{b}/mcp.key' && chmod 600 '{b}/mcp.key'\n" +
+                    $"systemctl start {instance.Service}\n" +
+                    $"echo \"OK data restored; previous data kept as {b}/data.before-restore-{stamp}\"\n";
+
+                int exitCode = await RunStreamingAsync(ssh, "bash -c " + ShellQuote(script), cancel).ConfigureAwait(false);
+
+                if (exitCode != 0)
+                {
+                    throw new InvalidOperationException($"Restore failed (exit code {exitCode}) — see the lines above");
+                }
+            }
+            finally
+            {
+                Run(ssh, $"rm -f '{remote}'");
+            }
+        }
+
         private static string InstanceEnvironment(VpsInstance instance) =>
             $"OSENGINE_BASE={instance.BaseFolder} OSENGINE_SERVICE={instance.Service} OSENGINE_MCP_PORT={instance.Port}";
 

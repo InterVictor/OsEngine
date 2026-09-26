@@ -118,6 +118,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (lines.Length > 8 && !string.IsNullOrWhiteSpace(lines[8])) PasswordBoxSshPassword.Password = UnprotectSecret(lines[8]);
                 if (lines.Length > 9 && !string.IsNullOrWhiteSpace(lines[9])) _computerKey = UnprotectSecret(lines[9]);
                 if (lines.Length > 10) _computerKeyComment = lines[10];
+                if (lines.Length > 11 && bool.TryParse(lines[11], out bool dailyBackup)) CheckBoxDailyBackup.IsChecked = dailyBackup;
             }
             catch (Exception ex)
             {
@@ -160,7 +161,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     (CheckBoxAutoConnectSsh.IsChecked == true).ToString(),
                     ProtectSecret(PasswordBoxSshPassword.Password),
                     ProtectSecret(_computerKey ?? ""),
-                    _computerKeyComment ?? ""
+                    _computerKeyComment ?? "",
+                    (CheckBoxDailyBackup.IsChecked == true).ToString()
                 });
             }
             catch (Exception ex)
@@ -385,6 +387,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 _instances = instances;
 
+                await SampleMetricsAsync(tunnel, instances).ConfigureAwait(true);
+                RunDailyBackupIfDue(instances);
+
                 if (instances.Count == 0 && !_noServiceLogged)
                 {
                     _noServiceLogged = true;
@@ -519,6 +524,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _instances = new List<VpsInstance>();
             _noServiceLogged = false;
+            ResetMonitoring();
             RenderTerminals();
         }
 
@@ -619,6 +625,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     State = instance.State,
                     Memory = instance.MemoryText,
                     Build = string.IsNullOrEmpty(instance.Build) ? "—" : instance.Build,
+                    Cpu = _terminalCpu.TryGetValue(instance.Name, out double cpu) && !double.IsNaN(cpu) && instance.IsActive
+                        ? cpu.ToString("0.0", CultureInfo.InvariantCulture) + " %" : "—",
                     Connection = _terminals.TryGetValue(instance.Name, out TerminalConnection t)
                         ? (t.Reconnecting ? "reconnecting" : "connected")
                         : "—"
@@ -1015,6 +1023,198 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         #endregion
 
+        #region Monitoring (CPU / RAM / disk of the VPS, per-terminal load) and data backups
+
+        private VpsMonitor _monitor = new VpsMonitor();
+        private readonly Dictionary<string, double> _terminalCpu = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        // CPU alert only after a whole minute above the limit (6 samples x 10 s): short spikes are normal
+        private readonly VpsAlarm _cpuAlarm = new VpsAlarm(90, 6);
+        private readonly VpsAlarm _ramAlarm = new VpsAlarm(85, 1);
+        private readonly VpsAlarm _diskAlarm = new VpsAlarm(90, 1);
+
+        private bool _backupRunning;
+
+        private async Task SampleMetricsAsync(SshTunnel tunnel, List<VpsInstance> instances)
+        {
+            VpsMetrics metrics;
+
+            try
+            {
+                metrics = await _monitor.SampleAsync(tunnel.RunCommandAsync).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                TextBlockVpsInfo.Text = "Monitoring: " + ex.Message;
+                return;
+            }
+
+            foreach (VpsInstance instance in instances)
+            {
+                _terminalCpu[instance.Name] = _monitor.ServiceCpuPercent(instance.Service, instance.CpuNanoseconds, metrics.Cores);
+            }
+
+            SparklineCpu.Add(metrics.CpuPercent);
+            SparklineRam.Add(metrics.RamPercent);
+            SparklineDisk.Add(metrics.DiskPercent);
+
+            TextBlockCpu.Text = double.IsNaN(metrics.CpuPercent)
+                ? $"CPU: — ({metrics.Cores} cores)"
+                : $"CPU: {metrics.CpuPercent:0} % ({metrics.Cores} cores, load {metrics.Load1.ToString("0.00", CultureInfo.InvariantCulture)})";
+            TextBlockRam.Text = $"RAM: {metrics.RamPercent:0} % ({VpsMonitor.FormatBytes(metrics.RamUsed)} of {VpsMonitor.FormatBytes(metrics.RamTotal)})"
+                + (metrics.SwapTotal > 0 ? $", swap {VpsMonitor.FormatBytes(metrics.SwapUsed)}" : "");
+            TextBlockDisk.Text = $"Disk: {metrics.DiskPercent:0} % ({VpsMonitor.FormatBytes(metrics.DiskUsed)} of {VpsMonitor.FormatBytes(metrics.DiskTotal)})";
+            TextBlockVpsInfo.Text = "Uptime: " + (metrics.Uptime.TotalDays >= 1
+                ? $"{(int)metrics.Uptime.TotalDays} d {metrics.Uptime.Hours} h"
+                : $"{metrics.Uptime.Hours} h {metrics.Uptime.Minutes} min");
+
+            if (_cpuAlarm.Check(metrics.CpuPercent))
+                RaiseVpsAlert($"CPU load {metrics.CpuPercent:0} % for over a minute (limit {_cpuAlarm.Limit:0} %)");
+            if (_ramAlarm.Check(metrics.RamPercent))
+                RaiseVpsAlert($"Memory {metrics.RamPercent:0} % used: {VpsMonitor.FormatBytes(metrics.RamUsed)} of {VpsMonitor.FormatBytes(metrics.RamTotal)} (limit {_ramAlarm.Limit:0} %)");
+            if (_diskAlarm.Check(metrics.DiskPercent))
+                RaiseVpsAlert($"Disk {metrics.DiskPercent:0} % full: {VpsMonitor.FormatBytes(metrics.DiskTotal - metrics.DiskUsed)} free (limit {_diskAlarm.Limit:0} %) — clean the logs");
+        }
+
+        private void RaiseVpsAlert(string message)
+        {
+            string source = "VPS " + TextBoxSshHost.Text.Trim();
+            AlertMessageManager.ThrowRemoteAlert(source, message, DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture));
+            AppendLog("ALERT: " + message);
+        }
+
+        private void ResetMonitoring()
+        {
+            _monitor = new VpsMonitor();
+            _terminalCpu.Clear();
+            SparklineCpu.Clear();
+            SparklineRam.Clear();
+            SparklineDisk.Clear();
+            TextBlockCpu.Text = "CPU: —";
+            TextBlockRam.Text = "RAM: —";
+            TextBlockDisk.Text = "Disk: —";
+            TextBlockVpsInfo.Text = "Uptime: —";
+        }
+
+        private void CheckBoxDailyBackup_Click(object sender, RoutedEventArgs e) => SaveSettings();
+
+        // While connected: one running terminal per 10 s tick whose newest local backup is older than a day.
+        private void RunDailyBackupIfDue(List<VpsInstance> instances)
+        {
+            if (CheckBoxDailyBackup.IsChecked != true || _backupRunning)
+            {
+                return;
+            }
+
+            string host = TextBoxSshHost.Text.Trim();
+
+            VpsInstance due = instances.FirstOrDefault(instance =>
+            {
+                if (!instance.IsActive) return false;
+                string folder = VpsProvisioner.BackupFolder(host, instance.Name);
+                DateTime newest = Directory.Exists(folder)
+                    ? new DirectoryInfo(folder).GetFiles("*.tgz").Select(f => f.LastWriteTime).DefaultIfEmpty(DateTime.MinValue).Max()
+                    : DateTime.MinValue;
+                return DateTime.Now - newest > TimeSpan.FromDays(1);
+            });
+
+            if (due != null)
+            {
+                _ = BackupTerminalAsync(due, "Daily backup");
+            }
+        }
+
+        private async Task BackupTerminalAsync(VpsInstance instance, string what)
+        {
+            if (_backupRunning) return;
+            _backupRunning = true;
+
+            try
+            {
+                VpsSshCredentials credentials = CreateCredentials();
+                AppendLog($"{what} of terminal \"{instance.Name}\"...");
+                string file = await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .BackupAsync(instance, CancellationToken.None)).ConfigureAwait(true);
+                AppendLog($"{what} of terminal \"{instance.Name}\" saved: {file} ({new FileInfo(file).Length / 1024} KB)");
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"{what} of terminal \"{instance.Name}\" failed: {ex.Message}");
+            }
+            finally
+            {
+                _backupRunning = false;
+            }
+        }
+
+        private async void ButtonBackupData_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedOrOnlyInstance();
+            if (instance == null) return;
+
+            if (_backupRunning)
+            {
+                MessageBox.Show("A backup is already running");
+                return;
+            }
+
+            PanelBackupButtons.IsEnabled = false;
+
+            try
+            {
+                await BackupTerminalAsync(instance, "Backup").ConfigureAwait(true);
+            }
+            finally
+            {
+                PanelBackupButtons.IsEnabled = true;
+            }
+        }
+
+        private async void ButtonRestoreData_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedOrOnlyInstance();
+            if (instance == null) return;
+
+            string folder = VpsProvisioner.BackupFolder(TextBoxSshHost.Text.Trim(), instance.Name);
+            Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = $"Backup to restore into terminal \"{instance.Name}\"",
+                Filter = "OsEngine data backup (*.tgz)|*.tgz",
+                InitialDirectory = Directory.Exists(folder) ? folder : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VpsBackups")
+            };
+
+            if (dialog.ShowDialog() != true) return;
+            string archive = dialog.FileName;
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Restore terminal \"{instance.Name}\" from\n{Path.GetFileName(archive)}?\n\n"
+                + "The terminal is stopped, its data (bots, settings, journals, robot scripts, MCP key) is replaced with the "
+                + "backup and it is started again. The current data is NOT deleted: it stays on the VPS as "
+                + "data.before-restore-<time>. Open positions of its robots are only what the backup contains.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials = CreateCredentials();
+
+            await RunMaintenanceAsync(async () =>
+            {
+                AppendLog($"=== Restore terminal \"{instance.Name}\" from {Path.GetFileName(archive)} ===");
+                await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .RestoreAsync(instance, archive, CancellationToken.None)).ConfigureAwait(true);
+
+                // the MCP key may have changed with the data: reconnect this terminal with the key now on the VPS
+                if (_terminals.TryGetValue(instance.Name, out TerminalConnection terminal))
+                {
+                    DropTerminal(terminal);
+                    PublishSession();
+                }
+            }).ConfigureAwait(true);
+        }
+
+        #endregion
+
         #region Small helpers
 
         private void AppendLog(string message)
@@ -1045,6 +1245,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         public string State { get; set; }
         public string Memory { get; set; }
         public string Build { get; set; }
+        public string Cpu { get; set; }
         public string Connection { get; set; }
     }
 }
