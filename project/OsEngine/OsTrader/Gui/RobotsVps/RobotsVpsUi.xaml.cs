@@ -573,6 +573,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             });
         }
 
+        private static readonly HashSet<string> RoutineEvents = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "heartbeat",
+            "server_instance.portfolio.updated",
+            "server_instance.security.updated",
+            "server_instance.log",
+            "tester.test.progress",
+            "optimizer.test.progress"
+        };
+
         private void Client_EventReceived(TerminalConnection terminal, string eventName, JsonElement payload)
         {
             Dispatcher.Invoke(() =>
@@ -587,8 +597,19 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     return;
                 }
 
-                // heartbeat arrives every 5 s just to keep the stream alive — not worth a log line
-                if (eventName == "heartbeat") return;
+                // Routine events the server sends every few seconds (it marks them "info"/"debug"): heartbeat, portfolio
+                // and security refreshes, connector log lines (shown in Robots.VPS -> Server log), test progress —
+                // they would bury the meaningful ones. Kept: connection status, terminal start/stop, alerts, test results.
+                if (RoutineEvents.Contains(eventName)) return;
+
+                if (eventName == "server_instance.status_changed")
+                {
+                    string type = payload.TryGetProperty("type", out JsonElement t) ? t.GetString() : "?";
+                    string number = payload.TryGetProperty("number", out JsonElement n) ? n.ToString() : "?";
+                    string status = payload.TryGetProperty("status", out JsonElement s) ? s.GetString() : "?";
+                    AppendLog(TerminalPrefix(terminal.Name) + type + " #" + number + ": " + status);
+                    return;
+                }
 
                 AppendLog(TerminalPrefix(terminal.Name) + eventName);
             });
