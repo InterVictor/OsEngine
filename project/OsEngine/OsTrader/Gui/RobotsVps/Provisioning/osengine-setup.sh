@@ -97,6 +97,10 @@ echo "OK $APP, $DATA"
 echo "STEP 8/11 OsEngine build"
 if [ -x "$APP/OsEngine" ]; then
     echo "SKIP build already installed (updates are a separate action)"
+elif [ -z "$APP_PACKAGE" ] && [ "$BASE" != "/opt/osengine" ] && [ -x /opt/osengine/app/OsEngine ]; then
+    # an extra terminal: same build as the main one, copied on the server (no 60 MB upload)
+    cp -a /opt/osengine/app/. "$APP/" || fail "copy the build of the main terminal"
+    echo "OK build copied from the main terminal ($(du -sh "$APP" | cut -f1))"
 else
     [ -n "$APP_PACKAGE" ] && [ -f "$APP_PACKAGE" ] || fail "build package not found: $APP_PACKAGE"
     tar xzf "$APP_PACKAGE" -C "$APP" || fail "unpack $APP_PACKAGE"
@@ -110,6 +114,11 @@ if [ -d "$DATA/Custom/Robots" ]; then
 elif [ -n "$CUSTOM_PACKAGE" ] && [ -f "$CUSTOM_PACKAGE" ]; then
     tar xzf "$CUSTOM_PACKAGE" -C "$DATA" || fail "unpack $CUSTOM_PACKAGE"
     echo "OK Custom unpacked ($(ls "$DATA/Custom/Robots" 2>/dev/null | wc -l) robot files)"
+elif [ "$BASE" != "/opt/osengine" ] && [ -d /opt/osengine/data/Custom/Robots ]; then
+    cp -a /opt/osengine/data/Custom "$DATA/" || fail "copy Custom of the main terminal"
+    # the robot description cache (wiki_robots_list) is valid for the same scripts — saves ~20 s on the first "Add bot"
+    [ -f /opt/osengine/data/BotsDescription.txt ] && cp /opt/osengine/data/BotsDescription.txt "$DATA/"
+    echo "OK Custom copied from the main terminal ($(ls "$DATA/Custom/Robots" | wc -l) robot files)"
 else
     echo "WARN no Custom package given — robot scripts must be uploaded later"
 fi

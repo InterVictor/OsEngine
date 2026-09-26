@@ -37,7 +37,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     {
         private const string SettingsFile = @"Engine\RobotsVpsSettings.txt";
 
-        private RemoteMcpClient _client;
         private SshTunnel _sshTunnel;
         private readonly ObservableCollection<LogRow> _log = new ObservableCollection<LogRow>();
 
@@ -46,6 +45,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             InitializeComponent();
 
             LogDataGrid.ItemsSource = _log;
+            DataGridTerminals.ItemsSource = _terminalRows;
 
             TextBoxSshKeyPath.Text = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "ff_server");
@@ -249,7 +249,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     await RegisterComputerKeyAsync(credentials).ConfigureAwait(true);
                 }
 
-                if (_client == null)
+                if (!IsConnected)
                 {
                     ButtonConnect_Click(null, null);
                 }
@@ -266,7 +266,28 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         #endregion
 
-        #region Connect / Disconnect
+        #region Connect / Disconnect (one SSH tunnel, one MCP client per VPS terminal)
+
+        // A running terminal on the VPS and its MCP client. The main terminal uses the ports of the window fields
+        // (local 6510 -> VPS 6500); an extra terminal on VPS port P gets local port <Local port> + (P - 6500),
+        // all carried by the same SSH connection.
+        private sealed class TerminalConnection
+        {
+            public string Name;
+            public int LocalPort;
+            public RemoteMcpClient Client;
+            public bool Reconnecting;
+        }
+
+        private readonly Dictionary<string, TerminalConnection> _terminals =
+            new Dictionary<string, TerminalConnection>(StringComparer.OrdinalIgnoreCase);
+
+        private List<VpsInstance> _instances = new List<VpsInstance>();
+        private DispatcherTimer _terminalsTimer;
+        private bool _syncingTerminals;
+        private bool _noServiceLogged;
+
+        private bool IsConnected => _terminals.Count > 0 || _sshTunnel != null;
 
         private async void ButtonConnect_Click(object sender, RoutedEventArgs e)
         {
@@ -282,14 +303,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             ButtonConnect.IsEnabled = false;
             SetStatus("Connecting...", Brushes.Orange);
 
-            RemoteMcpClient client = null;
-            SshTunnel tunnel = null;
-
             try
             {
                 SaveSettings();
 
-                if (!string.IsNullOrWhiteSpace(TextBoxSshHost.Text))
+                if (string.IsNullOrWhiteSpace(TextBoxSshHost.Text))
+                {
+                    // no SSH: direct MCP URL + the API Key box, main terminal only
+                    await ConnectTerminalAsync(VpsRemoteSession.MainInstance, url, apiKey, 0).ConfigureAwait(true);
+                }
+                else
                 {
                     if (!int.TryParse(TextBoxSshLocalPort.Text, out int localPort)
                         || !int.TryParse(TextBoxSshRemotePort.Text, out int remotePort))
@@ -298,71 +321,165 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     }
 
                     VpsSshCredentials credentials = CreateCredentials();
-                    tunnel = await SshTunnel.StartAsync(credentials, localPort, remotePort, LogFromAnyThread);
+                    _sshTunnel = await SshTunnel.StartAsync(credentials, localPort, remotePort, LogFromAnyThread).ConfigureAwait(true);
+                    TextBoxUrl.Text = $"http://127.0.0.1:{localPort}/api/v2/mcp";
 
-                    url = $"http://127.0.0.1:{localPort}/api/v2/mcp";
-                    TextBoxUrl.Text = url;
-
-                    // First login with the root password from this computer: create and register its own key,
-                    // so the password is not needed (nor stored) from now on.
-                    if (tunnel.StartedByThisWindow && _computerKey == null && !string.IsNullOrEmpty(PasswordBoxSshPassword.Password))
+                    if (!_sshTunnel.StartedByThisWindow)
                     {
-                        await RegisterComputerKeyAsync(credentials).ConfigureAwait(true);
+                        // someone else's tunnel on the local port: no SSH commands, main terminal via the API Key box
+                        AppendLog("SSH tunnel already running — only the main terminal is available");
+                        await ConnectTerminalAsync(VpsRemoteSession.MainInstance, TextBoxUrl.Text, apiKey, localPort).ConfigureAwait(true);
                     }
-
-                    // The MCP API key lives on the VPS (/opt/osengine/mcp.key); read it over the same SSH
-                    // connection instead of relying on what was typed into the API Key box.
-                    if (tunnel.StartedByThisWindow)
+                    else
                     {
-                        try
+                        // First login with the root password from this computer: create and register its own key,
+                        // so the password is not needed (nor stored) from now on.
+                        if (_computerKey == null && !string.IsNullOrEmpty(PasswordBoxSshPassword.Password))
                         {
-                            string serverKey = (await tunnel.RunCommandAsync("cat /opt/osengine/mcp.key").ConfigureAwait(true)).Trim();
+                            await RegisterComputerKeyAsync(credentials).ConfigureAwait(true);
+                        }
 
-                            if (serverKey.Length > 0)
-                            {
-                                if (serverKey != apiKey) AppendLog("MCP API key read from the VPS");
-                                apiKey = serverKey;
-                                PasswordBoxApiKey.Password = serverKey;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppendLog("Could not read the MCP API key from the VPS, using the API Key box: " + ex.Message);
-                        }
+                        await SyncTerminalsAsync().ConfigureAwait(true);
+
+                        _terminalsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+                        _terminalsTimer.Tick += async (s, args) => await SyncTerminalsAsync().ConfigureAwait(true);
+                        _terminalsTimer.Start();
                     }
                 }
 
-                client = new RemoteMcpClient(url, apiKey);
-                client.EventReceived += Client_EventReceived;
-                client.Disconnected += Client_Disconnected;
-                client.Reconnected += Client_Reconnected;
-                await client.ConnectAsync().ConfigureAwait(true);
-
-                _client = client;
-                VpsRemoteSession.SetClient(client);
-                _sshTunnel = tunnel;
-                tunnel = null;
                 SaveSettings();
-                SetStatus("Connected", Brushes.Green);
                 ButtonDisconnect.IsEnabled = true;
-                AppendLog("Connected to " + url
-                    + (_sshTunnel?.StartedByThisWindow == true ? " (SSH tunnel started by Robots.VPS)"
-                        : !string.IsNullOrWhiteSpace(TextBoxSshHost.Text) ? " (SSH tunnel already running)" : ""));
+                UpdateOverallStatus();
             }
             catch (Exception ex)
             {
-                if (client != null)
-                {
-                    client.EventReceived -= Client_EventReceived;
-                    client.Disconnected -= Client_Disconnected;
-                    client.Reconnected -= Client_Reconnected;
-                    client.Dispose();
-                }
-                tunnel?.Dispose();
+                DisconnectCore();
                 ButtonConnect.IsEnabled = true;
                 SetStatus("Disconnected", Brushes.Gray);
                 AppendLog("Connect failed: " + ex.Message);
             }
+        }
+
+        // Brings the MCP connections in line with the terminals on the VPS: connects running ones that are not
+        // connected yet, drops those that were stopped or removed. Runs on connect and every 10 s.
+        private async Task SyncTerminalsAsync()
+        {
+            SshTunnel tunnel = _sshTunnel;
+
+            if (tunnel == null || !tunnel.StartedByThisWindow || _syncingTerminals)
+            {
+                return;
+            }
+
+            _syncingTerminals = true;
+
+            try
+            {
+                List<VpsInstance> instances = await VpsInstances.ListAsync(tunnel.RunCommandAsync).ConfigureAwait(true);
+
+                if (!ReferenceEquals(tunnel, _sshTunnel))
+                {
+                    return; // disconnected meanwhile
+                }
+
+                _instances = instances;
+
+                if (instances.Count == 0 && !_noServiceLogged)
+                {
+                    _noServiceLogged = true;
+                    AppendLog("No OsEngine terminal found on the VPS — use \"Deploy / repair server\"");
+                }
+
+                int localBase = int.Parse(TextBoxSshLocalPort.Text, CultureInfo.InvariantCulture);
+                bool changed = false;
+
+                foreach (VpsInstance instance in instances.Where(i => i.IsActive && !_terminals.ContainsKey(i.Name)))
+                {
+                    int localPort = instance.IsMain ? localBase : localBase + (instance.Port - VpsInstances.MainPort);
+
+                    try
+                    {
+                        if (!instance.IsMain)
+                        {
+                            tunnel.AddForward(localPort, instance.Port);
+                        }
+
+                        string key = await VpsInstances.ReadKeyAsync(tunnel.RunCommandAsync, instance).ConfigureAwait(true);
+                        await ConnectTerminalAsync(instance.Name, $"http://127.0.0.1:{localPort}/api/v2/mcp", key, localPort).ConfigureAwait(true);
+
+                        if (instance.IsMain) PasswordBoxApiKey.Password = key;
+                        changed = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"Terminal \"{instance.Name}\": could not connect: {ex.Message}");
+                    }
+                }
+
+                foreach (string name in _terminals.Keys.Where(n => !instances.Any(i => i.IsActive && string.Equals(i.Name, n, StringComparison.OrdinalIgnoreCase))).ToList())
+                {
+                    TerminalConnection terminal = _terminals[name];
+                    DropTerminal(terminal);
+                    AppendLog($"Terminal \"{name}\" is not running — disconnected");
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    PublishSession();
+                }
+
+                RenderTerminals();
+                UpdateOverallStatus();
+            }
+            catch (Exception ex)
+            {
+                AppendLog("Could not read the terminals of the VPS: " + ex.Message);
+            }
+            finally
+            {
+                _syncingTerminals = false;
+            }
+        }
+
+        private async Task ConnectTerminalAsync(string name, string url, string apiKey, int localPort)
+        {
+            RemoteMcpClient client = new RemoteMcpClient(url, apiKey);
+            TerminalConnection terminal = new TerminalConnection { Name = name, LocalPort = localPort, Client = client };
+
+            client.EventReceived += (eventName, payload) => Client_EventReceived(terminal, eventName, payload);
+            client.Disconnected += ex => Client_Disconnected(terminal, ex);
+            client.Reconnected += () => Client_Reconnected(terminal);
+
+            try
+            {
+                await client.ConnectAsync().ConfigureAwait(true);
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+
+            _terminals[name] = terminal;
+            PublishSession();
+            AppendLog(TerminalPrefix(name) + "connected to " + url);
+        }
+
+        private void DropTerminal(TerminalConnection terminal)
+        {
+            _terminals.Remove(terminal.Name);
+            terminal.Client.Dispose();
+
+            if (!string.Equals(terminal.Name, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase))
+            {
+                _sshTunnel?.RemoveForward(terminal.LocalPort);
+            }
+        }
+
+        private void PublishSession()
+        {
+            VpsRemoteSession.SetClients(_terminals.ToDictionary(t => t.Key, t => t.Value.Client, StringComparer.OrdinalIgnoreCase));
         }
 
         private void ButtonDisconnect_Click(object sender, RoutedEventArgs e)
@@ -372,18 +489,24 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private void Disconnect()
         {
-            if (_client != null)
+            DisconnectCore();
+            ButtonConnect.IsEnabled = true;
+            ButtonDisconnect.IsEnabled = false;
+            SetStatus("Disconnected", Brushes.Gray);
+        }
+
+        private void DisconnectCore()
+        {
+            _terminalsTimer?.Stop();
+            _terminalsTimer = null;
+
+            foreach (TerminalConnection terminal in _terminals.Values.ToList())
             {
-                if (ReferenceEquals(VpsRemoteSession.Client, _client))
-                {
-                    VpsRemoteSession.SetClient(null);
-                }
-                _client.EventReceived -= Client_EventReceived;
-                _client.Disconnected -= Client_Disconnected;
-                _client.Reconnected -= Client_Reconnected;
-                _client.Dispose();
-                _client = null;
+                terminal.Client.Dispose();
             }
+
+            _terminals.Clear();
+            VpsRemoteSession.SetClients(null);
 
             if (_sshTunnel != null)
             {
@@ -393,37 +516,42 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (stoppedTunnel) AppendLog("SSH tunnel stopped");
             }
 
-            _reconnecting = false;
-            ButtonConnect.IsEnabled = true;
-            ButtonDisconnect.IsEnabled = false;
-            SetStatus("Disconnected", Brushes.Gray);
+            _instances = new List<VpsInstance>();
+            _noServiceLogged = false;
+            RenderTerminals();
         }
 
-        // Raised on every failed retry (~2 s) while the server is unreachable — log only the first one.
-        private bool _reconnecting;
+        // prefix log lines with the terminal name only when the VPS runs several terminals
+        private string TerminalPrefix(string name) =>
+            _instances.Count > 1 || !string.Equals(name, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase)
+                ? $"[{name}] " : "";
 
-        private void Client_Disconnected(Exception ex)
+        // Raised on every failed retry (~2 s) while a terminal is unreachable — log only the first one.
+        private void Client_Disconnected(TerminalConnection terminal, Exception ex)
         {
             Dispatcher.Invoke(() =>
             {
-                SetStatus("Reconnecting...", Brushes.Orange);
-                if (_reconnecting) return;
-                _reconnecting = true;
-                AppendLog("Connection to the VPS lost, reconnecting: " + ex.Message);
+                if (!terminal.Reconnecting)
+                {
+                    terminal.Reconnecting = true;
+                    AppendLog(TerminalPrefix(terminal.Name) + "connection lost, reconnecting: " + ex.Message);
+                }
+
+                UpdateOverallStatus();
             });
         }
 
-        private void Client_Reconnected()
+        private void Client_Reconnected(TerminalConnection terminal)
         {
             Dispatcher.Invoke(() =>
             {
-                _reconnecting = false;
-                SetStatus("Connected", Brushes.Green);
-                AppendLog("Connection to the VPS restored");
+                terminal.Reconnecting = false;
+                AppendLog(TerminalPrefix(terminal.Name) + "connection restored");
+                UpdateOverallStatus();
             });
         }
 
-        private void Client_EventReceived(string eventName, JsonElement payload)
+        private void Client_EventReceived(TerminalConnection terminal, string eventName, JsonElement payload)
         {
             Dispatcher.Invoke(() =>
             {
@@ -433,21 +561,223 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     string message = payload.TryGetProperty("message", out JsonElement text) ? text.GetString() : "";
                     string time = payload.TryGetProperty("time", out JsonElement timestamp) ? timestamp.GetString() : DateTime.UtcNow.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
                     AlertMessageManager.ThrowRemoteAlert(botName, message, time);
-                    AppendLog("Emergency alert received from VPS: " + botName);
+                    AppendLog(TerminalPrefix(terminal.Name) + "emergency alert received: " + botName);
                     return;
                 }
 
                 // heartbeat arrives every 5 s just to keep the stream alive — not worth a log line
                 if (eventName == "heartbeat") return;
 
-                AppendLog(eventName);
+                AppendLog(TerminalPrefix(terminal.Name) + eventName);
             });
+        }
+
+        private void UpdateOverallStatus()
+        {
+            if (!IsConnected)
+            {
+                SetStatus("Disconnected", Brushes.Gray);
+            }
+            else if (_terminals.Values.Any(t => t.Reconnecting))
+            {
+                SetStatus("Reconnecting...", Brushes.Orange);
+            }
+            else if (_terminals.Count == 0)
+            {
+                SetStatus("SSH connected, no terminal running", Brushes.Orange);
+            }
+            else
+            {
+                SetStatus(_terminals.Count == 1 ? "Connected" : $"Connected ({_terminals.Count} terminals)", Brushes.Green);
+            }
         }
 
         private void SetStatus(string text, Brush color)
         {
             LabelStatus.Content = text;
             EllipseStatus.Fill = color;
+        }
+
+        #endregion
+
+        #region Terminals on the VPS (systemd services osengine / osengine-<name>)
+
+        private readonly ObservableCollection<TerminalRow> _terminalRows = new ObservableCollection<TerminalRow>();
+
+        private void RenderTerminals()
+        {
+            string selected = (DataGridTerminals.SelectedItem as TerminalRow)?.Name;
+            _terminalRows.Clear();
+
+            foreach (VpsInstance instance in _instances)
+            {
+                _terminalRows.Add(new TerminalRow
+                {
+                    Name = instance.Name,
+                    Port = instance.Port,
+                    State = instance.State,
+                    Memory = instance.MemoryText,
+                    Connection = _terminals.TryGetValue(instance.Name, out TerminalConnection t)
+                        ? (t.Reconnecting ? "reconnecting" : "connected")
+                        : "—"
+                });
+            }
+
+            DataGridTerminals.SelectedItem = _terminalRows.FirstOrDefault(r => r.Name == selected);
+        }
+
+        private VpsInstance SelectedInstance()
+        {
+            string name = (DataGridTerminals.SelectedItem as TerminalRow)?.Name;
+            VpsInstance instance = _instances.FirstOrDefault(i => i.Name == name);
+
+            if (instance == null)
+            {
+                MessageBox.Show("Select a terminal in the list first");
+            }
+
+            return instance;
+        }
+
+        private bool EnsureSshCommands()
+        {
+            if (_sshTunnel != null && _sshTunnel.StartedByThisWindow)
+            {
+                return true;
+            }
+
+            MessageBox.Show("Connect to the VPS over SSH first");
+            return false;
+        }
+
+        private async Task RunTerminalActionAsync(string what, Func<Task> action)
+        {
+            PanelTerminalButtons.IsEnabled = false;
+
+            try
+            {
+                AppendLog(what + "...");
+                await action().ConfigureAwait(true);
+                AppendLog(what + ": done");
+            }
+            catch (Exception ex)
+            {
+                AppendLog(what + " failed: " + ex.Message);
+            }
+            finally
+            {
+                PanelTerminalButtons.IsEnabled = true;
+                await SyncTerminalsAsync().ConfigureAwait(true);
+            }
+        }
+
+        private async void ButtonTerminalStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedInstance();
+            if (instance == null) return;
+            await RunTerminalActionAsync($"Starting terminal \"{instance.Name}\"",
+                () => VpsInstances.StartAsync(_sshTunnel.RunCommandAsync, instance)).ConfigureAwait(true);
+        }
+
+        private async void ButtonTerminalStop_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedInstance();
+            if (instance == null) return;
+
+            AcceptDialogUi confirm = new AcceptDialogUi($"Stop terminal \"{instance.Name}\"? Its robots stop trading until it is started again.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            await RunTerminalActionAsync($"Stopping terminal \"{instance.Name}\"",
+                () => VpsInstances.StopAsync(_sshTunnel.RunCommandAsync, instance)).ConfigureAwait(true);
+        }
+
+        private async void ButtonTerminalRestart_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedInstance();
+            if (instance == null) return;
+
+            AcceptDialogUi confirm = new AcceptDialogUi($"Restart terminal \"{instance.Name}\"? Its robots are stopped and started again.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            await RunTerminalActionAsync($"Restarting terminal \"{instance.Name}\"",
+                () => VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance)).ConfigureAwait(true);
+        }
+
+        private async void ButtonTerminalRemove_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+            VpsInstance instance = SelectedInstance();
+            if (instance == null) return;
+
+            if (instance.IsMain)
+            {
+                MessageBox.Show("The main terminal cannot be removed");
+                return;
+            }
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Remove terminal \"{instance.Name}\"?\n\nIts service is stopped and deleted. Its data (robots, settings, journals) "
+                + "is not deleted but moved to /opt/osengine-removed on the VPS.");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            await RunTerminalActionAsync($"Removing terminal \"{instance.Name}\"", async () =>
+            {
+                string moved = await VpsInstances.RemoveAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+                AppendLog($"Data of terminal \"{instance.Name}\" moved to {moved.Trim()}");
+            }).ConfigureAwait(true);
+        }
+
+        private async void ButtonTerminalAdd_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureSshCommands()) return;
+
+            string name = TextBoxNewTerminal.Text.Trim().ToLowerInvariant();
+
+            if (!VpsInstances.IsValidName(name))
+            {
+                MessageBox.Show("Terminal name: 1–20 characters, latin letters, digits and '-', not \"main\"");
+                return;
+            }
+
+            if (_instances.Any(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show($"Terminal \"{name}\" already exists");
+                return;
+            }
+
+            int port = VpsInstances.NextFreePort(_instances);
+
+            AcceptDialogUi confirm = new AcceptDialogUi(
+                $"Create terminal \"{name}\" on the VPS?\n\nIts own folder {VpsInstances.BaseFolderFor(name)}, service "
+                + $"{VpsInstances.ServiceFor(name)}, MCP port {port}. The build and the robot scripts are copied from the main "
+                + "terminal; robots, connectors and keys start empty. Each terminal needs RAM (about 150–400 MB with robots).");
+            confirm.ShowDialog();
+            if (!confirm.UserAcceptAction) return;
+
+            VpsSshCredentials credentials;
+
+            try
+            {
+                credentials = CreateCredentials();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
+
+            await RunTerminalActionAsync($"Creating terminal \"{name}\"", async () =>
+            {
+                await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
+                    .DeployAsync(name, port, CancellationToken.None)).ConfigureAwait(true);
+                TextBoxNewTerminal.Text = "";
+            }).ConfigureAwait(true);
         }
 
         #endregion
@@ -473,5 +803,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     {
         public DateTime Time { get; set; }
         public string Message { get; set; }
+    }
+
+    public class TerminalRow
+    {
+        public string Name { get; set; }
+        public int Port { get; set; }
+        public string State { get; set; }
+        public string Memory { get; set; }
+        public string Connection { get; set; }
     }
 }

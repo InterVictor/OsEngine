@@ -107,13 +107,13 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 OsEngine.Layout.GlobalGUILayout.Listen(owner, "botStationVpsUi");
                 _layoutRegistered = true;
             }
-            VpsRemoteSession.ClientChanged += VpsRemoteSession_ClientChanged;
-            SetClient(VpsRemoteSession.Client);
+            VpsRemoteSession.InstancesChanged += VpsRemoteSession_InstancesChanged;
+            SetClient(VpsRemoteSession.GetClient(InstanceName));
         }
 
         private void Clone_Unloaded(object sender, RoutedEventArgs e)
         {
-            VpsRemoteSession.ClientChanged -= VpsRemoteSession_ClientChanged;
+            VpsRemoteSession.InstancesChanged -= VpsRemoteSession_InstancesChanged;
             rectToMove.MouseEnter -= GreedChartPanel_MouseEnter;
             rectToMove.MouseLeave -= GreedChartPanel_MouseLeave;
             rectToMove.MouseDown -= GreedChartPanel_MouseDown;
@@ -210,7 +210,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             Window owner = Window.GetWindow(this);
             if (owner != null)
-                owner.Title = "Robots.VPS " + OsEngine.PrimeSettings.PrimeSettingsMaster.LabelInHeaderBotStation;
+                owner.Title = "Robots.VPS " + OsEngine.PrimeSettings.PrimeSettingsMaster.LabelInHeaderBotStation
+                    + (string.Equals(InstanceName, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase) ? "" : " — " + InstanceName);
             LabelOsa.Content = "V_" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             TabItemAllPos.Header = OsLocalization.Trader.Label20;
             TabPortfolios.Header = OsLocalization.Trader.Label21;
@@ -400,14 +401,19 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void ButtonSystemStress_Click(object sender, RoutedEventArgs e) => OsEngine.OsTrader.SystemAnalyze.SystemUsageAnalyzeMaster.ShowDialog();
         private void ButtonServerAvailability_Click(object sender, RoutedEventArgs e) => OsEngine.OsTrader.ServerAvailability.ServerAvailabilityMaster.ShowDialog();
 
-        private void VpsRemoteSession_ClientChanged(RemoteMcpClient client)
+        // VPS terminal this workspace shows (VpsRemoteSession instance name); set by RobotsVpsWorkspaceUi before load.
+        public string InstanceName { get; set; } = VpsRemoteSession.MainInstance;
+
+        private void VpsRemoteSession_InstancesChanged()
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.BeginInvoke(new Action(() => SetClient(client)));
+                Dispatcher.BeginInvoke(new Action(VpsRemoteSession_InstancesChanged));
                 return;
             }
-            SetClient(client);
+
+            RemoteMcpClient client = VpsRemoteSession.GetClient(InstanceName);
+            if (!ReferenceEquals(client, _client)) SetClient(client);
         }
 
         private void SetClient(RemoteMcpClient client)

@@ -1,0 +1,18 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsInstancePickerUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Robots.VPS — choose a terminal" Height="320" Width="360"
+        Style="{StaticResource WindowStyleNoResize}"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Icon="/Images/OsLogo.ico">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Label Grid.Row="0" Content="Several terminals run on this VPS. Which one to open?"/>
+        <ListBox Grid.Row="1" Name="ListBoxInstances" Margin="0,5,0,10" MouseDoubleClick="ListBoxInstances_MouseDoubleClick"/>
+        <Button Grid.Row="2" Name="ButtonOpen" Content="Open" Width="120" Height="28" HorizontalAlignment="Right" Click="ButtonOpen_Click"/>
+    </Grid>
+</Window>

@@ -39,8 +39,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         // Uploads what the server is missing and runs osengine-setup.sh, showing its progress in the log.
         // Safe on a working server: the script only fills in what is absent ("repair" mode).
-        public async Task DeployAsync(CancellationToken cancel)
+        // instanceName: VpsRemoteSession.MainInstance for the main terminal, otherwise an extra terminal
+        // (/opt/osengine-<name>, service osengine-<name>, its own MCP port).
+        public Task DeployAsync(CancellationToken cancel) =>
+            DeployAsync(VpsRemoteSession.MainInstance, VpsInstances.MainPort, cancel);
+
+        public async Task DeployAsync(string instanceName, int mcpPort, CancellationToken cancel)
         {
+            string baseFolder = VpsInstances.BaseFolderFor(instanceName);
+            string environment = $"OSENGINE_BASE={baseFolder} OSENGINE_SERVICE={VpsInstances.ServiceFor(instanceName)} OSENGINE_MCP_PORT={mcpPort}";
+
             string scriptPath = LocalPath(ScriptFileName);
             if (!File.Exists(scriptPath)) throw new FileNotFoundException("Setup script not found", scriptPath);
 
@@ -58,7 +66,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 string script = File.ReadAllText(scriptPath).Replace("\r\n", "\n");
                 await UploadAsync(sftp, new MemoryStream(Encoding.UTF8.GetBytes(script)), RemoteScript, "setup script", cancel).ConfigureAwait(false);
 
-                bool appInstalled = Run(ssh, "test -x /opt/osengine/app/OsEngine") == 0;
+                // an extra terminal copies the build and the robot scripts from the main one on the server itself
+                bool appInstalled = Run(ssh, $"test -x {baseFolder}/app/OsEngine || test -x /opt/osengine/app/OsEngine") == 0;
                 string packageArg = "";
 
                 if (appInstalled)
@@ -75,7 +84,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     packageArg = RemotePackage;
                 }
 
-                bool customPresent = Run(ssh, "test -d /opt/osengine/data/Custom/Robots") == 0;
+                bool customPresent = Run(ssh, $"test -d {baseFolder}/data/Custom/Robots || test -d /opt/osengine/data/Custom/Robots") == 0;
                 string customArg = "";
                 string customFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Custom");
 
@@ -91,7 +100,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
 
                 _log("Running the setup script on the server...");
-                int exitCode = await RunStreamingAsync(ssh, $"bash {RemoteScript} '{packageArg}' '{customArg}'", cancel).ConfigureAwait(false);
+                int exitCode = await RunStreamingAsync(ssh, $"{environment} bash {RemoteScript} '{packageArg}' '{customArg}'", cancel).ConfigureAwait(false);
 
                 if (exitCode != 0)
                 {

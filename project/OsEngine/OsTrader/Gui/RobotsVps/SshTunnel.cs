@@ -1,5 +1,7 @@
 // SSH tunnel lifecycle helper for Robots.VPS (in-process, SSH.NET).
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,13 +16,14 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
     internal sealed class SshTunnel : IDisposable
     {
         private readonly VpsSshCredentials _credentials;
-        private readonly int _localPort;
-        private readonly int _remotePort;
+        // local port -> VPS port; one SSH connection carries the forwards of all terminals on the VPS
+        private readonly Dictionary<int, int> _ports = new Dictionary<int, int>();
+        private readonly Dictionary<int, ForwardedPortLocal> _forwards = new Dictionary<int, ForwardedPortLocal>();
+        private readonly object _portsLocker = new object();
         private readonly Action<string> _log;
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
 
         private SshClient _client;
-        private ForwardedPortLocal _forward;
         private bool _ownsTunnel;
 
         // False when another program (e.g. a manually started ssh -L) already listens on the local port and
@@ -30,8 +33,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private SshTunnel(VpsSshCredentials credentials, int localPort, int remotePort, Action<string> log)
         {
             _credentials = credentials;
-            _localPort = localPort;
-            _remotePort = remotePort;
+            _ports[localPort] = remotePort;
             _log = log;
         }
 
@@ -85,13 +87,74 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 throw;
             }
 
-            ForwardedPortLocal forward = new ForwardedPortLocal("127.0.0.1", (uint)_localPort, "127.0.0.1", (uint)_remotePort);
+            _client = client;
+
+            lock (_portsLocker)
+            {
+                foreach (KeyValuePair<int, int> pair in _ports)
+                {
+                    StartForward(client, pair.Key, pair.Value);
+                }
+            }
+        }
+
+        // Adds a forward for another terminal on the VPS (kept across reconnects). No-op if the local port is already forwarded.
+        public void AddForward(int localPort, int remotePort)
+        {
+            lock (_portsLocker)
+            {
+                if (_ports.TryGetValue(localPort, out int existing) && existing == remotePort && _forwards.ContainsKey(localPort))
+                {
+                    return;
+                }
+
+                RemoveForwardLocked(localPort);
+                _ports[localPort] = remotePort;
+
+                SshClient client = _client;
+                if (client != null && client.IsConnected)
+                {
+                    StartForward(client, localPort, remotePort);
+                }
+            }
+        }
+
+        public void RemoveForward(int localPort)
+        {
+            lock (_portsLocker)
+            {
+                RemoveForwardLocked(localPort);
+                _ports.Remove(localPort);
+            }
+        }
+
+        private void RemoveForwardLocked(int localPort)
+        {
+            if (_forwards.TryGetValue(localPort, out ForwardedPortLocal forward))
+            {
+                try { if (forward.IsStarted) forward.Stop(); } catch { /* already closed */ }
+                try { _client?.RemoveForwardedPort(forward); } catch { /* already closed */ }
+                try { forward.Dispose(); } catch { /* already closed */ }
+                _forwards.Remove(localPort);
+            }
+        }
+
+        // caller holds _portsLocker
+        private void StartForward(SshClient client, int localPort, int remotePort)
+        {
+            ForwardedPortLocal forward = new ForwardedPortLocal("127.0.0.1", (uint)localPort, "127.0.0.1", (uint)remotePort);
             forward.Exception += (s, e) => _log?.Invoke("SSH tunnel: " + e.Exception.Message);
             client.AddForwardedPort(forward);
             forward.Start();
+            _forwards[localPort] = forward;
+        }
 
-            _client = client;
-            _forward = forward;
+        private bool AllForwardsStarted()
+        {
+            lock (_portsLocker)
+            {
+                return _forwards.Count == _ports.Count && _forwards.Values.All(f => f.IsStarted);
+            }
         }
 
         // Runs a shell command on the VPS over the tunnel's SSH connection and returns its standard output.
@@ -135,7 +198,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     return;
                 }
 
-                if (_client != null && _client.IsConnected && _forward != null && _forward.IsStarted)
+                if (_client != null && _client.IsConnected && AllForwardsStarted())
                 {
                     delaySeconds = 5;
                     continue;
@@ -192,9 +255,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private void CloseConnection()
         {
-            try { if (_forward != null && _forward.IsStarted) _forward.Stop(); } catch { /* already closed */ }
-            try { _forward?.Dispose(); } catch { /* already closed */ }
-            _forward = null;
+            lock (_portsLocker)
+            {
+                foreach (ForwardedPortLocal forward in _forwards.Values)
+                {
+                    try { if (forward.IsStarted) forward.Stop(); } catch { /* already closed */ }
+                    try { forward.Dispose(); } catch { /* already closed */ }
+                }
+
+                _forwards.Clear();
+            }
 
             try { if (_client != null && _client.IsConnected) _client.Disconnect(); } catch { /* already closed */ }
             try { _client?.Dispose(); } catch { /* already closed */ }

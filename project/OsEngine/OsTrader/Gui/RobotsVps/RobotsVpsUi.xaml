@@ -88,16 +88,51 @@
         <!-- Сервер: развёртывание по SSH и ключ этого компьютера -->
         <Border Grid.Row="1" Margin="5,0,5,0" Padding="8,6" BorderThickness="1" BorderBrush="{DynamicResource PanelAltBorderBrush}">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Server" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <TextBlock Grid.Column="1" Name="TextBlockComputerKey" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="Gray"
+                <Label Grid.Row="0" Grid.Column="0" Content="Server" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Name="TextBlockComputerKey" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="Gray"
                            Text="SSH key of this computer: not registered — connect once with the root password"/>
-                <Button Grid.Column="2" Name="ButtonDeployServer" Content="Deploy / repair server" Width="170" Height="28" Click="ButtonDeployServer_Click"
+                <Button Grid.Row="0" Grid.Column="2" Name="ButtonDeployServer" Content="Deploy / repair server" Width="170" Height="28" Click="ButtonDeployServer_Click"
                         ToolTip="Sets up OsEngine on the VPS over SSH (IP, user and password above). Safe to run again on a working server: only missing parts are added."/>
+
+                <!-- Терминалы на VPS: службы osengine / osengine-<name>, у каждого свои папка, порт MCP и ключ -->
+                <DataGrid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="DataGridTerminals" Height="120" Margin="0,6,10,0"
+                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                          Style="{StaticResource DataGridStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Terminal" Width="*" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="MCP port" Width="80" Binding="{Binding Port}"/>
+                        <DataGridTextColumn Header="Service" Width="100" Binding="{Binding State}"/>
+                        <DataGridTextColumn Header="Memory" Width="90" Binding="{Binding Memory}"/>
+                        <DataGridTextColumn Header="Connection" Width="110" Binding="{Binding Connection}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Row="1" Grid.Column="2" Name="PanelTerminalButtons" Margin="0,6,0,0" Width="170">
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Name="TextBoxNewTerminal" Height="24" Margin="0,0,4,0"
+                                 ToolTip="Name of a new terminal: latin letters, digits, '-'"/>
+                        <Button Grid.Column="1" Name="ButtonTerminalAdd" Content="Add" Width="60" Height="24" Click="ButtonTerminalAdd_Click"
+                                ToolTip="Create one more independent terminal on this VPS"/>
+                    </Grid>
+                    <UniformGrid Columns="2">
+                        <Button Name="ButtonTerminalStart" Content="Start" Height="24" Margin="0,0,2,2" Click="ButtonTerminalStart_Click"/>
+                        <Button Name="ButtonTerminalStop" Content="Stop" Height="24" Margin="2,0,0,2" Click="ButtonTerminalStop_Click"/>
+                        <Button Name="ButtonTerminalRestart" Content="Restart" Height="24" Margin="0,2,2,0" Click="ButtonTerminalRestart_Click"/>
+                        <Button Name="ButtonTerminalRemove" Content="Remove" Height="24" Margin="2,2,0,0" Click="ButtonTerminalRemove_Click"/>
+                    </UniformGrid>
+                </StackPanel>
             </Grid>
         </Border>
 

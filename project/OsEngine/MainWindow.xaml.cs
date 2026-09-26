@@ -1034,7 +1034,23 @@ namespace OsEngine
         {
             try
             {
-                RobotsVpsWorkspaceUi workspaceUi = new RobotsVpsWorkspaceUi();
+                // One terminal on the VPS (or not connected yet) — open it right away; several — ask which one.
+                IReadOnlyList<string> instances = VpsRemoteSession.InstanceNames;
+                string instance = instances.Count > 0 ? instances[0] : VpsRemoteSession.MainInstance;
+
+                if (instances.Count > 1)
+                {
+                    RobotsVpsInstancePickerUi picker = new RobotsVpsInstancePickerUi(instances);
+
+                    if (picker.ShowDialog() != true)
+                    {
+                        return;
+                    }
+
+                    instance = picker.SelectedInstance;
+                }
+
+                RobotsVpsWorkspaceUi workspaceUi = new RobotsVpsWorkspaceUi(instance);
                 workspaceUi.Show();
             }
             catch (Exception error)

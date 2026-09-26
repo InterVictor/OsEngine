@@ -6,5 +6,5 @@
         Style="{StaticResource WindowStyleCanResize}"
         WindowStartupLocation="CenterScreen" MinWidth="600" MinHeight="400"
         Icon="/Images/OsLogo.ico">
-    <local:RobotsVpsLiteClone/>
+    <local:RobotsVpsLiteClone x:Name="LiteClone"/>
 </Window>
