@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
 using OsEngine.Entity;
@@ -28,6 +29,14 @@ namespace OsEngine.MCP.Modules
 
         private const string DescriptionFileName = "BotsDescription.txt";
         private readonly object _descriptionFileLocker = new object();
+
+        // Robots that could not be instantiated (e.g. a script that fails to compile). They are never written to
+        // the description file, so without this every wiki_robots_list call re-compiled them — seconds per call.
+        // Remembered for the process lifetime; refresh=true clears it.
+        private static readonly Dictionary<string, string> _failedDescriptions =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly object _failedDescriptionsLocker = new object();
 
         #endregion
 
@@ -193,7 +202,14 @@ namespace OsEngine.MCP.Modules
             Dictionary<string, BotDescription> descriptionsByClass =
                 new Dictionary<string, BotDescription>(StringComparer.OrdinalIgnoreCase);
 
-            if (!refresh)
+            if (refresh)
+            {
+                lock (_failedDescriptionsLocker)
+                {
+                    _failedDescriptions.Clear();
+                }
+            }
+            else
             {
                 foreach (BotDescription cached in ReadDescriptionsFromFile())
                 {
@@ -220,9 +236,15 @@ namespace OsEngine.MCP.Modules
                 BotDescription description = null;
                 string error = null;
 
+                string cachedError = null;
+
                 if (!refresh && descriptionsByClass.TryGetValue(className, out description) && description != null)
                 {
                     // Use cached description.
+                }
+                else if (!refresh && TryGetFailedDescription(className, out cachedError))
+                {
+                    error = cachedError;
                 }
                 else
                 {
@@ -238,6 +260,7 @@ namespace OsEngine.MCP.Modules
                     catch (Exception ex)
                     {
                         error = ex.Message;
+                        SetFailedDescription(className, error);
                         SendLog($"wiki_robots_list: failed to describe '{className}': {ex}", LogMessageType.Error);
                     }
                 }
@@ -251,6 +274,72 @@ namespace OsEngine.MCP.Modules
             }
 
             return new { robots = result };
+        }
+
+        // Same line format as BotDescription.GetStringToSave / LoadFromSaveStr (the file stays compatible with
+        // BotCreateUi2). Kept here because BotDescription lives in a WPF window file that the Linux (headless)
+        // build replaces with a generated stub whose save/load methods do nothing — the cache file was written
+        // as empty lines and every wiki_robots_list call re-instantiated all ~200 robots (~5 s).
+        private static string DescriptionToSaveString(BotDescription description)
+        {
+            StringBuilder result = new StringBuilder();
+
+            result.Append(description.ClassName + "&");
+            result.Append(description.Description + "&");
+            result.Append(description.Location + "&");
+            result.Append("&"); // PathToFolder — not used by the MCP API
+
+            if (description.Sources != null)
+            {
+                for (int i = 0; i < description.Sources.Count; i++)
+                {
+                    result.Append(description.Sources[i] + "*");
+                }
+            }
+
+            result.Append("&");
+
+            if (description.Indicators != null)
+            {
+                for (int i = 0; i < description.Indicators.Count; i++)
+                {
+                    result.Append(description.Indicators[i] + "*");
+                }
+            }
+
+            result.Append("&");
+
+            return result.ToString();
+        }
+
+        private static BotDescription DescriptionFromSaveString(string line)
+        {
+            string[] parts = line.Split('&');
+
+            BotDescription description = new BotDescription();
+            description.ClassName = parts[0];
+            description.Description = parts[1];
+            Enum.TryParse(parts[2], out description.Location);
+            description.Sources = parts[4].Split('*').Where(s => !string.IsNullOrEmpty(s)).ToList();
+            description.Indicators = parts[5].Split('*').Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+            return description;
+        }
+
+        private static bool TryGetFailedDescription(string className, out string error)
+        {
+            lock (_failedDescriptionsLocker)
+            {
+                return _failedDescriptions.TryGetValue(className, out error);
+            }
+        }
+
+        private static void SetFailedDescription(string className, string error)
+        {
+            lock (_failedDescriptionsLocker)
+            {
+                _failedDescriptions[className] = error;
+            }
         }
 
         private object GetRobotInfo(JsonElement parameters)
@@ -533,11 +622,9 @@ namespace OsEngine.MCP.Modules
                             continue;
                         }
 
-                        BotDescription description = new BotDescription();
                         try
                         {
-                            description.LoadFromSaveStr(line);
-                            descriptions.Add(description);
+                            descriptions.Add(DescriptionFromSaveString(line));
                         }
                         catch
                         {
@@ -564,7 +651,7 @@ namespace OsEngine.MCP.Modules
                     {
                         foreach (BotDescription description in descriptions.OrderBy(d => d.ClassName))
                         {
-                            writer.WriteLine(description.GetStringToSave());
+                            writer.WriteLine(DescriptionToSaveString(description));
                         }
                     }
                 }
