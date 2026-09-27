@@ -1246,6 +1246,27 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             journal.Show();
         }
 
+        // BotTabScreener.RemoveTabBySecurityName: the security leaves the screener's list, its tab is removed on reload
+        private async System.Threading.Tasks.Task RemoveScreenerSecurityAsync(string securityName, string securityClass)
+        {
+            JsonElement config = await _client.CallToolAsync("bot_get_config_tab_screener", new { bot_id = _botId, tab_name = _tabName });
+            List<object> securities = new List<object>();
+
+            if (config.TryGetProperty("securities", out JsonElement list) && list.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement sec in list.EnumerateArray())
+                {
+                    string name = ReadString(sec, "name");
+                    string className = ReadString(sec, "class_name");
+                    if (name == securityName && className == securityClass) continue;
+                    securities.Add(new { name, class_name = className, is_on = ReadBool(sec, "is_on") });
+                }
+            }
+
+            await _client.CallToolAsync("bot_set_config_tab_screener", new { bot_id = _botId, tab_name = _tabName, securities });
+            await RefreshScreenerGridAsync();
+        }
+
         private static void SetCell(DataGridViewCell cell, string value)
         {
             if (cell.Value == null || cell.Value.ToString() != value) cell.Value = value;
@@ -1286,7 +1307,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
                 else if (tabColumn == 10)
                 {
-                    NotAvailableRemotely("Removing a security from the screener is next — use \"Data settings\" meanwhile"); // stub
+                    string secClass = _screenerGrid.Rows[tabRow].Cells[1].Value?.ToString();
+                    AcceptDialogUi ui = new AcceptDialogUi(OsLocalization.Market.Label320 + "\n" + security + "  " + secClass);
+                    ui.ShowDialog();
+
+                    if (ui.UserAcceptAction)
+                    {
+                        await RemoveScreenerSecurityAsync(security, secClass);
+                    }
+
+                    return;
                 }
 
                 if (_screenerPreviousActiveRow < _screenerGrid.Rows.Count)
