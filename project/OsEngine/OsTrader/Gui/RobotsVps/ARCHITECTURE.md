@@ -24,3 +24,7 @@
 ## 2026-09-24 — Robots.VPS position table data
 
 `RobotsVpsLiteClone` now feeds the Lite-layout Active positions, Stop Limit and Completed positions grids from read-only remote MCP calls. It creates the original `DataGridFactory` grids and polls at 3-second intervals while SSH/MCP is connected. The server exposes `bot_journal_get_stop_limit_positions` for stop-limit openers across simple tabs and screener child tabs. No order actions are sent from these tables. Server build/deploy and live state are logged in `D:\ff-research\docs\SERVER_SETUP.md`.
+
+## 2026-09-27 — MCP access for AI agents
+
+`McpJsonConfig` writes every VPS terminal into `<folder>/.mcp.json` of each folder from the "MCP access..." window (RobotsVpsMcpAccessUi; folders `;`-separated in settings line 13): `osengine-server` for the main terminal, `osengine-server-<name>` for the others, url = local end of the SSH tunnel, `X-Api-Key` = the terminal key. Runs on every terminal sync (connect + 10 s); writes only on change; removes entries of terminals deleted on the VPS, keeps stopped ones; other entries of the file are untouched. Claude Code (and other MCP clients) read the file when a session starts. Remove takes only the osengine-server* entries out.

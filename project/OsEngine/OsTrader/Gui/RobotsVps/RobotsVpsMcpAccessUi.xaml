@@ -1,0 +1,30 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsMcpAccessUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VPS — MCP access" Height="380" Width="820"
+        Style="{StaticResource WindowStyleCanResize}"
+        WindowStartupLocation="CenterOwner" MinWidth="600" MinHeight="250"
+        Icon="/Images/OsLogo.ico">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,6"
+                   Text="AI agents (Claude and other MCP clients) that work in these folders can control the VPS terminals. The list of terminals is written into the .mcp.json file of each folder and kept up to date while this program is connected to the VPS. An agent session reads the list when it starts: after adding a folder or a terminal, open a new session there. Access works only while this program is running and connected."/>
+        <DataGrid Grid.Row="1" Name="DataGridFolders" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                  SelectionMode="Single" Style="{StaticResource DataGridStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Folder" Width="*" Binding="{Binding Folder}"/>
+                <DataGridTextColumn Header="Terminals available" Width="260" Binding="{Binding Terminals}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Label Name="LabelStatus" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <Button Name="ButtonAdd" Content="Add folder..." Width="110" Height="28" Margin="0,0,5,0" Click="ButtonAdd_Click"/>
+            <Button Name="ButtonRemove" Content="Remove" Width="100" Height="28" Click="ButtonRemove_Click"
+                    ToolTip="Takes the VPS terminals out of that folder's .mcp.json; the folder and its other settings stay"/>
+        </StackPanel>
+    </Grid>
+</Window>

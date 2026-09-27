@@ -53,6 +53,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             LoadSettings();
             UpdateComputerKeyStatus();
+            UpdateMcpAccessText();
 
             Closing += (s, e) =>
             {
@@ -85,6 +86,24 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         }
 
         private void CheckBoxAutoConnectSsh_Click(object sender, RoutedEventArgs e) => SaveSettings();
+
+        private void ButtonMcpAccess_Click(object sender, RoutedEventArgs e)
+        {
+            RobotsVpsMcpAccessUi window = new RobotsVpsMcpAccessUi(_mcpFolders, () =>
+            {
+                SaveSettings();
+                UpdateMcpAccessText();
+                if (_sshTunnel != null && _sshTunnel.StartedByThisWindow) UpdateMcpJsonConfig(_instances);
+            }) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void UpdateMcpAccessText()
+        {
+            TextBlockMcpAccess.Text = _mcpFolders.Count == 0
+                ? "No MCP access to the VPS terminals"
+                : "MCP access in: " + string.Join(", ", _mcpFolders);
+        }
         #region Settings (Url + API key; excluded from git like other Engine\* connector settings)
 
         private void LoadSettings()
@@ -119,6 +138,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (lines.Length > 9 && !string.IsNullOrWhiteSpace(lines[9])) _computerKey = UnprotectSecret(lines[9]);
                 if (lines.Length > 10) _computerKeyComment = lines[10];
                 if (lines.Length > 11 && bool.TryParse(lines[11], out bool dailyBackup)) CheckBoxDailyBackup.IsChecked = dailyBackup;
+                if (lines.Length > 12)
+                {
+                    _mcpFolders = lines[12].Split(';').Select(f => f.Trim()).Where(f => f.Length > 0)
+                        .Select(f => f.EndsWith(".mcp.json", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(f) : f)
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                }
             }
             catch (Exception ex)
             {
@@ -162,7 +187,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     ProtectSecret(PasswordBoxSshPassword.Password),
                     ProtectSecret(_computerKey ?? ""),
                     _computerKeyComment ?? "",
-                    (CheckBoxDailyBackup.IsChecked == true).ToString()
+                    (CheckBoxDailyBackup.IsChecked == true).ToString(),
+                    string.Join(";", _mcpFolders)
                 });
             }
             catch (Exception ex)
@@ -293,6 +319,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             public string Name;
             public int LocalPort;
+            public string ApiKey;
             public RemoteMcpClient Client;
             public bool Reconnecting;
         }
@@ -450,6 +477,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     PublishSession();
                 }
 
+                UpdateMcpJsonConfig(instances);
                 RenderTerminals();
                 UpdateOverallStatus();
             }
@@ -466,7 +494,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private async Task ConnectTerminalAsync(string name, string url, string apiKey, int localPort)
         {
             RemoteMcpClient client = new RemoteMcpClient(url, apiKey);
-            TerminalConnection terminal = new TerminalConnection { Name = name, LocalPort = localPort, Client = client };
+            TerminalConnection terminal = new TerminalConnection { Name = name, LocalPort = localPort, ApiKey = apiKey, Client = client };
 
             client.EventReceived += (eventName, payload) => Client_EventReceived(terminal, eventName, payload);
             client.Disconnected += ex => Client_Disconnected(terminal, ex);
@@ -495,6 +523,34 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (!string.Equals(terminal.Name, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase))
             {
                 _sshTunnel?.RemoveForward(terminal.LocalPort);
+            }
+        }
+
+        // Folders from "MCP access...": their AI agent sessions reach every VPS terminal through this tunnel —
+        // each terminal is kept in the folder's .mcp.json.
+        private List<string> _mcpFolders = new List<string>();
+
+        private void UpdateMcpJsonConfig(List<VpsInstance> instances)
+        {
+            Dictionary<string, (int LocalPort, string Key)> connected = _terminals.Values
+                .Where(t => t.LocalPort > 0 && !string.IsNullOrEmpty(t.ApiKey))
+                .ToDictionary(t => t.Name, t => (t.LocalPort, t.ApiKey), StringComparer.OrdinalIgnoreCase);
+
+            foreach (string folder in _mcpFolders.Where(Directory.Exists))
+            {
+                try
+                {
+                    List<string> changes = McpJsonConfig.Update(folder, connected, instances.Select(i => i.Name));
+
+                    if (changes.Count > 0)
+                    {
+                        AppendLog($"MCP access in {folder}: {string.Join(", ", changes)} (seen by new sessions there)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"MCP access in {folder}: .mcp.json not updated: {ex.Message}");
+                }
             }
         }
 

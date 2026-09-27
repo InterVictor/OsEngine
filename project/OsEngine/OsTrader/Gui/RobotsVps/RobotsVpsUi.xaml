@@ -24,6 +24,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -84,6 +85,13 @@
                     <TextBox Name="TextBoxSshRemotePort" Height="24" Text="6500"/>
                 </StackPanel>
             </Grid>
+
+            <!-- Папки, где ИИ-агенты получают MCP-доступ к терминалам VPS (через их .mcp.json) -->
+            <StackPanel Grid.Row="2" Grid.ColumnSpan="8" Orientation="Horizontal" Margin="0,5,0,0">
+                <Button Name="ButtonMcpAccess" Content="MCP access..." Width="120" Height="26" Margin="0,0,8,0" Click="ButtonMcpAccess_Click"
+                        ToolTip="Folders whose AI agent sessions (Claude and other MCP clients) can control the VPS terminals"/>
+                <TextBlock Name="TextBlockMcpAccess" VerticalAlignment="Center" Foreground="Gray"/>
+            </StackPanel>
         </Grid>
 
         <!-- Сервер: развёртывание по SSH и ключ этого компьютера -->
