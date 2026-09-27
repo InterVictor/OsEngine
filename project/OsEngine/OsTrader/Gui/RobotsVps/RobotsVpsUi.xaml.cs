@@ -1014,8 +1014,31 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private async Task ApplyRobotChangesAsync(VpsInstance instance, List<string> classNames)
         {
             AppendLog($"=== Apply robot changes on terminal \"{instance.Name}\" ===");
-            AppendLog($"Restarting terminal \"{instance.Name}\" to compile the robot scripts...");
-            await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+
+            // The terminal re-reads the scripts without a restart, running robots keep working; a build without
+            // this tool (or a terminal that does not answer) is restarted instead.
+            RemoteMcpClient client = VpsRemoteSession.GetClient(instance.Name);
+            bool reloaded = false;
+
+            if (client != null && client.IsConnected)
+            {
+                try
+                {
+                    await client.CallToolAsync("wiki_robots_reload_scripts", new { }).ConfigureAwait(true);
+                    AppendLog($"Terminal \"{instance.Name}\" re-read the robot scripts (no restart; running robots keep their version)");
+                    reloaded = true;
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"Terminal \"{instance.Name}\" could not re-read the scripts: {ex.Message}");
+                }
+            }
+
+            if (!reloaded)
+            {
+                AppendLog($"Restarting terminal \"{instance.Name}\" to compile the robot scripts...");
+                await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+            }
 
             if (classNames.Count > 0)
             {

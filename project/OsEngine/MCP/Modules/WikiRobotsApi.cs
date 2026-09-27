@@ -102,6 +102,18 @@ namespace OsEngine.MCP.Modules
                         },
                         required = new[] { "class_name" }
                     }
+                },
+                new McpTool
+                {
+                    Name = "wiki_robots_reload_scripts",
+                    Description = "Re-read the robot scripts in Custom/Robots without restarting the terminal: new and changed "
+                        + "scripts are compiled from the files the next time a robot is created or described. "
+                        + "Robots already running keep the version they were created from",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new { }
+                    }
                 }
             };
         }
@@ -130,6 +142,10 @@ namespace OsEngine.MCP.Modules
                         response.Result = GetRobotInfo(request.Params);
                         break;
 
+                    case "wiki_robots_reload_scripts":
+                        response.Result = ReloadScripts();
+                        break;
+
                     default:
                         response.Error = new McpJsonRpcError
                         {
@@ -154,6 +170,21 @@ namespace OsEngine.MCP.Modules
         #endregion
 
         #region Private methods
+
+        private object ReloadScripts()
+        {
+            BotFactory.ResetScriptCaches();
+
+            lock (_failedDescriptionsLocker)
+            {
+                _failedDescriptions.Clear();
+            }
+
+            int scripts = BotFactory.GetScriptsNamesStrategy().Count;
+            SendLog($"wiki_robots_reload_scripts: robot scripts re-read, {scripts} found", LogMessageType.System);
+
+            return new { reloaded = true, scripts };
+        }
 
         private object GetRobotsList(JsonElement parameters)
         {

@@ -1471,6 +1471,7 @@ namespace OsEngine.MCP
 
                     case "wiki_robots_list":
                     case "wiki_robot_info":
+                    case "wiki_robots_reload_scripts":
                         response = _wikiRobotsApi.Handle(request);
                         break;
 

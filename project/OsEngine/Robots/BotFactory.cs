@@ -215,6 +215,25 @@ namespace OsEngine.Robots
             return new List<string>(results); // Return a copy
         }
 
+        /// <summary>
+        /// Forgets the robot script list and the compiled script types, so scripts added or changed in Custom\Robots
+        /// are picked up without a restart. Robots already created keep running on the version they were built from.
+        /// </summary>
+        public static void ResetScriptCaches()
+        {
+            lock (_folderFileCacheLock)
+            {
+                _folderFileCache.Clear();
+            }
+
+            lock (_compiledTypesCacheLock)
+            {
+                _compiledBotTypesCache.Clear();
+            }
+
+            NeedToReloadOptimizerBots = true;
+        }
+
         // --- Roslyn Compilation Section ---
         private static List<MetadataReference> _baseReferences;
         private static readonly object _referencesLock = new object();
