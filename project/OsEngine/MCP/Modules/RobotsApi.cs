@@ -144,6 +144,14 @@ namespace OsEngine.MCP.Modules
                         response.Result = SetBotConfigTabScreener(request.Params);
                         break;
 
+                    case "bot_screener_get_tabs":
+                        response.Result = GetScreenerTabs(request.Params);
+                        break;
+
+                    case "bot_screener_set_tab_state":
+                        response.Result = SetScreenerTabState(request.Params);
+                        break;
+
                     case "bot_get_config_tab_index":
                         response.Result = GetBotConfigTabIndex(request.Params);
                         break;
@@ -639,6 +647,39 @@ namespace OsEngine.MCP.Modules
                             }
                         },
                         required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_screener_get_tabs",
+                    Description = "Rows of the BotTabScreener securities table: child tab name, class, security, last/bid/ask, "
+                        + "positions (open/total), whether the child tab is on. Child tab names work as tab_name in bot_chart_* tools",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Screener tab name from bot_get_sources" }
+                        },
+                        required = new[] { "bot_id", "tab_name" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_screener_set_tab_state",
+                    Description = "Turn one security (child tab) of a BotTabScreener on or off, like the On/Off box of the screener table",
+                    InputSchema = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            bot_id = new { type = "string", description = "Robot number or unique name" },
+                            tab_name = new { type = "string", description = "Screener tab name from bot_get_sources" },
+                            child_tab_name = new { type = "string", description = "Child tab name from bot_screener_get_tabs" },
+                            is_on = new { type = "boolean" }
+                        },
+                        required = new[] { "bot_id", "tab_name", "child_tab_name", "is_on" }
                     }
                 },
                 new McpTool
@@ -2992,12 +3033,7 @@ namespace OsEngine.MCP.Modules
 
         private BotTabSimple FindBotTabSimple(BotPanel bot, string tabName)
         {
-            if (bot.TabsSimple == null)
-            {
-                throw new InvalidOperationException($"Bot '{bot.NameStrategyUniq}' has no Simple tabs");
-            }
-
-            for (int i = 0; i < bot.TabsSimple.Count; i++)
+            for (int i = 0; bot.TabsSimple != null && i < bot.TabsSimple.Count; i++)
             {
                 if (bot.TabsSimple[i].TabName == tabName)
                 {
@@ -3005,7 +3041,110 @@ namespace OsEngine.MCP.Modules
                 }
             }
 
+            // a security of a screener ("5 Regimetab0") is a Simple tab too — so the chart tools work for it
+            BotTabSimple child = FindScreenerChildTab(bot, tabName);
+
+            if (child != null)
+            {
+                return child;
+            }
+
             throw new ArgumentException($"Simple tab '{tabName}' not found in bot '{bot.NameStrategyUniq}'");
+        }
+
+        private static BotTabSimple FindScreenerChildTab(BotPanel bot, string childTabName)
+        {
+            if (bot.TabsScreener == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < bot.TabsScreener.Count; i++)
+            {
+                List<BotTabSimple> tabs = bot.TabsScreener[i].Tabs;
+
+                if (tabs == null)
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < tabs.Count; j++)
+                {
+                    if (tabs[j] != null && tabs[j].TabName == childTabName)
+                    {
+                        return tabs[j];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private object GetScreenerTabs(JsonElement parameters)
+        {
+            BotPanel bot = FindBot(GetMasterRequired(), parameters.GetProperty("bot_id"));
+            BotTabScreener screener = FindBotTabScreener(bot, GetRequiredString(parameters, "tab_name"));
+
+            List<object> rows = new List<object>();
+            List<BotTabSimple> tabs = screener.Tabs == null ? new List<BotTabSimple>() : screener.Tabs.ToList();
+
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                BotTabSimple tab = tabs[i];
+
+                if (tab == null)
+                {
+                    continue;
+                }
+
+                List<Candle> candles = tab.CandlesAll;
+                decimal last = candles != null && candles.Count != 0 ? candles[candles.Count - 1].Close : 0;
+
+                rows.Add(new
+                {
+                    number = i,
+                    tab_name = tab.TabName,
+                    security_class = tab.Connector?.SecurityClass,
+                    security_name = tab.Connector?.SecurityName,
+                    last,
+                    bid = tab.PriceBestBid,
+                    ask = tab.PriceBestAsk,
+                    positions_open = tab.PositionsOpenAll?.Count ?? 0,
+                    positions_total = tab.PositionsAll?.Count ?? 0,
+                    is_on = tab.EventsIsOn
+                });
+            }
+
+            return new { tab_name = screener.TabName, tabs = rows, count = rows.Count };
+        }
+
+        private object SetScreenerTabState(JsonElement parameters)
+        {
+            BotPanel bot = FindBot(GetMasterRequired(), parameters.GetProperty("bot_id"));
+            BotTabScreener screener = FindBotTabScreener(bot, GetRequiredString(parameters, "tab_name"));
+            string childName = GetRequiredString(parameters, "child_tab_name");
+
+            if (!parameters.TryGetProperty("is_on", out JsonElement isOnElement)
+                || (isOnElement.ValueKind != JsonValueKind.True && isOnElement.ValueKind != JsonValueKind.False))
+            {
+                throw new ArgumentException("is_on (boolean) is required");
+            }
+
+            BotTabSimple child = screener.Tabs?.FirstOrDefault(t => t != null && t.TabName == childName)
+                ?? throw new ArgumentException($"Child tab '{childName}' not found in screener '{screener.TabName}'");
+
+            bool isOn = isOnElement.GetBoolean();
+
+            if (MainWindow.GetDispatcher.CheckAccess())
+            {
+                child.EventsIsOn = isOn;
+            }
+            else
+            {
+                MainWindow.GetDispatcher.Invoke(() => child.EventsIsOn = isOn);
+            }
+
+            return new { child_tab_name = childName, is_on = child.EventsIsOn };
         }
 
         private object GetBotConfigTabScreener(JsonElement parameters)
@@ -6295,7 +6434,7 @@ namespace OsEngine.MCP.Modules
                             }
                         }
 
-                        tabs.Add(new { tab_num = j, positions = positions });
+                        tabs.Add(new { tab_num = j, tab_name = journals[j]?.Name, positions = positions });
                     }
 
                     bots.Add(new

@@ -1520,6 +1520,8 @@ namespace OsEngine.MCP
                     case "bot_set_config_tab_simple":
                     case "bot_get_config_tab_screener":
                     case "bot_set_config_tab_screener":
+                    case "bot_screener_get_tabs":
+                    case "bot_screener_set_tab_state":
                         response = _robotsApi.Handle(request);
                         break;
 

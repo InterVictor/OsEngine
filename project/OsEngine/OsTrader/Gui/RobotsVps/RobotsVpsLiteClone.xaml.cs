@@ -1930,7 +1930,19 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 if (string.IsNullOrWhiteSpace(tabName))
                 {
-                    System.Windows.MessageBox.Show("For this robot the VPS API did not return a Simple chart source.", "VPS chart", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // a screener robot: the same chart window shows the screener's securities table (BotPanel.ChangeActiveTab)
+                    string screenerTab = await ResolveSourceNameAsync(bot.InternalName, "Screener").ConfigureAwait(true);
+
+                    if (!string.IsNullOrWhiteSpace(screenerTab))
+                    {
+                        RobotsVpsChartWindow screener = new RobotsVpsChartWindow(_client, bot.InternalName, bot.Name, screenerTab, isScreener: true);
+                        screener.Owner = Window.GetWindow(this);
+                        screener.Show();
+                        screener.Activate();
+                        return;
+                    }
+
+                    System.Windows.MessageBox.Show("This robot has no Simple or Screener source on the VPS — there is no chart to show.", "VPS chart", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -1973,6 +1985,26 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             if (!string.IsNullOrWhiteSpace(tabName)) _tabNameCache[botId] = tabName;
             return tabName;
+        }
+
+        // first source of the given type (Simple, Screener, Index, ...) from bot_get_sources
+        private async System.Threading.Tasks.Task<string> ResolveSourceNameAsync(string botId, string sourceType)
+        {
+            if (string.IsNullOrWhiteSpace(botId)) return null;
+
+            JsonElement result = await _client.CallToolAsync("bot_get_sources", new { bot_id = botId }).ConfigureAwait(true);
+            if (!result.TryGetProperty("sources", out JsonElement sources) || sources.ValueKind != JsonValueKind.Array) return null;
+
+            foreach (JsonElement source in sources.EnumerateArray())
+            {
+                if (source.TryGetProperty("type", out JsonElement type) && type.GetString() == sourceType
+                    && source.TryGetProperty("name", out JsonElement name))
+                {
+                    return name.GetString();
+                }
+            }
+
+            return null;
         }
 
         private async void SetBotStateAsync(VpsBotRow bot, bool setTrading, bool enabled)

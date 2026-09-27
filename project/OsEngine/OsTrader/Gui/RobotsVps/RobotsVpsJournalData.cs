@@ -17,6 +17,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private sealed class RemoteTab
         {
             public int TabNum;
+            public string TabName;
             public List<Position> Positions = new List<Position>();
         }
 
@@ -28,7 +29,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         }
 
         // botName == null -> all robots (community journal).
-        public static async Task<List<BotPanelJournal>> LoadAsync(RemoteMcpClient client, string botName)
+        // tabName: only the journal of that tab — BotTabScreener.ShowJournal (one security of a screener), where the
+        // panel is named after the tab as in the parent.
+        public static async Task<List<BotPanelJournal>> LoadAsync(RemoteMcpClient client, string botName, string tabName = null)
         {
             List<RemoteBot> bots = await FetchAsync(client, botName).ConfigureAwait(true);
             List<BotPanelJournal> panels = new List<BotPanelJournal>();
@@ -36,12 +39,17 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             foreach (RemoteBot bot in bots)
             {
                 BotPanelJournal panel = new BotPanelJournal();
-                panel.BotName = bot.BotName;
+                panel.BotName = tabName ?? bot.BotName;
                 panel.BotClass = bot.BotClass;
                 panel._Tabs = new List<BotTabJournal>();
 
                 foreach (RemoteTab tab in bot.Tabs)
                 {
+                    if (tabName != null && tab.TabName != tabName)
+                    {
+                        continue;
+                    }
+
                     // IsOsOptimizer: PositionController neither loads from nor saves to local disk in this mode,
                     // so this journal is a pure in-memory copy of the remote one.
                     Journal.Journal journal = new Journal.Journal("RobotsVps_" + bot.BotName + "_" + tab.TabNum, StartProgram.IsOsOptimizer);
@@ -58,7 +66,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // Re-reads positions from the VPS into the journals the window already holds, so the parent's own
         // Reload button / auto-reload (both just call RePaint, which re-reads Journal.AllPosition) show fresh
         // data. Like the parent, the set of robots and tabs stays as it was when the window was opened.
-        public static async Task RefreshAsync(RemoteMcpClient client, string botName, List<BotPanelJournal> panels)
+        // tabName: the panels came from LoadAsync(client, botName, tabName) and are named after the tab
+        public static async Task RefreshAsync(RemoteMcpClient client, string botName, List<BotPanelJournal> panels, string tabName = null)
         {
             if (client == null || !client.IsConnected || panels == null)
             {
@@ -69,7 +78,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             foreach (BotPanelJournal panel in panels)
             {
-                RemoteBot bot = bots.Find(b => b.BotName == panel.BotName);
+                RemoteBot bot = bots.Find(b => b.BotName == (tabName != null ? botName : panel.BotName));
 
                 if (bot == null || panel._Tabs == null)
                 {
@@ -145,7 +154,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     {
                         RemoteTab remoteTab = new RemoteTab
                         {
-                            TabNum = tab.TryGetProperty("tab_num", out JsonElement num) && num.TryGetInt32(out int n) ? n : remoteBot.Tabs.Count
+                            TabNum = tab.TryGetProperty("tab_num", out JsonElement num) && num.TryGetInt32(out int n) ? n : remoteBot.Tabs.Count,
+                            TabName = ReadString(tab, "tab_name")
                         };
 
                         if (tab.TryGetProperty("positions", out JsonElement positions) && positions.ValueKind == JsonValueKind.Array)

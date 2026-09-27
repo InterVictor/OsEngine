@@ -79,13 +79,16 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         // TimeStart), плюс всегда один раз сразу при открытии чарта (MinValue != любое реальное время).
         private DateTime _lastIndicatorRefreshCandleTimeUtc = DateTime.MinValue;
 
-        public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName)
+        // isScreener: tabName is a BotTabScreener — like BotPanel.ChangeActiveTab for a screener, the window shows
+        // the screener's securities table in place of the chart and only the "Control" side tab.
+        public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName, bool isScreener = false)
         {
             InitializeComponent();
             _client = client;
             _botId = botId;
             _botName = botName;
             _tabName = tabName;
+            _isScreener = isScreener;
             _layoutName = "Vps_" + botId;
 
             StickyBorders.Listen(this);
@@ -142,8 +145,17 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private async void ChartWindow_Loaded(object sender, RoutedEventArgs e)
         {
             CreateRemoteGrids();
-            _chartMaster = new ChartCandleMaster(_layoutName + "_" + _tabName, StartProgram.IsOsTrader);
-            _chartMaster.StartPaint(GridChart, ChartHostPanel, RectChart);
+
+            if (_isScreener)
+            {
+                StartScreenerPaint();
+            }
+            else
+            {
+                _chartMaster = new ChartCandleMaster(_layoutName + "_" + _tabName, StartProgram.IsOsTrader);
+                _chartMaster.StartPaint(GridChart, ChartHostPanel, RectChart);
+            }
+
             await RefreshSelectedChartDataAsync();
             _remotePollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _remotePollTimer.Tick += async (s, args) => await RefreshSelectedChartDataAsync();
@@ -249,12 +261,19 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private async System.Threading.Tasks.Task RefreshSelectedChartDataAsync()
         {
-            if (_remoteRefreshInFlight || _client == null || !_client.IsConnected || _chartMaster == null)
+            if (_remoteRefreshInFlight || _client == null || !_client.IsConnected || (_chartMaster == null && !_isScreener))
                 return;
 
             _remoteRefreshInFlight = true;
             try
             {
+                if (_isScreener)
+                {
+                    await RefreshScreenerGridAsync();
+                    await RefreshInformPanelAsync();
+                    return;
+                }
+
                 JsonElement snapshot = await _client.CallToolAsync("bot_chart_get_snapshot", new { bot_id = _botId, tab_name = _tabName, candle_count = _requestedCandleCount });
                 List<Candle> candles = ReadCandles(snapshot);
 
@@ -308,10 +327,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (TabItemMarketDepth.IsSelected) await RefreshMarketDepthAsync();
                 if (TabItemAlerts.IsSelected) await RefreshAlertsAsync();
                 if (TabItemGrids.IsSelected) await RefreshGridsAsync();
-                if (TabPosition.IsSelected) await RefreshOpenPositionsAsync();
-                if (TabItemStopLimits.IsSelected) await RefreshStopLimitsAsync();
-                if (TabItemClosedPos.IsSelected) await RefreshClosedPositionsAsync();
-                if (TabItemLogBot.IsSelected) await RefreshBotLogAsync();
+                await RefreshInformPanelAsync();
             }
             catch (Exception ex)
             {
@@ -321,6 +337,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             {
                 _remoteRefreshInFlight = false;
             }
+        }
+
+        // the lower panel: open positions, stop limits, closed positions, bot log — whichever tab is shown
+        private async System.Threading.Tasks.Task RefreshInformPanelAsync()
+        {
+            if (TabPosition.IsSelected) await RefreshOpenPositionsAsync();
+            if (TabItemStopLimits.IsSelected) await RefreshStopLimitsAsync();
+            if (TabItemClosedPos.IsSelected) await RefreshClosedPositionsAsync();
+            if (TabItemLogBot.IsSelected) await RefreshBotLogAsync();
         }
 
         private void ChartPanels_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -870,7 +895,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (response.TryGetProperty("positions", out JsonElement positions) && positions.ValueKind == JsonValueKind.Array)
                 foreach (JsonElement p in positions.EnumerateArray())
                 {
-                    if (!string.Equals(ReadString(p, "tab_name"), _tabName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!IsOwnTab(ReadString(p, "tab_name"))) continue;
                     _stopLimitsGrid.Rows.Add(ReadInt(p, "number"), FormatRemoteTime(ReadString(p, "time_create")), ReadString(p, "tab_name"), ReadString(p, "security_name"), FormatRemoteNumber(ReadDecimal(p, "volume")), ReadString(p, "side"), ReadString(p, "activate_type"), FormatRemoteNumber(ReadDecimal(p, "price_red_line")), FormatRemoteNumber(ReadDecimal(p, "price_order")), ReadInt(p, "expires_bars"), ReadString(p, "lifetime_type"));
                 }
             RestoreGridScroll(_stopLimitsGrid, first);
@@ -878,7 +903,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private async System.Threading.Tasks.Task RefreshBotLogAsync()
         {
-            JsonElement response = await _client.CallToolAsync("bot_chart_get_log", new { bot_id = _botId, tab_name = _tabName, count = 200 });
+            // the bot log is the robot's, any of its tabs gives it; a screener is asked through its first security
+            string logTab = _isScreener ? _screenerChildTabs.FirstOrDefault() : _tabName;
+            if (logTab == null)
+            {
+                ShowGridStatus(_botLogGrid, "The screener has no securities yet");
+                return;
+            }
+
+            JsonElement response = await _client.CallToolAsync("bot_chart_get_log", new { bot_id = _botId, tab_name = logTab, count = 200 });
             int first = FirstVisible(_botLogGrid);
             _botLogGrid.Rows.Clear();
             if (response.TryGetProperty("messages", out JsonElement messages) && messages.ValueKind == JsonValueKind.Array)
@@ -1036,6 +1069,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 if (grid != null) grid.Dispose();
             }
             _depthGrid = _alertsGrid = _gridsGrid = _openPositionsGrid = _stopLimitsGrid = _closedPositionsGrid = _botLogGrid = null;
+            _screenerGrid?.Dispose();
+            _screenerGrid = null;
         }
 
         private void ChartWindow_LocationChanged(object sender, EventArgs e)
@@ -1054,6 +1089,218 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             if (e.RowIndex < 0 || _depthGrid?.Rows[e.RowIndex].Cells[2].Value == null) return;
             TextBoxPrice.Text = _depthGrid.Rows[e.RowIndex].Cells[2].Value.ToString();
         }
+
+        #region Screener tab — BotTabScreener.StartPaint / CreateSecuritiesGrid / NewGrid_Click, fed by bot_screener_get_tabs
+
+        private readonly bool _isScreener;
+        private DataGridView _screenerGrid;
+        private List<string> _screenerChildTabs = new List<string>();
+        private int _screenerPreviousActiveRow;
+
+        private bool IsOwnTab(string tabName) =>
+            string.Equals(tabName, _tabName, StringComparison.OrdinalIgnoreCase)
+            || (_isScreener && tabName != null && tabName.EndsWith(" " + _tabName, StringComparison.OrdinalIgnoreCase));
+
+        // BotPanel.ChangeActiveTab for a screener: Market depth / Alerts / Grids are disabled, "Control" is shown
+        private void StartScreenerPaint()
+        {
+            for (int i = 0; i < 3 && i < TabControlControl.Items.Count; i++)
+            {
+                ((TabItem)TabControlControl.Items[i]).IsEnabled = false;
+            }
+
+            TabControlControl.SelectedIndex = 3;
+            _startTitle = _botName + " / " + _tabName;
+            Title = _startTitle;
+
+            CreateScreenerGrid();
+            ChartHostPanel.Child = _screenerGrid;
+        }
+
+        // 1:1 with BotTabScreener.CreateSecuritiesGrid: #, class, code, Last, Bid, Ask, positions, on/off, 3 buttons
+        private void CreateScreenerGrid()
+        {
+            DataGridView newGrid = DataGridFactory.GetDataGridView(DataGridViewSelectionMode.CellSelect, DataGridViewAutoSizeRowsMode.AllCells);
+            newGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            newGrid.ScrollBars = ScrollBars.Vertical;
+            DataGridViewCellStyle style = newGrid.DefaultCellStyle;
+
+            DataGridViewTextBoxCell cell0 = new DataGridViewTextBoxCell();
+            cell0.Style = style;
+
+            string[] headers = { "#", OsLocalization.Trader.Label166, OsLocalization.Trader.Label168, "Last", "Bid", "Ask", OsLocalization.Trader.Label186, OsLocalization.Trader.Label184 };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                DataGridViewColumn column = new DataGridViewColumn();
+                column.CellTemplate = cell0;
+                column.HeaderText = headers[i];
+                column.ReadOnly = i != 7;
+                column.AutoSizeMode = i == 0 ? DataGridViewAutoSizeColumnMode.AllCells : DataGridViewAutoSizeColumnMode.Fill;
+                if (i == 7) column.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                newGrid.Columns.Add(column);
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                DataGridViewButtonColumn button = new DataGridViewButtonColumn();
+                button.ReadOnly = false;
+                button.Width = 70;
+                newGrid.Columns.Add(button);
+            }
+
+            newGrid.Click += ScreenerGrid_Click;
+            newGrid.CellBeginEdit += (s, e) => e.Cancel = true; // the on/off box is switched on the VPS by the click
+            newGrid.DataError += (s, e) => { e.ThrowException = false; };
+            _screenerGrid = newGrid;
+        }
+
+        private async System.Threading.Tasks.Task RefreshScreenerGridAsync()
+        {
+            if (_screenerGrid == null) return;
+
+            JsonElement result = await _client.CallToolAsync("bot_screener_get_tabs", new { bot_id = _botId, tab_name = _tabName });
+            List<JsonElement> tabs = result.TryGetProperty("tabs", out JsonElement list) && list.ValueKind == JsonValueKind.Array
+                ? list.EnumerateArray().ToList()
+                : new List<JsonElement>();
+
+            List<string> names = tabs.Select(t => ReadString(t, "tab_name")).ToList();
+
+            if (_screenerGrid == null) return; // closed meanwhile
+
+            if (!names.SequenceEqual(_screenerChildTabs))
+            {
+                // BotTabScreener.RePaintSecuritiesGrid / GetRowFromTab
+                int showRow = _screenerGrid.FirstDisplayedScrollingRowIndex;
+                _screenerGrid.Rows.Clear();
+
+                for (int i = 0; i < tabs.Count; i++)
+                {
+                    DataGridViewRow row = new DataGridViewRow();
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = i });
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = ReadString(tabs[i], "security_class") });
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = ReadString(tabs[i], "security_name") });
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                    row.Cells.Add(new DataGridViewTextBoxCell());
+                    DataGridViewCheckBoxCell isOn = new DataGridViewCheckBoxCell();
+                    isOn.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                    row.Cells.Add(isOn);
+                    row.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label172 });
+                    row.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label40 });
+                    row.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label470 });
+                    _screenerGrid.Rows.Add(row);
+                }
+
+                if (showRow > 0 && showRow < _screenerGrid.Rows.Count) _screenerGrid.FirstDisplayedScrollingRowIndex = showRow;
+                _screenerChildTabs = names;
+            }
+
+            // BotTabScreener.PaintLastBidAsk
+            for (int i = 0; i < tabs.Count && i < _screenerGrid.Rows.Count; i++)
+            {
+                DataGridViewRow row = _screenerGrid.Rows[i];
+                int open = ReadInt(tabs[i], "positions_open");
+                SetCell(row.Cells[3], ReadDecimal(tabs[i], "last").ToString(CultureInfo.CurrentCulture));
+                SetCell(row.Cells[4], ReadDecimal(tabs[i], "bid").ToString(CultureInfo.CurrentCulture));
+                SetCell(row.Cells[5], ReadDecimal(tabs[i], "ask").ToString(CultureInfo.CurrentCulture));
+                SetCell(row.Cells[6], open + "/" + ReadInt(tabs[i], "positions_total"));
+                row.Cells[6].Style.ForeColor = open > 0 ? System.Drawing.Color.Green : row.Cells[5].Style.ForeColor;
+
+                bool on = ReadBool(tabs[i], "is_on");
+                if (!(row.Cells[7].Value is bool current) || current != on)
+                {
+                    row.Cells[7].Value = on;
+                    row.Cells[7].Style.BackColor = on ? row.Cells[5].Style.BackColor : System.Drawing.Color.Orange;
+                    row.Cells[7].Style.SelectionBackColor = on ? row.Cells[5].Style.SelectionBackColor : System.Drawing.Color.Orange;
+                }
+            }
+        }
+
+        // BotTabScreener.ShowJournal: a JournalUi2 with the journal of this one security, one window per security
+        private readonly Dictionary<string, RobotsVpsJournalUi> _screenerJournals = new Dictionary<string, RobotsVpsJournalUi>();
+
+        private async System.Threading.Tasks.Task ShowScreenerJournalAsync(string childTab)
+        {
+            if (_screenerJournals.TryGetValue(childTab, out RobotsVpsJournalUi opened))
+            {
+                if (opened.WindowState == WindowState.Minimized) opened.WindowState = WindowState.Normal;
+                opened.Activate();
+                return;
+            }
+
+            List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, _botId, childTab);
+
+            if (_screenerJournals.ContainsKey(childTab))
+            {
+                return; // double click while loading
+            }
+
+            RobotsVpsJournalUi journal = new RobotsVpsJournalUi(panelsJournal, StartProgram.IsOsTrader);
+            RemoteMcpClient journalClient = _client;
+            string journalBot = _botId;
+            journal.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, journalBot, panelsJournal, childTab);
+            journal.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, journalBot, tabNum, number);
+            journal.Closed += (s, args) => _screenerJournals.Remove(childTab);
+            _screenerJournals[childTab] = journal;
+            journal.Show();
+        }
+
+        private static void SetCell(DataGridViewCell cell, string value)
+        {
+            if (cell.Value == null || cell.Value.ToString() != value) cell.Value = value;
+        }
+
+        // BotTabScreener.NewGrid_Click: 7 on/off, 8 chart, 9 journal, 10 delete
+        private async void ScreenerGrid_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!(e is MouseEventArgs mouse) || mouse.Button != MouseButtons.Left) return;
+                if (_screenerGrid.SelectedCells == null || _screenerGrid.SelectedCells.Count == 0) return;
+
+                int tabRow = _screenerGrid.SelectedCells[0].RowIndex;
+                int tabColumn = _screenerGrid.SelectedCells[0].ColumnIndex;
+                if (tabRow < 0 || tabRow >= _screenerChildTabs.Count) return;
+
+                string childTab = _screenerChildTabs[tabRow];
+                string security = _screenerGrid.Rows[tabRow].Cells[2].Value?.ToString();
+
+                if (tabColumn == 7)
+                {
+                    bool on = !(_screenerGrid.Rows[tabRow].Cells[7].Value is bool current && current);
+                    await _client.CallToolAsync("bot_screener_set_tab_state", new { bot_id = _botId, tab_name = _tabName, child_tab_name = childTab, is_on = on });
+                    await RefreshScreenerGridAsync();
+                    return;
+                }
+
+                if (tabColumn == 8)
+                {
+                    RobotsVpsChartWindow chart = new RobotsVpsChartWindow(_client, _botId, _botName + " / " + security, childTab);
+                    chart.Show();
+                    chart.Activate();
+                }
+                else if (tabColumn == 9)
+                {
+                    await ShowScreenerJournalAsync(childTab);
+                }
+                else if (tabColumn == 10)
+                {
+                    NotAvailableRemotely("Removing a security from the screener is next — use \"Data settings\" meanwhile"); // stub
+                }
+
+                if (_screenerPreviousActiveRow < _screenerGrid.Rows.Count)
+                    _screenerGrid.Rows[_screenerPreviousActiveRow].DefaultCellStyle.ForeColor = Themes.ThemeManager.GetColorWinForms("GridTextColor");
+                _screenerGrid.Rows[tabRow].DefaultCellStyle.ForeColor = Themes.ThemeManager.GetColorWinForms("GridSelectionForeColor");
+                _screenerPreviousActiveRow = tabRow;
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        #endregion
 
         #region Original BotPanelChartUi layout behavior
         private void CheckPanels()
@@ -1265,6 +1512,15 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         }
         private void ButtonRedactTab_Click(object sender, RoutedEventArgs e)
         {
+            if (_isScreener)
+            {
+                // BotTabScreener.ShowDialog -> BotTabScreenerUi
+                RobotsVpsScreenerSettingsUi screenerWindow = new RobotsVpsScreenerSettingsUi(_client, _botId, _tabName) { Owner = this };
+                screenerWindow.ShowDialog();
+                _ = RefreshSelectedChartDataAsync();
+                return;
+            }
+
             RobotsVpsDataSettingsUi window = new RobotsVpsDataSettingsUi(_client, _botId, _tabName) { Owner = this };
             window.ShowDialog();
         }
