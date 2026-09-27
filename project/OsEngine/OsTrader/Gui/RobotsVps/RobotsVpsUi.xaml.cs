@@ -1007,7 +1007,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
 
             RobotsVpsFilesUi window = new RobotsVpsFilesUi(credentials, _sshTunnel.RunCommandAsync, _instances.ToList(), initial,
-                ApplyRobotChangesAsync, AppendLog) { Owner = this };
+                ApplyRobotChangesAsync, LogFromAnyThread) { Owner = this };
             window.Show();
         }
 
