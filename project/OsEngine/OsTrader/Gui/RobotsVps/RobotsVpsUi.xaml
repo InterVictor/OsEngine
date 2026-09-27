@@ -151,8 +151,8 @@
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Name="PanelMaintenanceButtons">
                         <Button Name="ButtonUpdateBuild" Content="Update build" Width="120" Height="26" Margin="0,0,5,0" Click="ButtonUpdateBuild_Click"
                                 ToolTip="Installs the local build package (VpsServer folder) on every running terminal, one by one; a terminal that does not start with the new build is rolled back automatically"/>
-                        <Button Name="ButtonUploadRobots" Content="Upload robots..." Width="120" Height="26" Margin="0,0,5,0" Click="ButtonUploadRobots_Click"
-                                ToolTip="Copies robot scripts (*.cs) into Custom/Robots of the selected terminal and restarts it to compile them"/>
+                        <Button Name="ButtonFiles" Content="Files..." Width="120" Height="26" Margin="0,0,5,0" Click="ButtonFiles_Click"
+                                ToolTip="File manager of the VPS: robots, indicators, settings and logs of every terminal — upload, download, copy, move, rename, delete to trash"/>
                         <Button Name="ButtonCleanLogs" Content="Clean logs" Width="100" Height="26" Margin="0,0,5,0" Click="ButtonCleanLogs_Click"
                                 ToolTip="Deletes the selected terminal's log files except today's and trims the system journal to 7 days"/>
                         <Button Name="ButtonRebootVps" Content="Reboot VPS" Width="100" Height="26" Margin="0,0,5,0" Click="ButtonRebootVps_Click"

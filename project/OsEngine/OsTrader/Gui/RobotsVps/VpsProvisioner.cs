@@ -177,65 +177,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
-        // Puts robot scripts (*.cs) into Custom/Robots of a terminal. A replaced script is kept in
-        // Custom/Robots-backup/<name>-<time>.cs; its line in the robot description cache (BotsDescription.txt)
-        // is removed so "Add bot" shows the new sources/indicators. Returns the robot class names.
-        // The terminal must be restarted afterwards to compile the new code.
-        public async Task<List<string>> UploadRobotsAsync(VpsInstance instance, IReadOnlyList<string> files, CancellationToken cancel)
-        {
-            using SshClient ssh = new SshClient(_credentials.CreateConnectionInfo());
-            await _credentials.ConnectAsync(ssh, _log, cancel).ConfigureAwait(false);
-            using SftpClient sftp = new SftpClient(_credentials.CreateConnectionInfo());
-            await _credentials.ConnectAsync(sftp, _log, cancel).ConfigureAwait(false);
-
-            string stamp = DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ");
-            string remoteDir = "/tmp/osengine-robots-" + stamp;
-            List<string> classNames = new List<string>();
-
-            try
-            {
-                sftp.CreateDirectory(remoteDir);
-
-                foreach (string file in files)
-                {
-                    string fileName = Path.GetFileName(file);
-                    classNames.Add(Path.GetFileNameWithoutExtension(file));
-
-                    using FileStream source = File.OpenRead(file);
-                    await UploadAsync(sftp, source, remoteDir + "/" + fileName, fileName, cancel).ConfigureAwait(false);
-                }
-
-                string data = instance.DataRoot;
-                string script =
-                    "set -e\n" +
-                    $"R='{data}/Custom/Robots'; B='{data}/Custom/Robots-backup'; D='{data}/BotsDescription.txt'\n" +
-                    "mkdir -p \"$R\" \"$B\"\n" +
-                    $"for f in {remoteDir}/*.cs; do\n" +
-                    "  n=$(basename \"$f\"); c=${n%.cs}\n" +
-                    $"  if [ -f \"$R/$n\" ]; then cp \"$R/$n\" \"$B/$c-{stamp}.cs\"; echo \"OK $n replaced (previous copy: Custom/Robots-backup/$c-{stamp}.cs)\";\n" +
-                    "  else echo \"OK $n added\"; fi\n" +
-                    "  cp \"$f\" \"$R/$n\"\n" +
-                    "  [ -f \"$D\" ] && sed -i \"/^$c&/d\" \"$D\"\n" +
-                    "done\n" +
-                    "chown -R osengine:osengine \"$R\" \"$B\"\n" +
-                    "[ -f \"$D\" ] && chown osengine:osengine \"$D\"\n" +
-                    "true\n";
-
-                int exitCode = await RunStreamingAsync(ssh, "bash -c " + ShellQuote(script), cancel).ConfigureAwait(false);
-
-                if (exitCode != 0)
-                {
-                    throw new InvalidOperationException($"Could not put the robot scripts in place (exit code {exitCode})");
-                }
-            }
-            finally
-            {
-                Run(ssh, $"rm -rf {remoteDir}");
-            }
-
-            return classNames;
-        }
-
         // Deletes the terminal's OsEngine log files except today's (those are still being written) and trims the
         // systemd journal to the last 7 days. Returns a short report.
         public async Task<string> CleanLogsAsync(VpsInstance instance, CancellationToken cancel)

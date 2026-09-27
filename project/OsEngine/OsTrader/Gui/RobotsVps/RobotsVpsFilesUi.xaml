@@ -1,0 +1,79 @@
+<Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsFilesUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VPS — files" Height="600" Width="1000" MinWidth="760" MinHeight="400"
+        Style="{StaticResource WindowStyleCanResize}"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Images/OsLogo.ico">
+    <Grid Margin="6">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Места: папки data терминалов под понятными названиями -->
+        <Grid Grid.Column="0" Margin="0,0,6,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Label Grid.Row="0" Content="Places"/>
+            <ListBox Grid.Row="1" Name="ListBoxPlaces" SelectionChanged="ListBoxPlaces_SelectionChanged"/>
+            <TextBlock Grid.Row="2" Name="TextBlockPlaceHint" TextWrapping="Wrap" Foreground="Gray" Margin="2,6,2,0" MinHeight="60"/>
+        </Grid>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Name="ButtonUp" Content="Up" Width="60" Height="26" Margin="0,0,4,0" Click="ButtonUp_Click"
+                        ToolTip="Parent folder"/>
+                <Button Grid.Column="1" Name="ButtonRefresh" Content="Refresh" Width="70" Height="26" Margin="0,0,8,0" Click="ButtonRefresh_Click"/>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Name="TextBlockFriendlyPath" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Name="TextBlockRealPath" Foreground="Gray" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Grid>
+
+            <DataGrid Grid.Row="1" Name="DataGridFiles" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                      SelectionMode="Extended" Style="{StaticResource DataGridStyle}" MouseDoubleClick="DataGridFiles_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Width="*" Binding="{Binding DisplayName}"/>
+                    <DataGridTextColumn Header="Size" Width="100" Binding="{Binding SizeText}"/>
+                    <DataGridTextColumn Header="Modified" Width="150" Binding="{Binding ModifiedText}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <WrapPanel Grid.Row="2" Name="PanelButtons" Margin="0,6,0,0">
+                <Button Name="ButtonUpload" Content="Upload..." Width="90" Height="26" Margin="0,0,4,4" Click="ButtonUpload_Click"
+                        ToolTip="Files from this computer into the current folder (a file with the same name is replaced)"/>
+                <Button Name="ButtonDownload" Content="Download..." Width="90" Height="26" Margin="0,0,12,4" Click="ButtonDownload_Click"
+                        ToolTip="Selected files and folders to a folder on this computer"/>
+                <Button Name="ButtonNewFolder" Content="New folder" Width="90" Height="26" Margin="0,0,4,4" Click="ButtonNewFolder_Click"/>
+                <Button Name="ButtonRename" Content="Rename" Width="80" Height="26" Margin="0,0,12,4" Click="ButtonRename_Click"/>
+                <Button Name="ButtonCopy" Content="Copy" Width="70" Height="26" Margin="0,0,4,4" Click="ButtonCopy_Click"
+                        ToolTip="Remember the selected items; Paste puts copies into the folder you open next"/>
+                <Button Name="ButtonCut" Content="Cut" Width="70" Height="26" Margin="0,0,4,4" Click="ButtonCut_Click"
+                        ToolTip="Remember the selected items; Paste moves them into the folder you open next"/>
+                <Button Name="ButtonPaste" Content="Paste" Width="70" Height="26" Margin="0,0,12,4" Click="ButtonPaste_Click"/>
+                <Button Name="ButtonDelete" Content="Delete" Width="80" Height="26" Margin="0,0,12,4" Click="ButtonDelete_Click"
+                        ToolTip="Moves the selected items to the Trash on the VPS (they can be restored). In the Trash itself deletes for good"/>
+                <Button Name="ButtonApplyRobots" Content="Apply robot changes" Width="150" Height="26" Margin="0,0,4,4" Click="ButtonApplyRobots_Click"
+                        ToolTip="Restarts this terminal so it compiles the changed robot scripts, then checks that they compile"/>
+            </WrapPanel>
+
+            <TextBlock Grid.Row="3" Name="TextBlockStatus" Foreground="Gray" TextWrapping="Wrap" Margin="2,2,0,0"/>
+        </Grid>
+    </Grid>
+</Window>

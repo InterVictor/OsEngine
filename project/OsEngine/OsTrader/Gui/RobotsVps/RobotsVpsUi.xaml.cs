@@ -922,43 +922,53 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }).ConfigureAwait(true);
         }
 
-        private async void ButtonUploadRobots_Click(object sender, RoutedEventArgs e)
+        // File manager of the VPS (data folders of the terminals, trash, removed terminals); opens on the robots folder of
+        // the selected terminal. "Apply robot changes" there restarts the terminal and checks the changed scripts compile.
+        private void ButtonFiles_Click(object sender, RoutedEventArgs e)
         {
             if (!EnsureSshCommands()) return;
-            VpsInstance instance = SelectedOrOnlyInstance();
-            if (instance == null) return;
 
-            Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog
+            if (_instances.Count == 0)
             {
-                Title = $"Robot scripts for terminal \"{instance.Name}\"",
-                Filter = "Robot scripts (*.cs)|*.cs",
-                Multiselect = true
-            };
+                MessageBox.Show("No OsEngine terminal found on the VPS — use \"Deploy / repair server\" first");
+                return;
+            }
 
-            if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
+            VpsInstance initial = (DataGridTerminals.SelectedItem as TerminalRow) is TerminalRow row
+                ? _instances.FirstOrDefault(i => i.Name == row.Name)
+                : _instances[0];
 
-            string[] files = dialog.FileNames;
-            AcceptDialogUi confirm = new AcceptDialogUi(
-                $"Upload {files.Length} robot script(s) to terminal \"{instance.Name}\" and restart it?\n\n"
-                + string.Join("\n", files.Select(f => "  " + Path.GetFileName(f)))
-                + "\n\nA script with the same name is replaced (the old copy is kept in Custom/Robots-backup). "
-                + "The restart compiles the new code; the terminal's robots stop for about 10–30 s.");
-            confirm.ShowDialog();
-            if (!confirm.UserAcceptAction) return;
+            VpsSshCredentials credentials;
 
-            VpsSshCredentials credentials = CreateCredentials();
-
-            await RunMaintenanceAsync(async () =>
+            try
             {
-                AppendLog($"=== Upload robots to terminal \"{instance.Name}\" ===");
-                List<string> classNames = await Task.Run(() => new VpsProvisioner(credentials, LogFromAnyThread)
-                    .UploadRobotsAsync(instance, files, CancellationToken.None)).ConfigureAwait(true);
+                credentials = CreateCredentials();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
 
-                AppendLog($"Restarting terminal \"{instance.Name}\" to compile the new code...");
-                await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+            RobotsVpsFilesUi window = new RobotsVpsFilesUi(credentials, _sshTunnel.RunCommandAsync, _instances.ToList(), initial,
+                ApplyRobotChangesAsync, AppendLog) { Owner = this };
+            window.Show();
+        }
 
+        private async Task ApplyRobotChangesAsync(VpsInstance instance, List<string> classNames)
+        {
+            AppendLog($"=== Apply robot changes on terminal \"{instance.Name}\" ===");
+            AppendLog($"Restarting terminal \"{instance.Name}\" to compile the robot scripts...");
+            await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+
+            if (classNames.Count > 0)
+            {
                 await CheckRobotsCompileAsync(instance, classNames).ConfigureAwait(true);
-            }).ConfigureAwait(true);
+            }
+            else
+            {
+                await SyncTerminalsAsync().ConfigureAwait(true);
+            }
         }
 
         // After the restart asks the terminal to build each uploaded robot (wiki_robot_info compiles a script on
