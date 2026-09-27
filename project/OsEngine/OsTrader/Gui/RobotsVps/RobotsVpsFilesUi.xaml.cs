@@ -34,7 +34,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private List<string> _clipboard = new List<string>();
         private bool _clipboardKeepsSource;
 
-        // robot scripts changed in this window, per terminal — what "Apply robot changes" compiles
+        // terminals whose robot scripts were changed by the current action, with the scripts to check
         private readonly Dictionary<string, HashSet<string>> _changedRobots = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         internal RobotsVpsFilesUi(VpsSshCredentials credentials, Func<string, Task<string>> run, IReadOnlyList<VpsInstance> instances,
@@ -129,7 +129,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             TextBlockRealPath.Text = _currentFolder;
 
             ButtonUp.IsEnabled = _files.IsAllowed(VpsFileService.Parent(_currentFolder));
-            ButtonApplyRobots.Visibility = VpsFileService.IsRobotsFolder(_currentFolder) ? Visibility.Visible : Visibility.Collapsed;
             ButtonPaste.IsEnabled = _clipboard.Count > 0;
         }
 
@@ -193,7 +192,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             await RunAsync("Renaming...", async () =>
             {
                 await _files.RenameAsync(rows[0].Entry.FullPath, name).ConfigureAwait(true);
-                RememberRobotChanges(_currentFolder, new[] { rows[0].Entry.Name, name });
+                RememberRobotChanges(_currentFolder, new[] { rows[0].Entry.Name }, check: false);
+                RememberRobotChanges(_currentFolder, new[] { name });
             }).ConfigureAwait(true);
         }
 
@@ -238,7 +238,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 RememberRobotChanges(target, sources.Select(System.IO.Path.GetFileName));
                 if (!keep)
                 {
-                    foreach (string source in sources) RememberRobotChanges(VpsFileService.Parent(source), new[] { System.IO.Path.GetFileName(source) });
+                    foreach (string source in sources) RememberRobotChanges(VpsFileService.Parent(source), new[] { System.IO.Path.GetFileName(source) }, check: false);
                     _clipboard = new List<string>();
                 }
             }).ConfigureAwait(true);
@@ -259,38 +259,34 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             await RunAsync("Deleting...", async () =>
             {
                 string trash = await _files.DeleteAsync(rows.Select(r => r.Entry.FullPath).ToList()).ConfigureAwait(true);
-                RememberRobotChanges(_currentFolder, rows.Select(r => r.Entry.Name));
+                RememberRobotChanges(_currentFolder, rows.Select(r => r.Entry.Name), check: false);
                 _log?.Invoke(trash == null ? $"Deleted for good: {rows.Count} item(s)" : $"Moved to the trash: {rows.Count} item(s) -> {trash}");
             }).ConfigureAwait(true);
         }
 
-        private async void ButtonApplyRobots_Click(object sender, RoutedEventArgs e)
+        // After an action that touched robot scripts: every affected terminal re-reads them (no restart, running robots
+        // keep working) and the added or replaced scripts are checked to compile. Results go to the VPS window log.
+        private async Task ApplyRobotChangesAsync()
         {
-            VpsPlace place = _places.FirstOrDefault(p => p.Instance != null && _currentFolder == p.Path);
-            VpsInstance instance = place?.Instance;
-            if (instance == null || _applyRobotChanges == null) return;
-
-            List<string> classes = _changedRobots.TryGetValue(instance.Name, out HashSet<string> set) ? set.ToList() : new List<string>();
-
-            AcceptDialogUi confirm = new AcceptDialogUi(
-                $"Restart terminal \"{instance.Name}\" so it compiles the robot scripts?\n\n"
-                + (classes.Count > 0 ? "Changed here: " + string.Join(", ", classes) + " — they are checked after the restart.\n\n" : "No script was changed in this window — the terminal is only restarted.\n\n")
-                + "Its robots stop for about 10–30 s.");
-            confirm.ShowDialog();
-            if (!confirm.UserAcceptAction) return;
-
-            await RunAsync("Restarting the terminal...", async () =>
+            foreach (string name in _changedRobots.Keys.ToList())
             {
+                VpsInstance instance = _places.FirstOrDefault(p => p.Instance?.Name == name)?.Instance;
+                List<string> classes = _changedRobots[name].ToList();
+                _changedRobots.Remove(name);
+
+                if (instance == null || _applyRobotChanges == null) continue;
+
+                SetBusy(true, $"Terminal \"{name}\" re-reads the robot scripts...");
                 await _applyRobotChanges(instance, classes).ConfigureAwait(true);
-                _changedRobots.Remove(instance.Name);
-            }, refresh: false).ConfigureAwait(true);
+            }
         }
 
-        private void RememberRobotChanges(string folder, IEnumerable<string> names)
+        // folder: where the items are (or were); check: the scripts are there now and should be compiled
+        // (false for deleted and moved-away ones — the terminal only has to forget them)
+        private void RememberRobotChanges(string folder, IEnumerable<string> names, bool check = true)
         {
-            if (!VpsFileService.IsRobotsFolder(folder)) return;
-
-            VpsPlace place = _places.FirstOrDefault(p => p.Instance != null && VpsFileService.Normalize(folder) == p.Path);
+            string root = VpsFileService.RobotsRoot(folder);
+            VpsPlace place = root == null ? null : _places.FirstOrDefault(p => p.Instance != null && p.Path == root);
             if (place == null) return;
 
             if (!_changedRobots.TryGetValue(place.Instance.Name, out HashSet<string> set))
@@ -298,6 +294,12 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _changedRobots[place.Instance.Name] = set;
             }
+
+            // scripts in Dlls / BaseClasses subfolders are not robots — the terminal skips them
+            string sub = VpsFileService.Normalize(folder).Substring(root.Length);
+            bool robotScripts = !sub.Split('/').Any(s => s.Equals("Dlls", StringComparison.OrdinalIgnoreCase) || s.Equals("BaseClasses", StringComparison.OrdinalIgnoreCase));
+
+            if (!check || !robotScripts) return;
 
             foreach (string name in names.Where(n => n != null && n.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
                 set.Add(System.IO.Path.GetFileNameWithoutExtension(name));
@@ -309,6 +311,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             {
                 SetBusy(true, status);
                 await action().ConfigureAwait(true);
+                await ApplyRobotChangesAsync().ConfigureAwait(true);
                 SetBusy(false, "Done");
             }
             catch (Exception ex)

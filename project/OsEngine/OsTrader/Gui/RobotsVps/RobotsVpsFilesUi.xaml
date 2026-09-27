@@ -69,8 +69,6 @@
                 <Button Name="ButtonPaste" Content="Paste" Width="70" Height="26" Margin="0,0,12,4" Click="ButtonPaste_Click"/>
                 <Button Name="ButtonDelete" Content="Delete" Width="80" Height="26" Margin="0,0,12,4" Click="ButtonDelete_Click"
                         ToolTip="Moves the selected items to the Trash on the VPS (they can be restored). In the Trash itself deletes for good"/>
-                <Button Name="ButtonApplyRobots" Content="Apply robot changes" Width="150" Height="26" Margin="0,0,4,4" Click="ButtonApplyRobots_Click"
-                        ToolTip="The terminal re-reads the robot scripts without a restart (running robots keep their version), then checks that the changed ones compile. Restarts the terminal only if its build cannot do that"/>
             </WrapPanel>
 
             <TextBlock Grid.Row="3" Name="TextBlockStatus" Foreground="Gray" TextWrapping="Wrap" Margin="2,2,0,0"/>

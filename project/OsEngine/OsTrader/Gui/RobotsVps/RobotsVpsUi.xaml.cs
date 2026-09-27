@@ -979,7 +979,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         }
 
         // File manager of the VPS (data folders of the terminals, trash, removed terminals); opens on the robots folder of
-        // the selected terminal. "Apply robot changes" there restarts the terminal and checks the changed scripts compile.
+        // the selected terminal. A change to robot scripts there makes the terminal re-read them (no restart) and checks they compile.
         private void ButtonFiles_Click(object sender, RoutedEventArgs e)
         {
             if (!EnsureSshCommands()) return;
@@ -1011,56 +1011,52 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             window.Show();
         }
 
+        // Called by the file manager after robot scripts were changed: the terminal re-reads them without a restart
+        // (running robots keep working), then the added or replaced ones are checked to compile. Never restarts on its
+        // own — a terminal that cannot re-read (an older build, no answer) is left to the Restart button.
         private async Task ApplyRobotChangesAsync(VpsInstance instance, List<string> classNames)
         {
-            AppendLog($"=== Apply robot changes on terminal \"{instance.Name}\" ===");
+            AppendLog($"=== Robot scripts changed on terminal \"{instance.Name}\" ===");
 
-            // The terminal re-reads the scripts without a restart, running robots keep working; a build without
-            // this tool (or a terminal that does not answer) is restarted instead.
             RemoteMcpClient client = VpsRemoteSession.GetClient(instance.Name);
-            bool reloaded = false;
 
-            if (client != null && client.IsConnected)
+            try
             {
-                try
-                {
-                    await client.CallToolAsync("wiki_robots_reload_scripts", new { }).ConfigureAwait(true);
-                    AppendLog($"Terminal \"{instance.Name}\" re-read the robot scripts (no restart; running robots keep their version)");
-                    reloaded = true;
-                }
-                catch (Exception ex)
-                {
-                    AppendLog($"Terminal \"{instance.Name}\" could not re-read the scripts: {ex.Message}");
-                }
+                if (client == null || !client.IsConnected) throw new InvalidOperationException("the terminal is not connected");
+                await client.CallToolAsync("wiki_robots_reload_scripts", new { }).ConfigureAwait(true);
+                AppendLog($"Terminal \"{instance.Name}\" re-read the robot scripts (running robots keep their version)");
             }
-
-            if (!reloaded)
+            catch (Exception ex)
             {
-                AppendLog($"Restarting terminal \"{instance.Name}\" to compile the robot scripts...");
-                await VpsInstances.RestartAsync(_sshTunnel.RunCommandAsync, instance).ConfigureAwait(true);
+                AppendLog($"Terminal \"{instance.Name}\" could not re-read the robot scripts ({ex.Message}) — "
+                    + "restart it with the Restart button to pick up the changes");
+                return;
             }
 
             if (classNames.Count > 0)
             {
                 await CheckRobotsCompileAsync(instance, classNames).ConfigureAwait(true);
             }
-            else
-            {
-                await SyncTerminalsAsync().ConfigureAwait(true);
-            }
         }
 
-        // After the restart asks the terminal to build each uploaded robot (wiki_robot_info compiles a script on
+        // After the scripts are re-read asks the terminal to build each changed robot (wiki_robot_info compiles a script on
         // demand). A compile error is taken from the service journal, where BotFactory writes the compiler output.
         private async Task CheckRobotsCompileAsync(VpsInstance instance, List<string> classNames)
         {
             List<string> pending = new List<string>(classNames);
             DateTime deadline = DateTime.UtcNow.AddSeconds(120);
+            bool firstTry = true;
 
             while (pending.Count > 0 && DateTime.UtcNow < deadline)
             {
-                await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(true);
-                await SyncTerminalsAsync().ConfigureAwait(true);
+                if (!firstTry)
+                {
+                    // the terminal did not answer (reconnecting) — wait and reconnect
+                    await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(true);
+                    await SyncTerminalsAsync().ConfigureAwait(true);
+                }
+
+                firstTry = false;
 
                 RemoteMcpClient client = VpsRemoteSession.GetClient(instance.Name);
                 if (client == null || !client.IsConnected) continue;
@@ -1080,7 +1076,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                         try
                         {
                             details = (await _sshTunnel.RunCommandAsync(
-                                $"journalctl -u {instance.Service} --since '-5 min' --no-pager | grep -A4 'compilation problem (Path: Custom/Robots/{className}.cs' | tail -5 || true")
+                                $"journalctl -u {instance.Service} --since '-5 min' --no-pager | grep -A4 -E 'compilation problem \\(Path: Custom/Robots/(.*/)?{className}\\.cs' | tail -5 || true")
                                 .ConfigureAwait(true)).Trim();
                         }
                         catch

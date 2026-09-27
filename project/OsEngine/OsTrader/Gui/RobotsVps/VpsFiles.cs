@@ -67,7 +67,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             foreach (VpsInstance instance in instances)
             {
                 string data = instance.BaseFolder + "/data";
-                places.Add(new VpsPlace { Instance = instance, Title = $"{instance.Name}: robots", Path = data + "/Custom/Robots", Hint = "Robot scripts (*.cs). The terminal compiles them when it starts or when a robot is created" });
+                places.Add(new VpsPlace { Instance = instance, Title = $"{instance.Name}: robots", Path = data + "/Custom/Robots", Hint = "Robot scripts (*.cs), also in subfolders. After every change here the terminal re-reads them by itself and the changed ones are checked to compile; running robots keep working" });
                 places.Add(new VpsPlace { Instance = instance, Title = $"{instance.Name}: indicators", Path = data + "/Custom/Indicators", Hint = "Indicator scripts (*.cs) used by the robots" });
                 places.Add(new VpsPlace { Instance = instance, Title = $"{instance.Name}: candle series", Path = data + "/Custom/CandleSeries", Hint = "Custom candle types (*.cs)" });
                 places.Add(new VpsPlace { Instance = instance, Title = $"{instance.Name}: settings and journals", Path = data + "/Engine", Hint = "Settings of robots, connectors and their position journals. Change only when the terminal is stopped" });
@@ -275,16 +275,28 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
-        public static bool IsRobotsFolder(string folder) =>
-            Normalize(folder).EndsWith("/data/Custom/Robots", StringComparison.Ordinal);
+        // <base>/data/Custom/Robots of a folder inside it (the terminal scans its subfolders too), otherwise null
+        public static string RobotsRoot(string folder)
+        {
+            const string marker = "/data/Custom/Robots";
+            string path = Normalize(folder);
+            int index = path.IndexOf(marker, StringComparison.Ordinal);
+            if (index < 0) return null;
+
+            int end = index + marker.Length;
+            return path.Length == end || path[end] == '/' ? path.Substring(0, end) : null;
+        }
+
+        public static bool IsRobotsFolder(string folder) => RobotsRoot(folder) != null;
 
         // A robot script added, replaced, renamed or removed: drop its line from the robot description cache
         // (BotsDescription.txt, used by "Add bot") so the list is built from the new code.
         private async Task AfterRobotsChangedAsync(string folder, IEnumerable<string> names)
         {
-            if (!IsRobotsFolder(folder)) return;
+            string root = RobotsRoot(folder);
+            if (root == null) return;
 
-            string cache = Combine(Parent(Parent(Normalize(folder))), "BotsDescription.txt");
+            string cache = Combine(Parent(Parent(root)), "BotsDescription.txt");
             List<string> classes = names.Where(n => n != null && n.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                 .Select(System.IO.Path.GetFileNameWithoutExtension).Where(IsValidName).ToList();
             if (classes.Count == 0) return;
