@@ -2464,7 +2464,16 @@ namespace OsEngine.MCP.Modules
                         // Цвет серии на сервере может отличаться от жёсткого дефолта, заданного в
                         // OnStateChange индикатора (пользователь мог сменить его в настройках индикатора
                         // на самом боте) — отдаём ARGB, чтобы клиент красил линию так же, как сервер.
-                        dataSeriesDtos.Add(new { values = tail, color_argb = series.Color.ToArgb() });
+                        // Толщина линии и режим "ноль - разрыв" тоже задаются роботом (яркая толстая копия
+                        // активной зоны у FF144/FF145), поэтому отдаём их клиенту: иначе панель рисует всё
+                        // тонким и показывает нули как точки на нуле вместо разрывов
+                        dataSeriesDtos.Add(new
+                        {
+                            values = tail,
+                            color_argb = series.Color.ToArgb(),
+                            line_width = series.LineWidth,
+                            zero_is_gap = series.ZeroIsGap
+                        });
                     }
                 }
 

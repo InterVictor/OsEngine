@@ -624,6 +624,22 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                     changed = true;
                 }
 
+                // Толщина линии и "ноль - разрыв" тоже приходят с сервера: робот задаёт их при создании
+                // индикатора (яркая толстая копия активной зоны у FF144/FF145, подсветка режима у FF144Regime)
+                if (s.TryGetProperty("line_width", out JsonElement widthEl) && widthEl.ValueKind == JsonValueKind.Number
+                    && widthEl.TryGetInt32(out int lineWidth) && lineWidth > 0)
+                {
+                    localSeries[seriesIndex].LineWidth = lineWidth;
+                    changed = true;
+                }
+
+                if (s.TryGetProperty("zero_is_gap", out JsonElement gapEl)
+                    && (gapEl.ValueKind == JsonValueKind.True || gapEl.ValueKind == JsonValueKind.False))
+                {
+                    localSeries[seriesIndex].ZeroIsGap = gapEl.ValueKind == JsonValueKind.True;
+                    changed = true;
+                }
+
                 seriesIndex++;
             }
 
