@@ -428,6 +428,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
 
                 _instances = instances;
+                VpsRemoteSession.SetSsh(VpsRemoteSession.SshCredentials ?? CreateCredentials(), tunnel.RunCommandAsync, instances);
 
                 await SampleMetricsAsync(tunnel, instances).ConfigureAwait(true);
                 RunDailyBackupIfDue(instances);
@@ -584,6 +585,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             _terminals.Clear();
             VpsRemoteSession.SetClients(null);
+            VpsRemoteSession.SetSsh(null, null, null);
 
             if (_sshTunnel != null)
             {

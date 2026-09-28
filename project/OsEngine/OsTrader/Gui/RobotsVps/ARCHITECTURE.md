@@ -28,3 +28,7 @@
 ## 2026-09-27 — MCP access for AI agents
 
 `McpJsonConfig` writes every VPS terminal into `<folder>/.mcp.json` of each folder from the "MCP access..." window (RobotsVpsMcpAccessUi; folders `;`-separated in settings line 13): `osengine-server` for the main terminal, `osengine-server-<name>` for the others, url = local end of the SSH tunnel, `X-Api-Key` = the terminal key. Runs on every terminal sync (connect + 10 s); writes only on change; removes entries of terminals deleted on the VPS, keeps stopped ones; other entries of the file are untouched. Claude Code (and other MCP clients) read the file when a session starts. Remove takes only the osengine-server* entries out.
+
+## 2026-09-28 — robot panels built on this computer
+
+`VpsRobotPanels`: a robot parameter button whose name contains "RegimeMonitor" (FF144Regime "Открыть панель: RegimeMonitor") is not pressed on the VPS. The client reads the robot parameters (bot_get_params), takes regime.txt, regime_log.csv, spectrum.csv and cycle_profile.csv from the folder of "Flag file" over the VPS window SSH (VpsRemoteSession.SetSsh publishes credentials, run and instances) into `VpsData\<terminal>\<same relative folder>`, runs RegimeMonitor.exe from "Tools folder" and opens the HTML.

@@ -266,6 +266,21 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         {
             try
             {
+                if (VpsRobotPanels.IsLocalButton(name))
+                {
+                    // the panel is built and shown on this computer from the robot's files on the VPS
+                    string title = Title;
+                    try
+                    {
+                        await VpsRobotPanels.OpenRegimePanelAsync(_client, _botId, text => Title = title + " — " + text).ConfigureAwait(true);
+                    }
+                    finally
+                    {
+                        Title = title;
+                    }
+                    return;
+                }
+
                 await _client.CallToolAsync("bot_click_param_button",
                     new { bot_id = _botId, param_name = name }).ConfigureAwait(true);
             }

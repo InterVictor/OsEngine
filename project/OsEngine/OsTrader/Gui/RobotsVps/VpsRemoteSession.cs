@@ -37,6 +37,28 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             }
         }
 
+        // SSH of the VPS window (null when it does not run its own tunnel): lets other windows reach the terminals'
+        // files, e.g. a robot panel built on this computer from the data a robot writes on the VPS
+        internal static VpsSshCredentials SshCredentials { get; private set; }
+        internal static Func<string, System.Threading.Tasks.Task<string>> SshRun { get; private set; }
+        internal static IReadOnlyList<VpsInstance> Instances { get; private set; } = new List<VpsInstance>();
+
+        internal static void SetSsh(VpsSshCredentials credentials, Func<string, System.Threading.Tasks.Task<string>> run, IReadOnlyList<VpsInstance> instances)
+        {
+            SshCredentials = credentials;
+            SshRun = run;
+            Instances = instances ?? new List<VpsInstance>();
+        }
+
+        /// <summary>the terminal name of a client from GetClient, or null</summary>
+        public static string GetInstanceName(RemoteMcpClient client)
+        {
+            lock (Locker)
+            {
+                return _clients.FirstOrDefault(c => ReferenceEquals(c.Value, client)).Key;
+            }
+        }
+
         public static RemoteMcpClient GetClient(string instanceName)
         {
             lock (Locker)
