@@ -409,3 +409,8 @@ async with httpx.AsyncClient(headers={"X-Api-Key": "osengine-mcp-default-key"}) 
 - запускать из папки с `OsEngine.exe` (или через `osEngineStarter.exe`);
 - нельзя запускать два экземпляра из одной папки;
 - MCP-хост поднимается в `MainWindow` и живёт во всех режимах.
+
+
+### 2026-09-28: remote chart alerts / grids
+`bot_chart_get_alerts` adds `settings` (native public alert fields, IsOn, colors as ARGB integers and full chart lines) and opaque `revision`. `bot_chart_change_alert` accepts bot_id/tab_name/operation=create|update|delete; create/update require alert_type=PriceAlert|ChartAlert and settings; update/delete require name and expected=previous revision. Stale updates fail; use a new snapshot. Mutations run on the dispatcher and use native persistence. Alert names are server-generated, never filesystem paths supplied by the client.
+`bot_grid_get` detail adds line open_volume and read-only view_settings (prime/stop_by/auto_start/errors/non_trade). All bot_grid_* now resolve screener child Simple tabs through the same resolver as the chart. Unimplemented grid UI operations are listed in RobotsVps/ARCHITECTURE.md.

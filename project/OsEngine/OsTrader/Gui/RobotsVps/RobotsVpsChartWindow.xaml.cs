@@ -172,6 +172,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             AddGridColumn(_alertsGrid, OsLocalization.Alerts.GridHeader1);
             AddGridColumn(_alertsGrid, OsLocalization.Alerts.GridHeader2);
             HostAlert.Child = _alertsGrid;
+            _alertsGrid.MouseClick += RemoteAlerts_MouseClick;
+            _alertsGrid.DoubleClick += async (s, e) => await EditRemoteAlertAsync();
 
             _gridsGrid = DataGridFactory.GetDataGridView(DataGridViewSelectionMode.FullRowSelect, DataGridViewAutoSizeRowsMode.AllCells);
             AddGridColumn(_gridsGrid, "#");
@@ -180,6 +182,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             AddGridColumn(_gridsGrid, string.Empty);
             AddGridColumn(_gridsGrid, string.Empty);
             HostGrids.Child = _gridsGrid;
+            _gridsGrid.ScrollBars = ScrollBars.Vertical;
+            _gridsGrid.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+            _gridsGrid.Columns[0].MinimumWidth = 30;
+            _gridsGrid.Columns[3].AutoSizeMode = _gridsGrid.Columns[4].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+            _gridsGrid.CellClick += RemoteGrids_CellClick;
 
             _openPositionsGrid = DataGridFactory.GetDataGridPosition();
             _openPositionsGrid.Click += OpenPositionsGrid_Click;
@@ -276,6 +283,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 JsonElement snapshot = await _client.CallToolAsync("bot_chart_get_snapshot", new { bot_id = _botId, tab_name = _tabName, candle_count = _requestedCandleCount });
                 List<Candle> candles = ReadCandles(snapshot);
+                _remoteAlertCandles = candles;
 
                 if (candles.Count > 0 && _anchorCandleTimeUtc != DateTime.MinValue
                     && candles[0].TimeStart > _anchorCandleTimeUtc && _requestedCandleCount < MaxCandleCount)
@@ -325,7 +333,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 }
 
                 if (TabItemMarketDepth.IsSelected) await RefreshMarketDepthAsync();
-                if (TabItemAlerts.IsSelected) await RefreshAlertsAsync();
+                await RefreshAlertsAsync();
                 if (TabItemGrids.IsSelected) await RefreshGridsAsync();
                 await RefreshInformPanelAsync();
             }
@@ -716,23 +724,41 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private async System.Threading.Tasks.Task RefreshAlertsAsync()
         {
             JsonElement response = await _client.CallToolAsync("bot_chart_get_alerts", new { bot_id = _botId, tab_name = _tabName });
+            if (_alertsGrid == null) return;
             int first = FirstVisible(_alertsGrid);
             _alertsGrid.Rows.Clear();
+            _remoteAlerts.Clear();
             if (response.TryGetProperty("alerts", out JsonElement alerts) && alerts.ValueKind == JsonValueKind.Array)
                 foreach (JsonElement alert in alerts.EnumerateArray())
-                    _alertsGrid.Rows.Add(ReadInt(alert, "number"), ReadString(alert, "type"), ReadBool(alert, "is_on") ? "On" : "Off");
+                {
+                    _remoteAlerts.Add(alert.Clone());
+                    _alertsGrid.Rows.Add(ReadInt(alert, "number"), ReadString(alert, "type"), ReadBool(alert, "is_on"));
+                }
             RestoreGridScroll(_alertsGrid, first);
+            PaintRemoteAlerts();
         }
 
         private async System.Threading.Tasks.Task RefreshGridsAsync()
         {
             JsonElement response = await _client.CallToolAsync("bot_grid_get", new { bot_id = _botId, tab_name = _tabName });
+            if (_gridsGrid == null) return;
             int first = FirstVisible(_gridsGrid);
             _gridsGrid.Rows.Clear();
             if (response.TryGetProperty("grids", out JsonElement grids) && grids.ValueKind == JsonValueKind.Array)
                 foreach (JsonElement grid in grids.EnumerateArray())
-                    _gridsGrid.Rows.Add(ReadInt(grid, "number"), ReadString(grid, "grid_type"), ReadString(grid, "regime"), OsLocalization.Trader.Label469, OsLocalization.Trader.Label470);
-            _gridsGrid.Rows.Add(null, null, null, null, OsLocalization.Trader.Label471);
+                {
+                    DataGridViewRow row = new DataGridViewRow();
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = ReadInt(grid, "number") });
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = ReadString(grid, "grid_type") });
+                    row.Cells.Add(new DataGridViewTextBoxCell { Value = ReadString(grid, "regime") });
+                    row.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label469 });
+                    row.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label470 });
+                    _gridsGrid.Rows.Add(row);
+                }
+            DataGridViewRow last = new DataGridViewRow();
+            for (int i = 0; i < 4; i++) last.Cells.Add(new DataGridViewTextBoxCell());
+            last.Cells.Add(new DataGridViewButtonCell { Value = OsLocalization.Trader.Label471 });
+            _gridsGrid.Rows.Add(last);
             RestoreGridScroll(_gridsGrid, first);
         }
 
@@ -1057,6 +1083,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void ClearHosts()
         {
             HostGlass.Child = null;
+            CloseRemoteAlertEditor();
             HostAlert.Child = null;
             HostGrids.Child = null;
             HostOpenPosition.Child = null;
@@ -1464,8 +1491,8 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 System.Windows.MessageBox.Show(ex.Message, "VPS", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
-        private void ButtonAddVisualAlert_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
-        private void ButtonAddPriceAlert_Click(object sender, RoutedEventArgs e) => NotAvailableRemotely();
+        private void ButtonAddVisualAlert_Click(object sender, RoutedEventArgs e) => OpenRemoteChartAlert(null);
+        private async void ButtonAddPriceAlert_Click(object sender, RoutedEventArgs e) => await OpenRemotePriceAlertAsync(null);
         private void ButtonMoreOpenPositionDetail_Click(object sender, RoutedEventArgs e)
         {
             if (_remotePositionOpenWindow != null && _remotePositionOpenWindow.IsVisible)

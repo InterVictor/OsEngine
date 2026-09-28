@@ -481,11 +481,36 @@ namespace OsEngine.Alerts
                     number = i,
                     type = alert.TypeAlert.ToString(),
                     name = alert.Name ?? string.Empty,
-                    is_on = alert.IsOn
+                    is_on = alert.IsOn,
+                    settings = AlertRemoteSettings.Export(alert),
+                    revision = System.Text.Json.JsonSerializer.Serialize(AlertRemoteSettings.Export(alert))
                 });
             }
 
             return result;
+        }
+
+        public void ChangeRemoteAlert(string operation, string name, string expected, IIAlert replacement)
+        {
+            IIAlert current = _alertArray?.Find(a => a.Name == name);
+            if (operation != "create")
+            {
+                if (current == null || System.Text.Json.JsonSerializer.Serialize(AlertRemoteSettings.Export(current)) != expected)
+                    throw new InvalidOperationException("Alert changed on server. Reload and try again.");
+            }
+            if (operation == "delete") { Delete(current); return; }
+            if (operation == "update")
+            {
+                if (current.TypeAlert != replacement.TypeAlert) throw new ArgumentException("Cannot change alert type");
+                _chartMaster.DeleteAlert(current);
+                replacement.Name = current.Name;
+                _alertArray[_alertArray.IndexOf(current)] = replacement;
+                Save();
+                Paint();
+                return;
+            }
+            if (operation != "create") throw new ArgumentException("Unknown alert operation");
+            SetNewAlert(replacement);
         }
 
         private void Load()

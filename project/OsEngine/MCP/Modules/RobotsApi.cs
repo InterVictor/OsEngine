@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
+using OsEngine.Alerts;
 using OsEngine.Candles;
 using OsEngine.Candles.Factory;
 using OsEngine.Candles.Series;
@@ -118,6 +119,10 @@ namespace OsEngine.MCP.Modules
 
                     case "bot_chart_execute_action":
                         response.Result = ExecuteBotChartAction(request.Params);
+                        break;
+
+                    case "bot_chart_change_alert":
+                        response.Result = ChangeBotChartAlert(request.Params);
                         break;
 
                     case "bot_chart_get_alerts":
@@ -514,6 +519,21 @@ namespace OsEngine.MCP.Modules
                             time_local = new { type = "string", description = "Local DateTime in round-trip format for fake entries" }
                         },
                         required = new[] { "bot_id", "tab_name", "action" }
+                    }
+                },
+                new McpTool
+                {
+                    Name = "bot_chart_change_alert",
+                    Description = "Create, update or delete a native price/chart alert. Settings use the bot_chart_get_alerts format. Updates/deletes require the previous settings JSON as expected to reject stale edits.",
+                    InputSchema = new {
+                        type = "object",
+                        properties = new {
+                            bot_id = new { type = "string" }, tab_name = new { type = "string" },
+                            operation = new { type = "string", @enum = new[] { "create", "update", "delete" } },
+                            name = new { type = "string" }, expected = new { type = "string" },
+                            alert_type = new { type = "string", @enum = new[] { "PriceAlert", "ChartAlert" } },
+                            settings = new { type = "object" }
+                        }, required = new[] { "bot_id", "tab_name", "operation" }
                     }
                 },
                 new McpTool
@@ -2676,6 +2696,22 @@ namespace OsEngine.MCP.Modules
             return MainWindow.GetDispatcher.CheckAccess() ? execute() : MainWindow.GetDispatcher.Invoke(execute);
         }
 
+        private object ChangeBotChartAlert(JsonElement parameters)
+        {
+            string operation = GetRequiredString(parameters, "operation");
+            if (operation != "create" && operation != "update" && operation != "delete") throw new ArgumentException("Unknown operation");
+            string name = operation == "create" ? null : GetRequiredString(parameters, "name");
+            string expected = operation == "create" ? null : GetRequiredString(parameters, "expected");
+            IIAlert replacement = operation == "delete" ? null : AlertRemoteSettings.Create(
+                GetRequiredString(parameters, "alert_type"), parameters.GetProperty("settings"));
+            RunOnDispatcher(() => {
+                BotTabSimple tab = FindBotTabSimple(FindBot(GetMasterRequired(), parameters.GetProperty("bot_id")), GetRequiredString(parameters, "tab_name"));
+                if (tab._alerts == null) throw new InvalidOperationException("Alerts are unavailable on this tab");
+                tab._alerts.ChangeRemoteAlert(operation, name, expected, replacement);
+            });
+            return new { success = true };
+        }
+
         private object GetBotChartAlerts(JsonElement parameters)
         {
             if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("bot_id", out JsonElement botId))
@@ -4045,40 +4081,7 @@ namespace OsEngine.MCP.Modules
 
         private BotTabSimple FindGridTab(BotPanel bot, string tabName)
         {
-            if (bot.TabsSimple != null)
-            {
-                for (int i = 0; i < bot.TabsSimple.Count; i++)
-                {
-                    if (bot.TabsSimple[i].TabName == tabName)
-                    {
-                        return bot.TabsSimple[i];
-                    }
-                }
-            }
-
-            if (bot.TabsScreener != null)
-            {
-                for (int i = 0; i < bot.TabsScreener.Count; i++)
-                {
-                    if (bot.TabsScreener[i].TabName == tabName)
-                    {
-                        throw new ArgumentException(
-                            $"Tab '{tabName}' of type 'Screener' does not support grids directly. " +
-                            "Grids are available on Simple tabs");
-                    }
-                }
-            }
-
-            string unsupportedType = FindUnsupportedTabType(bot, tabName);
-
-            if (unsupportedType != null)
-            {
-                throw new ArgumentException(
-                    $"Tab '{tabName}' of type '{unsupportedType}' does not support grids. " +
-                    "Grids are available on Simple tabs");
-            }
-
-            throw new ArgumentException($"Tab '{tabName}' not found in bot '{bot.NameStrategyUniq}'");
+            return FindBotTabSimple(bot, tabName);
         }
 
         private TradeGrid FindGrid(BotTabSimple tab, int gridNumber)
@@ -4114,6 +4117,19 @@ namespace OsEngine.MCP.Modules
             }
         }
 
+        private static Dictionary<string, object> GridViewFields(object source)
+        {
+            Dictionary<string, object> values = new Dictionary<string, object>();
+            foreach (System.Reflection.FieldInfo field in source.GetType().GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            {
+                Type type = field.FieldType;
+                if (type != typeof(string) && type != typeof(bool) && type != typeof(int) && type != typeof(decimal) && !type.IsEnum) continue;
+                object value = field.GetValue(source);
+                values[field.Name] = value is Enum ? value.ToString() : value;
+            }
+            return values;
+        }
+
         private object BuildGridResponse(TradeGrid grid)
         {
             TradeGridLine[] lines;
@@ -4137,7 +4153,8 @@ namespace OsEngine.MCP.Modules
                     price_exit = lines[i].PriceExit,
                     volume = lines[i].Volume,
                     side = lines[i].Side.ToString(),
-                    position_num = lines[i].PositionNum
+                    position_num = lines[i].PositionNum,
+                    open_volume = grid.Tab.PositionsAll?.Find(p => p.Number == lines[i].PositionNum)?.OpenVolume ?? 0
                 });
             }
 
@@ -4147,6 +4164,11 @@ namespace OsEngine.MCP.Modules
 
             return new
             {
+                view_settings = new {
+                    prime = GridViewFields(grid), stop_by = GridViewFields(grid.StopBy),
+                    auto_start = GridViewFields(grid.AutoStarter), errors = GridViewFields(grid.ErrorsReaction),
+                    non_trade = GridViewFields(grid.NonTradePeriods)
+                },
                 number = grid.Number,
                 grid_type = grid.GridType.ToString(),
                 regime = grid.Regime.ToString(),
