@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Windows;
-using System.Windows.Input;
 
 namespace OsEngine.OsTrader.Gui.RobotsVps
 {
@@ -12,30 +11,17 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         public RobotsVpsInstancePickerUi(IReadOnlyList<string> instances)
         {
             InitializeComponent();
-
-            foreach (string name in instances)
-            {
-                ListBoxInstances.Items.Add(name);
-            }
-
-            if (ListBoxInstances.Items.Count > 0)
-            {
-                ListBoxInstances.SelectedIndex = 0;
-            }
+            PanelInstances.ItemsSource = instances;
         }
 
-        private void ButtonOpen_Click(object sender, RoutedEventArgs e) => Accept();
-
-        private void ListBoxInstances_MouseDoubleClick(object sender, MouseButtonEventArgs e) => Accept();
-
-        private void Accept()
+        private void ButtonInstance_Click(object sender, RoutedEventArgs e)
         {
-            if (ListBoxInstances.SelectedItem == null)
+            if (!((sender as FrameworkElement)?.DataContext is string name))
             {
                 return;
             }
 
-            SelectedInstance = ListBoxInstances.SelectedItem.ToString();
+            SelectedInstance = name;
             DialogResult = true;
         }
     }

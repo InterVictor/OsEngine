@@ -1,18 +1,21 @@
 <Window x:Class="OsEngine.OsTrader.Gui.RobotsVps.RobotsVpsInstancePickerUi"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Robots.VPS — choose a terminal" Height="320" Width="360"
+        Title="Robots.VPS — choose a terminal" Width="360" SizeToContent="Height"
         Style="{StaticResource WindowStyleNoResize}"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Icon="/Images/OsLogo.ico">
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <Label Grid.Row="0" Content="Several terminals run on this VPS. Which one to open?"/>
-        <ListBox Grid.Row="1" Name="ListBoxInstances" Margin="0,5,0,10" MouseDoubleClick="ListBoxInstances_MouseDoubleClick"/>
-        <Button Grid.Row="2" Name="ButtonOpen" Content="Open" Width="120" Height="28" HorizontalAlignment="Right" Click="ButtonOpen_Click"/>
+    <!-- one button per terminal: a click opens it -->
+    <Grid Background="{DynamicResource StandardBackgroundBrush}">
+        <StackPanel Margin="12">
+            <Label Content="Several terminals run on this VPS. Which one to open?" Margin="0,0,0,6"/>
+            <ItemsControl Name="PanelInstances">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Content="{Binding}" Height="32" Margin="0,4" Click="ButtonInstance_Click"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
     </Grid>
 </Window>
