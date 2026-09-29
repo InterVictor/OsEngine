@@ -48,9 +48,6 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             DataGridTerminals.ItemsSource = _terminalRows;
             UpdatePackageText();
 
-            TextBoxSshKeyPath.Text = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "ff_server");
-
             LoadSettings();
             UpdateComputerKeyStatus();
             UpdateMcpAccessText();

@@ -61,7 +61,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                     <TextBlock Text="SSH host" FontSize="11" Foreground="Gray"/>
-                    <TextBox Name="TextBoxSshHost" Height="24" Text="188.130.227.40"/>
+                    <TextBox Name="TextBoxSshHost" Height="24"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Margin="0,0,8,0">
                     <TextBlock Text="SSH user" FontSize="11" Foreground="Gray"/>
