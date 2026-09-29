@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scroll_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fillViewport="true"
+    android:scrollbars="vertical"
+    android:fadeScrollbars="false">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="24dp">
+        <LinearLayout
+            android:id="@+id/content_column"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/logo_description"
+                    android:src="@drawable/os_logo" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:text="OsEngine Mobile"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_marginTop="18dp"
+                android:background="@color/brand_strip" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:text="@string/terminals_title"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/server_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:accessibilityLiveRegion="polite"
+                android:text="@string/terminal_loading"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:text="@string/vps_resources"
+                android:textColor="@color/orange"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <LinearLayout
+                android:id="@+id/resource_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/input_background"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView android:id="@+id/cpu_value" style="@style/OsEngineMetric" android:text="CPU  —" />
+                <TextView android:id="@+id/ram_value" style="@style/OsEngineMetric" android:text="RAM  —" />
+                <TextView android:id="@+id/disk_value" style="@style/OsEngineMetric" android:text="Диск  —" />
+            </LinearLayout>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:text="@string/terminal_list_title"
+                android:textColor="@color/orange"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <LinearLayout
+                android:id="@+id/terminal_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

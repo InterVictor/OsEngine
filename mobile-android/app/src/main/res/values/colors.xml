@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#111217</color>
+    <color name="panel">#151A1E</color>
+    <color name="border">#1C2228</color>
+    <color name="orange">#FF5500</color>
+    <color name="text_primary">#EEEFFF</color>
+    <color name="text_secondary">#A7A8AA</color>
+    <color name="brand_strip">#FCEE21</color>
+    <color name="connected">#399D36</color>
+    <color name="server_connected">#3CB371</color>
+</resources>
