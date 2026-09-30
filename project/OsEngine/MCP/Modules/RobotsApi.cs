@@ -3556,6 +3556,14 @@ namespace OsEngine.MCP.Modules
                 }
             }
 
+            // a security of a screener ("6 H2tab0"): its own tab
+            BotTabSimple child = FindScreenerChildTab(bot, tabName);
+
+            if (child != null)
+            {
+                return child;
+            }
+
             if (bot.TabsScreener != null)
             {
                 for (int i = 0; i < bot.TabsScreener.Count; i++)
@@ -5005,6 +5013,23 @@ namespace OsEngine.MCP.Modules
                         return tab;
                     }
                 }
+            }
+
+            // a security of a screener ("6 H2tab0") — the chart window of that security works with its own tab
+            BotTabSimple child = FindScreenerChildTab(bot, tabName);
+
+            if (child != null)
+            {
+                if (securityName != null
+                    && child.Connector != null
+                    && !string.IsNullOrEmpty(child.Connector.SecurityName)
+                    && StripTestPaperSuffix(child.Connector.SecurityName) != StripTestPaperSuffix(securityName))
+                {
+                    throw new ArgumentException(
+                        $"Security mismatch: tab '{tabName}' trades '{child.Connector.SecurityName}', not '{securityName}'");
+                }
+
+                return child;
             }
 
             BotTabScreener screener = FindScreenerTabOrNull(bot, tabName);
