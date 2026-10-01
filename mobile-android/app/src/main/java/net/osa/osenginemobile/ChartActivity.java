@@ -120,6 +120,32 @@ public final class ChartActivity extends Activity {
         content.addView(info);
         status = text("", 12, R.color.text_secondary);
         content.addView(status);
+        HorizontalScrollView actionScroll = new HorizontalScrollView(this);
+        actionScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout actions = new LinearLayout(this);
+        actionScroll.addView(actions);
+        for (String[] item : new String[][]{{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
+            {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT}}) {
+            TextView button = text(item[0], 13, R.color.orange);
+            button.setGravity(Gravity.CENTER);
+            button.setPadding(dp(14), 0, dp(14), 0);
+            button.setBackgroundResource(R.drawable.input_background);
+            LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-2, dp(44));
+            buttonParams.rightMargin = dp(6);
+            actions.addView(button, buttonParams);
+            button.setOnClickListener(view -> {
+                android.content.Intent intent = new android.content.Intent(this, BotSettingsActivity.class);
+                intent.putExtra("mode", item[1]);
+                intent.putExtra("terminal_name", terminal);
+                intent.putExtra("bot_id", botId);
+                intent.putExtra("bot_name", botName);
+                intent.putExtra("tab_name", tabName);
+                startActivity(intent);
+            });
+        }
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, -2);
+        actionParams.topMargin = dp(6);
+        content.addView(actionScroll, actionParams);
         HorizontalScrollView tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
         tabs = new LinearLayout(this);

@@ -18,6 +18,7 @@
         <activity android:name=".RobotsActivity" android:exported="false" />
         <activity android:name=".ChartActivity" android:exported="false" />
         <activity android:name=".RobotParametersActivity" android:exported="false" />
+        <activity android:name=".BotSettingsActivity" android:exported="false" />
         <activity android:name=".RobotEntryActivity" android:exported="false" />
         <activity android:name=".ConnectorSettingsActivity" android:exported="false" />
         <activity android:name=".NonTradePeriodsActivity" android:exported="false"
