@@ -1157,84 +1157,12 @@ public final class RobotsActivity extends Activity {
     }
 
     private void addBot() {
-        if (!available || loading) return;
-        loading = true;
-        worker.execute(() -> {
-            JSONArray strategies = null;
-            String error = null;
-            try {
-                JSONObject arguments = new JSONObject().put("include_engines", false)
-                    .put("refresh", false);
-                Object result = bridge.callBatch(terminal,
-                    McpBridge.call("wiki_robots_list", arguments)).get("wiki_robots_list");
-                if (result instanceof JSONObject)
-                    strategies = ((JSONObject) result).optJSONArray("robots");
-                if (strategies == null) throw new IllegalStateException("Список стратегий недоступен");
-            } catch (Exception e) { error = e.getMessage(); }
-            JSONArray finalStrategies = strategies;
-            String finalError = error;
-            runOnUiThread(() -> {
-                loading = false;
-                if (finalError != null) {
-                    Toast.makeText(this, finalError, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                showStrategyChooser(finalStrategies);
-            });
-        });
+        if (!available) return;
+        Intent intent = new Intent(this, AddBotActivity.class);
+        intent.putExtra("terminal_name", terminal);
+        startActivity(intent);
     }
 
-    private void showStrategyChooser(JSONArray strategies) {
-        String[] names = new String[strategies.length()];
-        for (int i = 0; i < names.length; i++) {
-            JSONObject strategy = strategies.optJSONObject(i);
-            names[i] = strategy == null ? "" : strategy.optString("class_name");
-        }
-        if (names.length == 0) {
-            Toast.makeText(this, "Стратегии на VPS не найдены", Toast.LENGTH_LONG).show();
-            return;
-        }
-        new AlertDialog.Builder(this).setTitle("Выберите стратегию")
-            .setItems(names, (dialog, which) -> {
-                EditText input = new EditText(this);
-                input.setSingleLine(true);
-                input.setHint("Имя робота");
-                LinearLayout wrapper = new LinearLayout(this);
-                wrapper.setPadding(dp(20), 0, dp(20), 0);
-                wrapper.addView(input);
-                new AlertDialog.Builder(this).setTitle("Добавить " + names[which])
-                    .setView(wrapper)
-                    .setNegativeButton("Отмена", null)
-                    .setPositiveButton("Создать", (confirm, button) ->
-                        createBot(names[which], input.getText().toString().trim()))
-                    .show();
-            }).show();
-    }
-
-    private void createBot(String strategy, String name) {
-        if (name.isEmpty()) {
-            Toast.makeText(this, "Введите имя робота", Toast.LENGTH_LONG).show();
-            return;
-        }
-        loading = true;
-        worker.execute(() -> {
-            String error = null;
-            try {
-                JSONObject arguments = new JSONObject().put("strategy_name", strategy)
-                    .put("name", name);
-                Object result = bridge.callBatch(terminal,
-                    McpBridge.call("bot_create", arguments)).get("bot_create");
-                if (result instanceof Exception) throw (Exception) result;
-            } catch (Exception e) { error = e.getMessage(); }
-            String finalError = error;
-            runOnUiThread(() -> {
-                loading = false;
-                Toast.makeText(this, finalError == null ? "Робот создан: " + name
-                    : "Не удалось создать робота: " + finalError, Toast.LENGTH_LONG).show();
-                load();
-            });
-        });
-    }
 
     private CheckBox check(String title, boolean checked) {
         CheckBox box = new CheckBox(this);

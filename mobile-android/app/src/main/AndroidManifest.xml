@@ -20,6 +20,7 @@
         <activity android:name=".RobotParametersActivity" android:exported="false" />
         <activity android:name=".BotSettingsActivity" android:exported="false" />
         <activity android:name=".DataSettingsActivity" android:exported="false" />
+        <activity android:name=".AddBotActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".RobotEntryActivity" android:exported="false" />
         <activity android:name=".ConnectorSettingsActivity" android:exported="false" />
         <activity android:name=".NonTradePeriodsActivity" android:exported="false"
