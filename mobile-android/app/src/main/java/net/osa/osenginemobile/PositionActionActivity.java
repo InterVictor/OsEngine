@@ -62,6 +62,8 @@ public final class PositionActionActivity extends Activity {
     private int number;
     private int tab;
     private boolean adding;
+    private boolean opening;
+    private boolean emulatorOn;
     private boolean tablet;
     private boolean visible;
     private boolean loading;
@@ -88,10 +90,12 @@ public final class PositionActionActivity extends Activity {
         botId = getIntent().getStringExtra("bot_id");
         security = getIntent().getStringExtra("security_name");
         number = getIntent().getIntExtra("position_number", -1);
-        adding = "add".equals(getIntent().getStringExtra("mode"));
+        opening = "open".equals(getIntent().getStringExtra("mode"));
+        adding = opening || "add".equals(getIntent().getStringExtra("mode"));
+        if (opening) tabName = getIntent().getStringExtra("tab_name");
         tab = getIntent().getIntExtra("initial_tab", 0);
         tablet = getResources().getConfiguration().smallestScreenWidthDp >= 600;
-        if (terminal == null || botId == null || number < 0) { finish(); return; }
+        if (terminal == null || botId == null || (number < 0 && !opening)) { finish(); return; }
         if (security == null) security = "";
         try { bridge = new McpBridge(this); }
         catch (Exception error) { Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show(); finish(); return; }
@@ -141,7 +145,7 @@ public final class PositionActionActivity extends Activity {
         LinearLayout content = column();
         content.setPadding(dp(16), dp(14), dp(16), dp(12));
         outer.addView(content);
-        TextView back = text("‹ Позиции", 16, R.color.orange);
+        TextView back = text(opening ? "‹ Чарт" : "‹ Позиции", 16, R.color.orange);
         back.setOnClickListener(view -> finish());
         content.addView(back, new LinearLayout.LayoutParams(-1, dp(44)));
         LinearLayout heading = new LinearLayout(this);
@@ -150,7 +154,8 @@ public final class PositionActionActivity extends Activity {
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.os_logo);
         heading.addView(logo, new LinearLayout.LayoutParams(dp(36), dp(36)));
-        title = text(adding ? "Окно дооткрытия позиции" : "Окно закрытия позиции", 21,
+        title = text(opening ? "Окно открытия позиции"
+            : adding ? "Окно дооткрытия позиции" : "Окно закрытия позиции", 21,
             R.color.text_primary);
         title.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
@@ -243,6 +248,16 @@ public final class PositionActionActivity extends Activity {
         info.addView(text("Инструмент: " + security, 14, R.color.text_primary));
         if (adding) info.addView(text("Вкладка робота: " + (tabName == null ? "" : tabName),
             14, R.color.text_primary));
+        if (opening) {
+            CheckBox emulator = new CheckBox(this);
+            emulator.setText("Эмулятор вкл/выкл");
+            emulator.setTextColor(getColor(R.color.text_primary));
+            emulator.setChecked(emulatorOn);
+            emulator.setEnabled(positionFound && !busy);
+            emulator.setOnClickListener(view -> { emulator.setChecked(emulatorOn); confirmEmulator(!emulatorOn); });
+            info.addView(emulator);
+            return;
+        }
         info.addView(text("Номер позиции: " + number, 14, R.color.text_primary));
         info.addView(text("Состояние: " + state, 14, R.color.text_primary));
         info.addView(text("Направление: " + side, 14, R.color.text_primary));
@@ -422,6 +437,16 @@ public final class PositionActionActivity extends Activity {
 
     private void renderActions() {
         actions.removeAllViews();
+        if (opening) {
+            for (String side : new String[]{"Buy", "Sell"}) {
+                TextView trade = button("Buy".equals(side) ? "Купить" : "Продать", true);
+                LinearLayout.LayoutParams tradeParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+                tradeParams.leftMargin = dp(8);
+                actions.addView(trade, tradeParams);
+                trade.setOnClickListener(view -> submitOpen(side));
+            }
+            return;
+        }
         if (!adding && (tab == 0 || tab == 2 || tab == 3 || tab == 4)) {
             TextView revoke = button("Отозвать", false);
             actions.addView(revoke, new LinearLayout.LayoutParams(0, dp(48), 1));
@@ -503,7 +528,12 @@ public final class PositionActionActivity extends Activity {
                         }
                     }
                     positionFound = found != null;
-                    if (found != null) {
+                    if (opening) {
+                        positionFound = true;
+                        security = nextSnapshot.optString("security_name", security);
+                        emulatorOn = nextSnapshot.optBoolean("emulator_is_on");
+                    }
+                    if (found != null && !opening) {
                         security = found.optString("security_name", security);
                         side = found.optString("direction");
                         state = found.optString("state");
@@ -514,7 +544,7 @@ public final class PositionActionActivity extends Activity {
                         LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
                         : "Позиция больше не открыта");
                     renderInfo();
-                    if (adding) title.setText("Окно дооткрытия позиции. " +
+                    if (adding && !opening) title.setText("Окно дооткрытия позиции. " +
                         ("Sell".equalsIgnoreCase(side) ? "Продаем" : "Покупаем"));
                     renderDepth();
                     if (serverStopBox != null) {
@@ -665,6 +695,92 @@ public final class PositionActionActivity extends Activity {
                 handler.post(polling);
             });
         });
+    }
+
+    /** New position: Buy/Sell on the selected tab, always behind an explicit confirmation. */
+    private void submitOpen(String side) {
+        if (!visible || busy || !RemoteSsh.isConnected()) return;
+        String[] kinds = {"AtLimit", "AtMarket", "AtStop", "AtStopMarket", "AtFake"};
+        String[] names = {"лимит", "маркет", "стоп", "стоп-маркет", "фейк"};
+        JSONObject args;
+        String summary;
+        try {
+            args = baseArgs().put("action", side + kinds[tab]).put("volume", positive("volume"));
+            summary = ("Buy".equals(side) ? "Купить " : "Продать ") + security + "\nТип: " + names[tab]
+                + "\nОбъём: " + plain(args.get("volume").toString());
+            if (tab == 0 || tab == 2 || tab == 4) {
+                args.put("price", positive("price"));
+                summary += "\nЦена: " + plain(args.get("price").toString());
+            }
+            if (tab == 2 || tab == 3) {
+                args.put("activation_price", positive("activation_price"));
+                summary += "\nЦена активации: " + plain(args.get("activation_price").toString());
+                if (!serverStopOn) {
+                    args.put("stop_activate_type", selected("activate_type"));
+                    args.put("lifetime_type", selected("lifetime_type"));
+                    args.put("lifetime_bars", positiveInt("lifetime_bars"));
+                }
+            }
+            if (tab == 4) args.put("time_local", fakeTime());
+        } catch (Exception error) {
+            Toast.makeText(this, "Проверьте поля: " + error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        summary += "\nЭмулятор: " + (emulatorOn ? "включён (сделка не уйдёт на биржу)"
+            : "ВЫКЛЮЧЕН — ордер уйдёт на биржу")
+            + "\nТерминал: " + terminal;
+        String message = summary;
+        new AlertDialog.Builder(this, R.style.OsEngineDialog).setTitle("Подтвердите заявку")
+            .setMessage(message).setNegativeButton("Отмена", null)
+            .setPositiveButton("Отправить", (dialog, which) -> runOpen(args)).show();
+    }
+
+    private void runOpen(JSONObject args) {
+        if (busy || !RemoteSsh.isConnected()) return;
+        busy = true;
+        renderActions();
+        worker.execute(() -> {
+            String error = null;
+            try { call("bot_chart_execute_action", args); }
+            catch (Exception e) { error = e.getMessage(); }
+            String finalError = error;
+            runOnUiThread(() -> {
+                busy = false;
+                if (isDestroyed()) return;
+                Toast.makeText(this, finalError == null ? "Команда выполнена на VPS"
+                    : "Ошибка VPS: " + finalError, Toast.LENGTH_LONG).show();
+                handler.removeCallbacks(polling);
+                handler.post(polling);
+                renderActions();
+            });
+        });
+    }
+
+    private void confirmEmulator(boolean enable) {
+        new AlertDialog.Builder(this, R.style.OsEngineDialog).setTitle("Эмулятор")
+            .setMessage(enable ? "Включить эмулятор: заявки робота перестанут уходить на биржу."
+                : "ВЫКЛЮЧИТЬ эмулятор: заявки робота будут уходить на биржу реальными ордерами.")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Применить", (dialog, which) -> {
+                if (busy || !RemoteSsh.isConnected()) return;
+                busy = true;
+                worker.execute(() -> {
+                    String error = null;
+                    try {
+                        call("bot_chart_execute_action", baseArgs().put("action", "SetEmulator")
+                            .put("emulator_is_on", enable));
+                    } catch (Exception e) { error = e.getMessage(); }
+                    String finalError = error;
+                    runOnUiThread(() -> {
+                        busy = false;
+                        if (isDestroyed()) return;
+                        if (finalError != null)
+                            Toast.makeText(this, "Ошибка VPS: " + finalError, Toast.LENGTH_LONG).show();
+                        handler.removeCallbacks(polling);
+                        handler.post(polling);
+                    });
+                });
+            }).show();
     }
 
     private void submit(boolean revoke) {

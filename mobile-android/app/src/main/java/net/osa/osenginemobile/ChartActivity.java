@@ -126,7 +126,7 @@ public final class ChartActivity extends Activity {
         actionScroll.addView(actions);
         for (String[] item : new String[][]{{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
             {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT},
-            {"Настройки данных", "data"}}) {
+            {"Настройки данных", "data"}, {"Торговать", "open"}}) {
             TextView button = text(item[0], 13, R.color.orange);
             button.setGravity(Gravity.CENTER);
             button.setPadding(dp(14), 0, dp(14), 0);
@@ -136,7 +136,8 @@ public final class ChartActivity extends Activity {
             actions.addView(button, buttonParams);
             button.setOnClickListener(view -> {
                 android.content.Intent intent = new android.content.Intent(this,
-                    "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
+                    "open".equals(item[1]) ? PositionActionActivity.class
+                    : "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
                 intent.putExtra("mode", item[1]);
                 intent.putExtra("terminal_name", terminal);
                 intent.putExtra("bot_id", botId);
