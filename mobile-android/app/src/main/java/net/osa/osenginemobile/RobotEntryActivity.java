@@ -31,6 +31,7 @@ public final class RobotEntryActivity extends Activity {
     private String terminal;
     private String botId;
     private String botName;
+    private volatile String screenerSource;
     private TextView status;
     private LinearLayout list;
     private ScrollView scroll;
@@ -98,6 +99,10 @@ public final class RobotEntryActivity extends Activity {
         content.addView(title);
         status = text("Загрузка бумаг…", 13, R.color.text_secondary);
         content.addView(status);
+        // Screener-wide windows: shared by every ticker, so they sit above the ticker list.
+        ActionGrid.add(this, content, new String[][]{{"Риск-менеджер", ActionGrid.RISK},
+            {"Сопровождение позиции", ActionGrid.SUPPORT}, {"Настройки данных", ActionGrid.DATA}},
+            terminal, botId, botName, () -> screenerSource);
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         content.addView(list);
@@ -131,6 +136,7 @@ public final class RobotEntryActivity extends Activity {
                         simple = source.optString("name");
                     if (!"Screener".equals(source.optString("type"))) continue;
                     screener = true;
+                    if (screenerSource == null) screenerSource = source.optString("name");
                     Object value = bridge.callBatch(terminal, McpBridge.call("bot_screener_get_tabs",
                         new JSONObject().put("bot_id", botId)
                             .put("tab_name", source.optString("name"))))
@@ -153,7 +159,7 @@ public final class RobotEntryActivity extends Activity {
                 if (!visible || isDestroyed()) return;
                 if (finalError != null) status.setText("Не удалось загрузить бумаги: " + finalError);
                 else if (firstSimple != null) {
-                    openChart(firstSimple);
+                    openChart(firstSimple, false);
                     finish();
                     return;
                 } else {
@@ -198,7 +204,7 @@ public final class RobotEntryActivity extends Activity {
             TextView journal = action("Журнал");
             actions.addView(chart, new LinearLayout.LayoutParams(0, dp(44), 1));
             actions.addView(journal, new LinearLayout.LayoutParams(0, dp(44), 1));
-            chart.setOnClickListener(view -> openChart(tab));
+            chart.setOnClickListener(view -> openChart(tab, true));
             String ticker = security;
             journal.setOnClickListener(view -> {
                 Intent intent = new Intent(this, ScreenerJournalActivity.class);
@@ -213,12 +219,13 @@ public final class RobotEntryActivity extends Activity {
         scroll.post(() -> scroll.scrollTo(0, scrollY));
     }
 
-    private void openChart(String tab) {
+    private void openChart(String tab, boolean screenerTicker) {
         Intent intent = new Intent(this, ChartActivity.class);
         intent.putExtra("terminal_name", terminal);
         intent.putExtra("bot_id", botId);
         intent.putExtra("bot_name", botName);
         intent.putExtra("tab_name", tab);
+        intent.putExtra("screener", screenerTicker);
         startActivity(intent);
     }
 

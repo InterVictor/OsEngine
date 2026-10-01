@@ -140,7 +140,7 @@ public final class BotSettingsActivity extends Activity {
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(14), dp(12), dp(14), 0);
         root.addView(header);
-        TextView back = text("‹ " + botName + " · Чарт", 15, R.color.orange);
+        TextView back = text("‹ " + botName, 15, R.color.orange);
         back.setOnClickListener(view -> onBackPressed());
         header.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         TextView title = text(MODE_RISK.equals(mode) ? "Риск Менеджер"

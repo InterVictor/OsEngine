@@ -50,6 +50,7 @@ public final class ChartActivity extends Activity {
     private LinearLayout lowerTabs;
     private HorizontalScrollView tabScroll;
     private volatile boolean screenerBot;
+    private boolean screenerChart;
     private LinearLayout lowerContent;
     private ScrollView outerScroll;
     private int lowerTab;
@@ -62,6 +63,7 @@ public final class ChartActivity extends Activity {
         botId = getIntent().getStringExtra("bot_id");
         botName = getIntent().getStringExtra("bot_name");
         tabName = getIntent().getStringExtra("tab_name");
+        screenerChart = getIntent().getBooleanExtra("screener", false);
         if (terminal == null || botId == null) { finish(); return; }
         if (botName == null || botName.isEmpty()) botName = botId;
         try { bridge = new McpBridge(this); }
@@ -126,36 +128,13 @@ public final class ChartActivity extends Activity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(14), dp(6), dp(14), dp(16));
         scroll.addView(content);
-        // Four actions in a fixed 2x2 grid (nothing slides sideways).
-        String[][] items = {{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
-            {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT},
-            {"Настройки данных", "data"}, {"Торговать", "open"}};
-        for (int row = 0; row < 2; row++) {
-            LinearLayout actions = new LinearLayout(this);
-            for (int column = 0; column < 2; column++) {
-                String[] item = items[row * 2 + column];
-                TextView button = text(item[0], 12, R.color.orange);
-                button.setGravity(Gravity.CENTER);
-                button.setBackgroundResource(R.drawable.input_background);
-                LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(0, dp(44), 1);
-                if (column == 1) buttonParams.leftMargin = dp(6);
-                actions.addView(button, buttonParams);
-                button.setOnClickListener(view -> {
-                    android.content.Intent intent = new android.content.Intent(this,
-                        "open".equals(item[1]) ? PositionActionActivity.class
-                        : "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
-                    intent.putExtra("mode", item[1]);
-                    intent.putExtra("terminal_name", terminal);
-                    intent.putExtra("bot_id", botId);
-                    intent.putExtra("bot_name", botName);
-                    intent.putExtra("tab_name", tabName);
-                    startActivity(intent);
-                });
-            }
-            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, -2);
-            actionParams.topMargin = dp(6);
-            content.addView(actions, actionParams);
-        }
+        // A screener's data / risk / position-support settings are shared by all its tickers and live on the
+        // ticker list; a ticker's chart only keeps «Торговать». Simple robots have no list, so they keep all four.
+        ActionGrid.add(this, content, screenerChart
+            ? new String[][]{{"Торговать", ActionGrid.TRADE}}
+            : new String[][]{{"Риск-менеджер", ActionGrid.RISK}, {"Сопровождение позиции", ActionGrid.SUPPORT},
+                {"Настройки данных", ActionGrid.DATA}, {"Торговать", ActionGrid.TRADE}},
+            terminal, botId, botName, () -> tabName);
         // Tabs are only for robots with several own Simple tabs; screener tickers are picked on the previous screen.
         tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
