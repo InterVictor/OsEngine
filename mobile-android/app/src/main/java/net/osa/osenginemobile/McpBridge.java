@@ -66,6 +66,25 @@ final class McpBridge {
         return data;
     }
 
+    /** Shell command streaming the terminal's event feed (SSE lines) to stdout. */
+    synchronized String eventCommand(Context context, String instanceName) throws IOException {
+        Target target = targets.get(instanceName);
+        if (target == null) {
+            target = discover(instanceName);
+            targets.put(instanceName, target);
+        }
+        String script;
+        try (InputStream input = context.getAssets().open("mcp_events.py")) {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+            script = encoded(bytes.toByteArray());
+        }
+        return "python3 -u -c 'import base64;exec(base64.b64decode(\"" + script + "\"))' "
+            + target.port + " " + encoded(target.keyFile);
+    }
+
     private static Target discover(String instanceName) throws IOException {
         String service = "main".equals(instanceName) ? "osengine" : "osengine-" + instanceName;
         if (!service.matches("osengine(?:-[a-z0-9-]+)?"))

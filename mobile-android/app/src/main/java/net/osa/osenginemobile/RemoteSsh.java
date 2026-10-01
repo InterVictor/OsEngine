@@ -202,6 +202,29 @@ final class RemoteSsh {
         }
     }
 
+    interface LineSink { void line(String line); }
+
+    /** Long-lived command: reads stdout line by line until it ends. Does not hold the class lock. */
+    static void stream(String shellCommand, LineSink sink) throws IOException {
+        SSHClient active;
+        synchronized (RemoteSsh.class) {
+            if (!isConnected()) throw new IOException("SSH не подключён");
+            active = client;
+        }
+        try (Session session = active.startSession()) {
+            Session.Command command = session.exec(shellCommand);
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(command.getInputStream(), "UTF-8"));
+            String line;
+            while ((line = reader.readLine()) != null) sink.line(line);
+            Integer status = command.getExitStatus();
+            if (status != null && status != 0) {
+                String error = read(command.getErrorStream()).trim();
+                throw new IOException(error.isEmpty() ? "поток событий завершился" : error);
+            }
+        }
+    }
+
     private static String read(InputStream input) throws IOException {
         ByteArrayOutputStream result = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];

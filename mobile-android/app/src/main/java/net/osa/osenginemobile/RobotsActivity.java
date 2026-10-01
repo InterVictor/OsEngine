@@ -1125,6 +1125,13 @@ public final class RobotsActivity extends Activity {
     }
 
     private void renderMore() {
+        TextView alerts = label("Окно оповещений  ›", 16, R.color.text_primary);
+        alerts.setPadding(dp(14), dp(14), dp(14), dp(14));
+        alerts.setBackgroundResource(R.drawable.input_background);
+        LinearLayout.LayoutParams alertParams = new LinearLayout.LayoutParams(-1, -2);
+        alertParams.bottomMargin = dp(8);
+        pageContent.addView(alerts, alertParams);
+        alerts.setOnClickListener(view -> startActivity(new Intent(this, AlertsActivity.class)));
         for (String item : new String[]{"Ордера", "Прайм лог"}) {
             TextView row = label(item + "  ›", 16, R.color.text_primary);
             row.setPadding(dp(14), dp(14), dp(14), dp(14));

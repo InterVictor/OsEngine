@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="false"
+        android:name=".OsApp"
         android:label="OsEngine Mobile"
         android:theme="@style/OsEngineTheme">
         <activity
@@ -20,6 +21,7 @@
         <activity android:name=".RobotParametersActivity" android:exported="false" />
         <activity android:name=".BotSettingsActivity" android:exported="false" />
         <activity android:name=".DataSettingsActivity" android:exported="false" />
+        <activity android:name=".AlertsActivity" android:exported="false" android:launchMode="singleTop" />
         <activity android:name=".AddBotActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".RobotEntryActivity" android:exported="false" />
         <activity android:name=".ConnectorSettingsActivity" android:exported="false" />

@@ -126,6 +126,7 @@ public final class TerminalsActivity extends Activity {
             return;
         }
         for (VpsSnapshot.Terminal terminal : snapshot.terminals) {
+            if (available && RemoteSsh.isConnected()) AlertCenter.ensureStream(this, terminal.name);
             terminalList.addView(card(terminal));
         }
     }
