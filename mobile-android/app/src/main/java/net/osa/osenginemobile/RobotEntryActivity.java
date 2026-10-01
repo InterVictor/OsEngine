@@ -100,7 +100,8 @@ public final class RobotEntryActivity extends Activity {
         status = text("Загрузка бумаг…", 13, R.color.text_secondary);
         content.addView(status);
         // Screener-wide windows: shared by every ticker, so they sit above the ticker list.
-        ActionGrid.add(this, content, new String[][]{{"Риск-менеджер", ActionGrid.RISK},
+        ActionGrid.add(this, content, new String[][]{{"Параметры", ActionGrid.PARAMS},
+            {"Риск-менеджер", ActionGrid.RISK},
             {"Сопровождение позиции", ActionGrid.SUPPORT}, {"Настройки данных", ActionGrid.DATA}},
             terminal, botId, botName, () -> screenerSource);
         list = new LinearLayout(this);

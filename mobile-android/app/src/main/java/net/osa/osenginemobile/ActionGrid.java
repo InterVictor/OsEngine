@@ -14,6 +14,7 @@ final class ActionGrid {
     static final String SUPPORT = BotSettingsActivity.MODE_SUPPORT;
     static final String DATA = "data";
     static final String TRADE = "open";
+    static final String PARAMS = "params";
 
     private ActionGrid() { }
 
@@ -36,8 +37,8 @@ final class ActionGrid {
                 row.addView(button, params);
                 button.setOnClickListener(view -> {
                     String tab = tabName.get();
-                    if ((tab == null || tab.isEmpty()) && !RISK.equals(item[1])) return;
-                    Intent intent = new Intent(activity,
+                    if ((tab == null || tab.isEmpty()) && !RISK.equals(item[1]) && !PARAMS.equals(item[1])) return;
+                    Intent intent = new Intent(activity, PARAMS.equals(item[1]) ? RobotParametersActivity.class :
                         TRADE.equals(item[1]) ? PositionActionActivity.class
                         : DATA.equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
                     intent.putExtra("mode", item[1]);

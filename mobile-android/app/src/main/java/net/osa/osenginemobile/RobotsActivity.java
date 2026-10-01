@@ -1008,8 +1008,8 @@ public final class RobotsActivity extends Activity {
             botList.addView(horizontal);
             LinearLayout headings = new LinearLayout(this);
             String[] titles = {"#", "Имя робота", "Тип", "Первая бумага", "Поз (откр/закр)",
-                "Вкл/выкл", "Эмулятор", "Чарт", "Параметры", "Удалить", "Журнал"};
-            int[] widths = {40, 160, 150, 150, 145, 100, 110, 100, 105, 90, 95};
+                "Вкл/выкл", "Эмулятор", "Чарт", "Удалить", "Журнал"};
+            int[] widths = {40, 160, 150, 150, 145, 100, 110, 100, 90, 95};
             for (int i = 0; i < titles.length; i++)
                 headings.addView(tableCell(titles[i], widths[i], R.color.text_secondary));
             table.addView(headings);
@@ -1041,14 +1041,13 @@ public final class RobotsActivity extends Activity {
         row.addView(emulator, new LinearLayout.LayoutParams(dp(110), dp(48)));
         on.setOnClickListener(view -> changeState(bot, "is_on", on.isChecked()));
         emulator.setOnClickListener(view -> changeState(bot, "emulator_is_on", emulator.isChecked()));
-        for (String action : new String[]{"Чарт", "Параметры", "Удалить", "Журнал"}) {
-            int width = "Параметры".equals(action) ? 105 : "Удалить".equals(action) ? 90
+        for (String action : new String[]{"Чарт", "Удалить", "Журнал"}) {
+            int width = "Удалить".equals(action) ? 90
                 : "Журнал".equals(action) ? 95 : 100;
             TextView button = tableCell(action, width, R.color.orange);
             row.addView(button);
             button.setOnClickListener(view -> {
                 if ("Чарт".equals(action)) openRobot(bot);
-                else if ("Параметры".equals(action)) openParameters(bot);
                 else if ("Журнал".equals(action)) openRobotJournal(bot);
                 else Toast.makeText(this, "Раздел «" + action
                     + "» будет подключён на следующем этапе", Toast.LENGTH_LONG).show();
@@ -1089,7 +1088,7 @@ public final class RobotsActivity extends Activity {
         card.addView(top);
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
-        String[] titles = {"Параметры", "Журнал", "Чарт"};
+        String[] titles = {"Журнал", "Чарт"};
         for (int i = 0; i < titles.length; i++) {
             final String title = titles[i];
             TextView button = label(title, 14, R.color.orange);
@@ -1099,8 +1098,7 @@ public final class RobotsActivity extends Activity {
             if (i > 0) buttonParams.leftMargin = dp(6);
             buttons.addView(button, buttonParams);
             button.setOnClickListener(view -> {
-                if ("Параметры".equals(title)) openParameters(bot);
-                else if ("Журнал".equals(title)) openRobotJournal(bot);
+                if ("Журнал".equals(title)) openRobotJournal(bot);
                 else openRobot(bot);
             });
         }
@@ -1141,16 +1139,6 @@ public final class RobotsActivity extends Activity {
         String id = bot.optString("name");
         if (id.isEmpty()) return;
         Intent intent = new Intent(this, ScreenerJournalActivity.class);
-        intent.putExtra("terminal_name", terminal);
-        intent.putExtra("bot_id", id);
-        intent.putExtra("bot_name", (bot.optString("public_name").isEmpty() ? id : bot.optString("public_name")));
-        startActivity(intent);
-    }
-
-    private void openParameters(JSONObject bot) {
-        String id = bot.optString("name");
-        if (id.isEmpty()) return;
-        Intent intent = new Intent(this, RobotParametersActivity.class);
         intent.putExtra("terminal_name", terminal);
         intent.putExtra("bot_id", id);
         intent.putExtra("bot_name", (bot.optString("public_name").isEmpty() ? id : bot.optString("public_name")));

@@ -132,7 +132,8 @@ public final class ChartActivity extends Activity {
         // ticker list; a ticker's chart only keeps «Торговать». Simple robots have no list, so they keep all four.
         ActionGrid.add(this, content, screenerChart
             ? new String[][]{{"Торговать", ActionGrid.TRADE}}
-            : new String[][]{{"Риск-менеджер", ActionGrid.RISK}, {"Сопровождение позиции", ActionGrid.SUPPORT},
+            : new String[][]{{"Параметры", ActionGrid.PARAMS}, {"Риск-менеджер", ActionGrid.RISK},
+                {"Сопровождение позиции", ActionGrid.SUPPORT},
                 {"Настройки данных", ActionGrid.DATA}, {"Торговать", ActionGrid.TRADE}},
             terminal, botId, botName, () -> tabName);
         // Tabs are only for robots with several own Simple tabs; screener tickers are picked on the previous screen.
