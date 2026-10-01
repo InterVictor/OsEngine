@@ -7,6 +7,15 @@
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
         <item name="android:windowBackground">@color/background</item>
+        <item name="android:scrollViewStyle">@style/OsScrollView</item>
+    </style>
+
+    <!-- Always-visible vertical scroll bar so long lists show that they scroll. -->
+    <style name="OsScrollView" parent="android:style/Widget.Material.ScrollView">
+        <item name="android:scrollbars">vertical</item>
+        <item name="android:fadeScrollbars">false</item>
+        <item name="android:scrollbarSize">6dp</item>
+        <item name="android:scrollbarThumbVertical">@drawable/scrollbar_thumb</item>
     </style>
 
     <style name="OsEngineDialog" parent="android:style/Theme.Material.Dialog.Alert">

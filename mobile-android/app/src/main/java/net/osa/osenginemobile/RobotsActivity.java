@@ -1049,6 +1049,7 @@ public final class RobotsActivity extends Activity {
             button.setOnClickListener(view -> {
                 if ("Чарт".equals(action)) openRobot(bot);
                 else if ("Параметры".equals(action)) openParameters(bot);
+                else if ("Журнал".equals(action)) openRobotJournal(bot);
                 else Toast.makeText(this, "Раздел «" + action
                     + "» будет подключён на следующем этапе", Toast.LENGTH_LONG).show();
             });
@@ -1084,18 +1085,26 @@ public final class RobotsActivity extends Activity {
         TextView heading = label(bot.optInt("number") + "   " + name + "   ›",
             17, R.color.text_primary);
         heading.setTypeface(null, Typeface.BOLD);
-        top.addView(heading, new LinearLayout.LayoutParams(0, dp(48), 1));
-        TextView chart = label("Чарт", 14, R.color.orange);
-        chart.setGravity(Gravity.CENTER);
-        chart.setBackgroundResource(R.drawable.input_background);
-        TextView params = label("Параметры", 14, R.color.orange);
-        params.setGravity(Gravity.CENTER);
-        params.setBackgroundResource(R.drawable.input_background);
-        top.addView(params, new LinearLayout.LayoutParams(dp(110), dp(48)));
-        params.setOnClickListener(view -> openParameters(bot));
-        top.addView(chart, new LinearLayout.LayoutParams(dp(78), dp(48)));
-        chart.setOnClickListener(view -> openRobot(bot));
+        top.addView(heading, new LinearLayout.LayoutParams(0, dp(44), 1));
         card.addView(top);
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        String[] titles = {"Параметры", "Журнал", "Чарт"};
+        for (int i = 0; i < titles.length; i++) {
+            final String title = titles[i];
+            TextView button = label(title, 14, R.color.orange);
+            button.setGravity(Gravity.CENTER);
+            button.setBackgroundResource(R.drawable.input_background);
+            LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(0, dp(44), 1);
+            if (i > 0) buttonParams.leftMargin = dp(6);
+            buttons.addView(button, buttonParams);
+            button.setOnClickListener(view -> {
+                if ("Параметры".equals(title)) openParameters(bot);
+                else if ("Журнал".equals(title)) openRobotJournal(bot);
+                else openRobot(bot);
+            });
+        }
+        card.addView(buttons);
         card.addView(label(bot.optString("class_name") + " · "
             + bot.optString("first_security", "—"), 14, R.color.text_secondary));
         card.addView(label("Поз (откр/закр): " + bot.optInt("open_positions_count")
@@ -1123,7 +1132,18 @@ public final class RobotsActivity extends Activity {
         Intent intent = new Intent(this, RobotEntryActivity.class);
         intent.putExtra("terminal_name", terminal);
         intent.putExtra("bot_id", id);
-        intent.putExtra("bot_name", bot.optString("public_name", id));
+        intent.putExtra("bot_name", (bot.optString("public_name").isEmpty() ? id : bot.optString("public_name")));
+        startActivity(intent);
+    }
+
+    /** Robot-level journal: all tickers of the robot (screener), not one security. */
+    private void openRobotJournal(JSONObject bot) {
+        String id = bot.optString("name");
+        if (id.isEmpty()) return;
+        Intent intent = new Intent(this, ScreenerJournalActivity.class);
+        intent.putExtra("terminal_name", terminal);
+        intent.putExtra("bot_id", id);
+        intent.putExtra("bot_name", (bot.optString("public_name").isEmpty() ? id : bot.optString("public_name")));
         startActivity(intent);
     }
 
@@ -1133,7 +1153,7 @@ public final class RobotsActivity extends Activity {
         Intent intent = new Intent(this, RobotParametersActivity.class);
         intent.putExtra("terminal_name", terminal);
         intent.putExtra("bot_id", id);
-        intent.putExtra("bot_name", bot.optString("public_name", id));
+        intent.putExtra("bot_name", (bot.optString("public_name").isEmpty() ? id : bot.optString("public_name")));
         startActivity(intent);
     }
 

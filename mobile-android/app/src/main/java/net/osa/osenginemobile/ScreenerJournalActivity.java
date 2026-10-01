@@ -50,7 +50,7 @@ public final class ScreenerJournalActivity extends Activity {
         botName = getIntent().getStringExtra("bot_name");
         tabName = getIntent().getStringExtra("tab_name");
         security = getIntent().getStringExtra("security_name");
-        if (terminal == null || botId == null || tabName == null || security == null) {
+        if (terminal == null || botId == null) {
             finish(); return;
         }
         try { bridge = new McpBridge(this); }
@@ -102,7 +102,8 @@ public final class ScreenerJournalActivity extends Activity {
         TextView back = text("‹ " + botName + " · " + terminal, 15, R.color.orange);
         back.setOnClickListener(view -> finish());
         body.addView(back, new LinearLayout.LayoutParams(-1, dp(48)));
-        TextView title = text("Журнал · " + security, 21, R.color.text_primary);
+        TextView title = text(security == null ? "Журнал · " + botName + " · все бумаги"
+            : "Журнал · " + security, 21, R.color.text_primary);
         title.setTypeface(null, Typeface.BOLD);
         body.addView(title);
         status = text("Загрузка журнала…", 12, R.color.text_secondary);
@@ -144,10 +145,13 @@ public final class ScreenerJournalActivity extends Activity {
                     for (int i = 0; i < open.length(); i++) rows.put(open.opt(i));
                     for (int i = 0; i < closed.length(); i++) rows.put(closed.opt(i));
                 } else {
-                    String tool = requested == 1 ? "bot_position_get_open"
+                    boolean ticker = security != null;
+                    String tool = requested == 1
+                        ? (ticker ? "bot_position_get_open" : "bot_journal_get_open_positions")
                         : "bot_journal_get_closed_positions";
-                    JSONObject args = requested == 1
+                    JSONObject args = requested == 1 && ticker
                         ? new JSONObject().put("bot_id", botId).put("tab_name", tabName)
+                        : requested == 1 ? new JSONObject().put("bot_name", botId)
                         : new JSONObject().put("bot_name", botId).put("include_failed", true);
                     rows = responsePositions(bridge.callBatch(terminal,
                         McpBridge.call(tool, args)).get(tool));
@@ -155,8 +159,8 @@ public final class ScreenerJournalActivity extends Activity {
                 next = new JSONArray();
                 for (int i = 0; i < rows.length(); i++) {
                     JSONObject position = rows.optJSONObject(i);
-                    if (position != null && SecurityNames.sameTicker(
-                        security, position.optString("security_name")))
+                    if (position != null && (security == null || SecurityNames.sameTicker(
+                        security, position.optString("security_name"))))
                         next.put(position);
                 }
             } catch (Exception e) { error = e.getMessage(); }
