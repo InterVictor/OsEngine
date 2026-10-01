@@ -48,7 +48,8 @@ public final class ChartActivity extends Activity {
     private TextView status;
     private CandleView chart;
     private LinearLayout lowerTabs;
-    private HorizontalScrollView lowerScroller;
+    private HorizontalScrollView tabScroll;
+    private volatile boolean screenerBot;
     private LinearLayout lowerContent;
     private ScrollView outerScroll;
     private int lowerTab;
@@ -103,56 +104,64 @@ public final class ChartActivity extends Activity {
             return insets;
         });
         root.requestApplyInsets();
+        // Fixed header: the way back and the title stay on screen while the chart scrolls.
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(14), dp(6), dp(14), dp(4));
+        root.addView(header);
+        TextView back = text("‹ Роботы.VPS · " + terminal, 15, R.color.orange);
+        back.setOnClickListener(view -> finish());
+        header.addView(back, new LinearLayout.LayoutParams(-1, dp(40)));
+        TextView title = text(botName + " · Чарт", 19, R.color.text_primary);
+        title.setTypeface(null, Typeface.BOLD);
+        header.addView(title);
+        info = text("Загрузка данных робота…", 12, R.color.text_secondary);
+        header.addView(info);
+        status = text("", 11, R.color.text_secondary);
+        header.addView(status);
         ScrollView scroll = new ScrollView(this);
         outerScroll = scroll;
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(16), dp(14), dp(16));
+        content.setPadding(dp(14), dp(6), dp(14), dp(16));
         scroll.addView(content);
-        TextView back = text("‹ Роботы.VPS · " + terminal, 15, R.color.orange);
-        back.setOnClickListener(view -> finish());
-        content.addView(back, new LinearLayout.LayoutParams(-1, dp(48)));
-        TextView title = text(botName + " · Чарт", 21, R.color.text_primary);
-        title.setTypeface(null, Typeface.BOLD);
-        content.addView(title);
-        info = text("Загрузка данных робота…", 13, R.color.text_secondary);
-        content.addView(info);
-        status = text("", 12, R.color.text_secondary);
-        content.addView(status);
-        HorizontalScrollView actionScroll = new HorizontalScrollView(this);
-        actionScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout actions = new LinearLayout(this);
-        actionScroll.addView(actions);
-        for (String[] item : new String[][]{{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
+        // Four actions in a fixed 2x2 grid (nothing slides sideways).
+        String[][] items = {{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
             {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT},
-            {"Настройки данных", "data"}, {"Торговать", "open"}}) {
-            TextView button = text(item[0], 13, R.color.orange);
-            button.setGravity(Gravity.CENTER);
-            button.setPadding(dp(14), 0, dp(14), 0);
-            button.setBackgroundResource(R.drawable.input_background);
-            LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-2, dp(44));
-            buttonParams.rightMargin = dp(6);
-            actions.addView(button, buttonParams);
-            button.setOnClickListener(view -> {
-                android.content.Intent intent = new android.content.Intent(this,
-                    "open".equals(item[1]) ? PositionActionActivity.class
-                    : "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
-                intent.putExtra("mode", item[1]);
-                intent.putExtra("terminal_name", terminal);
-                intent.putExtra("bot_id", botId);
-                intent.putExtra("bot_name", botName);
-                intent.putExtra("tab_name", tabName);
-                startActivity(intent);
-            });
+            {"Настройки данных", "data"}, {"Торговать", "open"}};
+        for (int row = 0; row < 2; row++) {
+            LinearLayout actions = new LinearLayout(this);
+            for (int column = 0; column < 2; column++) {
+                String[] item = items[row * 2 + column];
+                TextView button = text(item[0], 12, R.color.orange);
+                button.setGravity(Gravity.CENTER);
+                button.setBackgroundResource(R.drawable.input_background);
+                LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(0, dp(44), 1);
+                if (column == 1) buttonParams.leftMargin = dp(6);
+                actions.addView(button, buttonParams);
+                button.setOnClickListener(view -> {
+                    android.content.Intent intent = new android.content.Intent(this,
+                        "open".equals(item[1]) ? PositionActionActivity.class
+                        : "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
+                    intent.putExtra("mode", item[1]);
+                    intent.putExtra("terminal_name", terminal);
+                    intent.putExtra("bot_id", botId);
+                    intent.putExtra("bot_name", botName);
+                    intent.putExtra("tab_name", tabName);
+                    startActivity(intent);
+                });
+            }
+            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, -2);
+            actionParams.topMargin = dp(6);
+            content.addView(actions, actionParams);
         }
-        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, -2);
-        actionParams.topMargin = dp(6);
-        content.addView(actionScroll, actionParams);
-        HorizontalScrollView tabScroll = new HorizontalScrollView(this);
+        // Tabs are only for robots with several own Simple tabs; screener tickers are picked on the previous screen.
+        tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
         tabs = new LinearLayout(this);
         tabScroll.addView(tabs);
+        tabScroll.setVisibility(View.GONE);
         content.addView(tabScroll);
         chart = new CandleView();
         LinearLayout.LayoutParams graph = new LinearLayout.LayoutParams(-1,
@@ -160,14 +169,12 @@ public final class ChartActivity extends Activity {
         graph.topMargin = dp(8);
         baseChartHeight = graph.height;
         content.addView(chart, graph);
-        HorizontalScrollView lowerScroller = new HorizontalScrollView(this);
-        this.lowerScroller = lowerScroller;
-        lowerScroller.setHorizontalScrollBarEnabled(false);
+        // Lower tabs share the width equally and never slide.
         lowerTabs = new LinearLayout(this);
-        lowerScroller.addView(lowerTabs);
+        lowerTabs.setBaselineAligned(false);
         LinearLayout.LayoutParams lowerParams = new LinearLayout.LayoutParams(-1, dp(48));
         lowerParams.topMargin = dp(12);
-        content.addView(lowerScroller, lowerParams);
+        content.addView(lowerTabs, lowerParams);
         lowerContent = new LinearLayout(this);
         lowerContent.setOrientation(LinearLayout.VERTICAL);
         content.addView(lowerContent);
@@ -206,6 +213,7 @@ public final class ChartActivity extends Activity {
                         if (source == null) continue;
                         if ("Simple".equals(source.optString("type"))) chartSources.put(source);
                         else if ("Screener".equals(source.optString("type"))) {
+                            screenerBot = true;
                             JSONObject args = new JSONObject().put("bot_id", botId)
                                 .put("tab_name", source.optString("name"));
                             Object children = bridge.callBatch(terminal,
@@ -329,11 +337,13 @@ public final class ChartActivity extends Activity {
         lowerTabs.removeAllViews();
         for (int i = 0; i < LOWER_TABS.length; i++) {
             final int selected = i;
-            TextView tab = text(LOWER_TABS[i], 13,
+            TextView tab = text(LOWER_TABS[i], 12,
                 lowerTab == i ? R.color.orange : R.color.text_primary);
             tab.setGravity(Gravity.CENTER);
             tab.setBackgroundResource(R.drawable.input_background);
-            lowerTabs.addView(tab, new LinearLayout.LayoutParams(dp(145), dp(42)));
+            LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+            if (i > 0) tabParams.leftMargin = dp(4);
+            lowerTabs.addView(tab, tabParams);
             tab.setOnClickListener(view -> {
                 lowerTab = selected;
                 lowerSnapshot = null;
@@ -345,8 +355,6 @@ public final class ChartActivity extends Activity {
                 handler.post(polling);
             });
         }
-        lowerScroller.post(() -> lowerScroller.smoothScrollTo(
-            lowerTabs.getChildAt(lowerTab).getLeft(), 0));
     }
 
     private void renderLowerError(String error) {
@@ -402,6 +410,7 @@ public final class ChartActivity extends Activity {
 
     private void renderTabs() {
         tabs.removeAllViews();
+        tabScroll.setVisibility(screenerBot || sources.size() <= 1 ? View.GONE : View.VISIBLE);
         for (String source : sources) {
             TextView tab = text(source, 13, source.equals(tabName) ? R.color.orange : R.color.text_primary);
             tab.setPadding(dp(12), 0, dp(12), 0);
