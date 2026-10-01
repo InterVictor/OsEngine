@@ -64,8 +64,9 @@ public final class DataSettingsActivity extends Activity {
     private final ArrayList<Security> securities = new ArrayList<>();
     private McpBridge bridge;
     private String terminal, botId, botName, tabName;
-    private String serverType = "", serverName = "";
-    private boolean loaded, busy, destroyed, resolved;
+    private String serverType = "", serverName = "", simpleSecurity = "";
+    private boolean loaded, busy, destroyed, resolved, simple;
+    private final ArrayList<String> seriesKeys = new ArrayList<>();
     private String search = "";
     private LinearLayout form, securityList;
     private TextView statusView, accept, counter;
@@ -175,9 +176,10 @@ public final class DataSettingsActivity extends Activity {
             String error = null;
             try {
                 if (!resolved) resolveScreener();
-                Object response = bridge.callBatch(terminal, McpBridge.call("bot_get_config_tab_screener",
+                String getTool = simple ? "bot_get_config_tab_simple" : "bot_get_config_tab_screener";
+                Object response = bridge.callBatch(terminal, McpBridge.call(getTool,
                     new JSONObject().put("bot_id", botId).put("tab_name", tabName)))
-                    .get("bot_get_config_tab_screener");
+                    .get(getTool);
                 if (response instanceof Exception) throw (Exception) response;
                 if (!(response instanceof JSONObject)) throw new IllegalStateException("Пустой ответ VPS");
                 result = (JSONObject) response;
@@ -193,11 +195,40 @@ public final class DataSettingsActivity extends Activity {
                     return;
                 }
                 serverType = data.optString("server_type");
-                serverName = data.optString("server_name");
+                serverName = data.optString("server_name", data.optString("server_full_name"));
+                if (simple) {
+                    simpleSecurity = data.optString("security_class") + " " + data.optString("security_name");
+                    JSONArray methods = data.optJSONArray("candle_create_method_types");
+                    if (methods != null && methods.length() > 0) {
+                        String[] types = new String[methods.length()];
+                        for (int i = 0; i < types.length; i++) types[i] = methods.optString(i);
+                        fields.put("candle_create_method_type", new Field("candle_create_method_type",
+                            "Тип свечей", "enum", types));
+                    }
+                    for (String key : seriesKeys) fields.remove(key);
+                    seriesKeys.clear();
+                }
                 for (Field field : fields.values()) {
                     Object raw = data.opt(field.key);
                     field.original = raw == null || raw == JSONObject.NULL ? null : raw;
                     field.value = field.original;
+                }
+                JSONArray series = simple ? data.optJSONArray("candle_series_parameters") : null;
+                if (series != null) for (int i = 0; i < series.length(); i++) {
+                    JSONObject item = series.optJSONObject(i);
+                    if (item == null) continue;
+                    JSONArray values = item.optJSONArray("values");
+                    String type = item.optString("type");
+                    String[] options = new String[values == null ? 0 : values.length()];
+                    for (int j = 0; j < options.length; j++) options[j] = values.optString(j);
+                    String kind = "Bool".equalsIgnoreCase(type) ? "bool" : options.length > 0 ? "enum"
+                        : "Int".equalsIgnoreCase(type) || "Decimal".equalsIgnoreCase(type) ? "decimal" : "text";
+                    Field field = new Field("series:" + item.optString("sys_name"),
+                        item.optString("label", item.optString("sys_name")), kind, options);
+                    Object raw = item.opt("value");
+                    field.original = field.value = raw == JSONObject.NULL ? null : raw;
+                    fields.put(field.key, field);
+                    seriesKeys.add(field.key);
                 }
                 securities.clear();
                 JSONArray array = data.optJSONArray("securities");
@@ -222,6 +253,8 @@ public final class DataSettingsActivity extends Activity {
         String first = null;
         if (sources != null) for (int i = 0; i < sources.length(); i++) {
             JSONObject source = sources.optJSONObject(i);
+            if (source != null && "Simple".equals(source.optString("type"))
+                && source.optString("name").equals(tabName)) { simple = true; resolved = true; return; }
             if (source == null || !"Screener".equals(source.optString("type"))) continue;
             String name = source.optString("name");
             if (first == null) first = name;
@@ -239,8 +272,7 @@ public final class DataSettingsActivity extends Activity {
                 }
             }
         }
-        if (first == null) throw new IllegalStateException(
-            "настройки данных вкладки Simple будут подключены на следующем этапе");
+        if (first == null) throw new IllegalStateException("У робота нет вкладки скринера или Simple с таким именем");
         tabName = first;
         resolved = true;
     }
@@ -254,7 +286,14 @@ public final class DataSettingsActivity extends Activity {
             form.addView(row(fields.get(key)));
         heading("Настройки свечей");
         for (String key : new String[]{"candle_market_data_type", "save_trades_in_candles",
-            "candle_create_method_type", "time_frame"}) form.addView(row(fields.get(key)));
+            "candle_create_method_type"}) form.addView(row(fields.get(key)));
+        if (simple) {
+            for (String key : seriesKeys) form.addView(row(fields.get(key)));
+            heading("Инструмент");
+            form.addView(readOnlyRow("Бумага", simpleSecurity));
+            return;
+        }
+        form.addView(row(fields.get("time_frame")));
         heading("Инструменты");
         counter = text("", 12, R.color.text_secondary);
         form.addView(counter);
@@ -431,15 +470,25 @@ public final class DataSettingsActivity extends Activity {
             String error = null;
             try {
                 JSONObject args = new JSONObject().put("bot_id", botId).put("tab_name", tabName);
-                for (Field field : fields.values()) if (field.changed()) args.put(field.key, field.value);
-                if (securitiesChanged()) {
+                JSONArray series = new JSONArray();
+                boolean seriesChanged = false;
+                for (Field field : fields.values()) {
+                    if (field.key.startsWith("series:")) {
+                        series.put(new JSONObject().put("sys_name", field.key.substring(7))
+                            .put("value", field.value));
+                        if (field.changed()) seriesChanged = true;
+                    } else if (field.changed() && !(simple && field.key.equals("time_frame")))
+                        args.put(field.key, field.value);
+                }
+                if (simple && seriesChanged) args.put("candle_series_parameters", series);
+                if (!simple && securitiesChanged()) {
                     JSONArray array = new JSONArray();
                     for (Security item : securities) array.put(new JSONObject().put("name", item.name)
                         .put("class_name", item.className).put("is_on", item.on));
                     args.put("securities", array);
                 }
-                Object response = bridge.callBatch(terminal, McpBridge.call("bot_set_config_tab_screener", args))
-                    .get("bot_set_config_tab_screener");
+                Object response = bridge.callBatch(terminal, McpBridge.call(simple ? "bot_set_config_tab_simple" : "bot_set_config_tab_screener", args))
+                    .get(simple ? "bot_set_config_tab_simple" : "bot_set_config_tab_screener");
                 if (response instanceof Exception) throw (Exception) response;
             } catch (Exception e) { error = e.getMessage(); }
             String finalError = error;
