@@ -125,7 +125,8 @@ public final class ChartActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         actionScroll.addView(actions);
         for (String[] item : new String[][]{{"Риск-менеджер", BotSettingsActivity.MODE_RISK},
-            {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT}}) {
+            {"Сопровождение позиции", BotSettingsActivity.MODE_SUPPORT},
+            {"Настройки данных", "data"}}) {
             TextView button = text(item[0], 13, R.color.orange);
             button.setGravity(Gravity.CENTER);
             button.setPadding(dp(14), 0, dp(14), 0);
@@ -134,7 +135,8 @@ public final class ChartActivity extends Activity {
             buttonParams.rightMargin = dp(6);
             actions.addView(button, buttonParams);
             button.setOnClickListener(view -> {
-                android.content.Intent intent = new android.content.Intent(this, BotSettingsActivity.class);
+                android.content.Intent intent = new android.content.Intent(this,
+                    "data".equals(item[1]) ? DataSettingsActivity.class : BotSettingsActivity.class);
                 intent.putExtra("mode", item[1]);
                 intent.putExtra("terminal_name", terminal);
                 intent.putExtra("bot_id", botId);
