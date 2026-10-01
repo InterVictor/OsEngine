@@ -3,6 +3,8 @@ package net.osa.osenginemobile;
 import android.app.AlertDialog;
 import android.app.Activity;
 import android.app.TimePickerDialog;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,6 +30,8 @@ import java.util.concurrent.Executors;
 
 /** Robot parameters window, mirroring RobotsVpsParametersUi: tabs come only from the VPS answer. */
 public final class RobotParametersActivity extends Activity {
+    private static final int REQUEST_SAVE = 41;
+    private static final int REQUEST_LOAD = 42;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private McpBridge bridge;
     private String terminal;
@@ -125,6 +129,25 @@ public final class RobotParametersActivity extends Activity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(14), dp(6), dp(14), dp(12));
         scroll.addView(content);
+        LinearLayout files = new LinearLayout(this);
+        files.setPadding(dp(14), dp(6), dp(14), 0);
+        root.addView(files);
+        TextView save = action("Сохранить");
+        TextView load = action("Загрузить");
+        files.addView(save, new LinearLayout.LayoutParams(0, dp(42), 1));
+        LinearLayout.LayoutParams loadParams = new LinearLayout.LayoutParams(0, dp(42), 1);
+        loadParams.leftMargin = dp(6);
+        files.addView(load, loadParams);
+        save.setOnClickListener(view -> {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, botName + "-parameters.json");
+            startActivityForResult(intent, REQUEST_SAVE);
+        });
+        load.setOnClickListener(view -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*");
+            startActivityForResult(intent, REQUEST_LOAD);
+        });
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
@@ -173,6 +196,72 @@ public final class RobotParametersActivity extends Activity {
                 updateStatus();
             });
         });
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (result != RESULT_OK || data == null || data.getData() == null) return;
+        try {
+            if (request == REQUEST_SAVE) saveJson(data.getData());
+            else if (request == REQUEST_LOAD) loadJson(data.getData());
+        } catch (Exception e) { statusView.setText("Файл: " + e.getMessage()); }
+    }
+
+    /** Current values (pending edits included) of every editable parameter as {"parameters": {name: value}}. */
+    private void saveJson(Uri uri) throws Exception {
+        JSONObject values = new JSONObject();
+        for (int i = 0; i < parameters.length(); i++) {
+            JSONObject parameter = parameters.optJSONObject(i);
+            if (parameter == null) continue;
+            String kind = parameter.optString("type");
+            if ("Button".equalsIgnoreCase(kind) || "Label".equalsIgnoreCase(kind)) continue;
+            String name = parameter.getString("name");
+            values.put(name, changes.containsKey(name) ? changes.get(name) : parameter.opt("value"));
+        }
+        JSONObject file = new JSONObject().put("robot", botName).put("parameters", values);
+        try (java.io.OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
+            out.write(file.toString(2).getBytes("UTF-8"));
+        }
+        statusView.setText("Параметры сохранены в файл: " + values.length());
+    }
+
+    /** Applies a saved file as pending edits only; nothing is sent until «Обновить» / «Принять». */
+    private void loadJson(Uri uri) throws Exception {
+        StringBuilder text = new StringBuilder();
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+            new java.io.InputStreamReader(getContentResolver().openInputStream(uri), "UTF-8"))) {
+            String line;
+            while ((line = reader.readLine()) != null) text.append(line).append('\n');
+        }
+        JSONObject root = new JSONObject(text.toString());
+        JSONObject values = root.has("parameters") ? root.getJSONObject("parameters") : root;
+        int applied = 0, skipped = 0;
+        for (int i = 0; i < parameters.length(); i++) {
+            JSONObject parameter = parameters.optJSONObject(i);
+            if (parameter == null) continue;
+            String name = parameter.optString("name");
+            String kind = parameter.optString("type");
+            if (!values.has(name) || "Button".equalsIgnoreCase(kind) || "Label".equalsIgnoreCase(kind)) continue;
+            Object value = values.get(name);
+            try {
+                if ("Int".equalsIgnoreCase(kind)) value = Integer.parseInt(String.valueOf(value).trim());
+                else if ("Decimal".equalsIgnoreCase(kind))
+                    value = new BigDecimal(String.valueOf(value).trim().replace(',', '.'));
+                else if ("Bool".equalsIgnoreCase(kind) || "CheckBox".equalsIgnoreCase(kind))
+                    value = value instanceof Boolean ? value : Boolean.parseBoolean(String.valueOf(value));
+                else value = String.valueOf(value);
+                JSONArray options = parameter.optJSONArray("values");
+                if (options != null && options.length() > 0) {
+                    boolean known = false;
+                    for (int j = 0; j < options.length(); j++) if (options.optString(j).equals(value)) known = true;
+                    if (!known) { skipped++; continue; }
+                }
+                setChange(parameter, value);
+                applied++;
+            } catch (Exception e) { skipped++; }
+        }
+        statusView.setText("Из файла применено: " + applied + ", пропущено: " + skipped
+            + ". Нажмите «Обновить» или «Принять», чтобы отправить на VPS");
     }
 
     private void buildTabNames() {

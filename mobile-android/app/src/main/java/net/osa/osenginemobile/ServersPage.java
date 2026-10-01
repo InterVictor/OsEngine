@@ -96,6 +96,7 @@ final class ServersPage {
             catch (Exception ignored) { continue; }
             rows.add(item);
         }
+        sortPinned();
         messages = nextMessages;
         logSource = source;
         logError = nextLogError;
@@ -258,7 +259,7 @@ final class ServersPage {
             String status = server.optString("status", "Disabled");
             int color = "Connect".equalsIgnoreCase(status) ? 0xFF3CB371 : 0xFFFF7F50;
             LinearLayout row = new LinearLayout(activity);
-            TextView name = cell(server.optString("name", server.optString("type")), false);
+            TextView name = cell((isPinned(server) ? "★ " : "") + server.optString("name", server.optString("type")), false);
             TextView state = cell(status, false);
             if (exists) {
                 name.setBackgroundColor(color);
@@ -347,6 +348,37 @@ final class ServersPage {
         else outer.post(() -> outer.smoothScrollTo(0, row.getTop() + list.getTop()));
     }
 
+    // The VPS API has no pin storage, so pinned connector types are kept on this device only.
+    private static final String PINS = "server_pins";
+
+    private java.util.Set<String> pins() {
+        return new HashSet<>(activity.getSharedPreferences(PINS, android.content.Context.MODE_PRIVATE)
+            .getStringSet("types", new HashSet<>()));
+    }
+
+    private boolean isPinned(JSONObject server) {
+        return pins().contains(server.optString("type").toLowerCase(Locale.ROOT));
+    }
+
+    private void sortPinned() {
+        java.util.Set<String> pinned = pins();
+        rows.sort((a, b) -> Boolean.compare(
+            !pinned.contains(a.optString("type").toLowerCase(Locale.ROOT)),
+            !pinned.contains(b.optString("type").toLowerCase(Locale.ROOT))));
+    }
+
+    private void togglePin(JSONObject server) {
+        java.util.Set<String> pinned = pins();
+        String type = server.optString("type").toLowerCase(Locale.ROOT);
+        boolean now = !pinned.remove(type);
+        if (now) pinned.add(type);
+        activity.getSharedPreferences(PINS, android.content.Context.MODE_PRIVATE).edit()
+            .putStringSet("types", pinned).apply();
+        sortPinned();
+        populateList();
+        Toast.makeText(activity, now ? "Закреплено на этом устройстве" : "Откреплено", Toast.LENGTH_SHORT).show();
+    }
+
     private void showMenu(JSONObject server) {
         if (!connected || busy) {
             Toast.makeText(activity, "Нет связи с VPS", Toast.LENGTH_SHORT).show();
@@ -359,8 +391,7 @@ final class ServersPage {
             .setItems(items, (dialog, which) -> {
                 if (which == 0) actions.openSettings(server);
                 else if (which == 2) actions.command(server);
-                else Toast.makeText(activity,
-                    "Синхронизация закрепления ещё не настроена", Toast.LENGTH_LONG).show();
+                else togglePin(server);
             }).show();
     }
 
