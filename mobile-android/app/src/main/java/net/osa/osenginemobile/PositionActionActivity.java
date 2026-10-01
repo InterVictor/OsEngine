@@ -77,7 +77,6 @@ public final class PositionActionActivity extends Activity {
     private LinearLayout info;
     private LinearLayout depthContent;
     private LinearLayout tabs;
-    private HorizontalScrollView tabScroll;
     private ScrollView depthScroll;
     private LinearLayout form;
     private LinearLayout actions;
@@ -185,14 +184,12 @@ public final class PositionActionActivity extends Activity {
             content.addView(info);
             content.addView(depthPanel());
         }
-        tabScroll = new HorizontalScrollView(this);
-        tabScroll.setHorizontalScrollBarEnabled(false);
+        // Order tabs in two rows so all of them fit the screen without sideways scrolling.
         tabs = new LinearLayout(this);
-        tabs.setOrientation(LinearLayout.HORIZONTAL);
-        tabScroll.addView(tabs);
-        LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(-1, dp(54));
+        tabs.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(-1, -2);
         tabParams.topMargin = dp(12);
-        content.addView(tabScroll, tabParams);
+        content.addView(tabs, tabParams);
         form = column();
         content.addView(form);
         actions = new LinearLayout(this);
@@ -267,17 +264,23 @@ public final class PositionActionActivity extends Activity {
     private void renderTabs() {
         tabs.removeAllViews();
         String[] names = adding ? ADD_TABS : CLOSE_TABS;
-        TextView selectedView = null;
+        int perRow = (names.length + 1) / 2;
+        LinearLayout row = null;
         for (int i = 0; i < names.length; i++) {
             final int selected = i;
+            if (i % perRow == 0) {
+                row = new LinearLayout(this);
+                row.setBaselineAligned(false);
+                LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(46));
+                if (i > 0) rowParams.topMargin = dp(4);
+                tabs.addView(row, rowParams);
+            }
             TextView item = text(names[i], 14, i == tab ? R.color.orange : R.color.text_primary);
-            item.setPadding(dp(13), 0, dp(13), 0);
             item.setGravity(Gravity.CENTER);
             item.setBackgroundResource(R.drawable.input_background);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(46));
-            params.rightMargin = dp(4);
-            tabs.addView(item, params);
-            if (i == tab) selectedView = item;
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(46), 1);
+            if (i % perRow > 0) params.leftMargin = dp(4);
+            row.addView(item, params);
             item.setOnClickListener(view -> {
                 if (busy) return;
                 saveCurrentFields();
@@ -286,8 +289,6 @@ public final class PositionActionActivity extends Activity {
                 renderForm();
             });
         }
-        TextView chosen = selectedView;
-        tabScroll.post(() -> tabScroll.smoothScrollTo(Math.max(0, chosen.getLeft() - dp(12)), 0));
     }
 
     private void renderForm() {
