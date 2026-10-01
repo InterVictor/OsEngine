@@ -1002,6 +1002,7 @@ public final class RobotsActivity extends Activity {
         LinearLayout table = null;
         if (tablet) {
             HorizontalScrollView horizontal = new HorizontalScrollView(this);
+            horizontal.setFillViewport(true);
             table = new LinearLayout(this);
             table.setOrientation(LinearLayout.VERTICAL);
             horizontal.addView(table);
@@ -1009,7 +1010,7 @@ public final class RobotsActivity extends Activity {
             LinearLayout headings = new LinearLayout(this);
             String[] titles = {"#", "Имя робота", "Тип", "Первая бумага", "Поз (откр/закр)",
                 "Вкл/выкл", "Эмулятор", "Чарт", "Удалить", "Журнал"};
-            int[] widths = {40, 160, 150, 150, 145, 100, 110, 100, 90, 95};
+            int[] widths = {40, 140, 110, 140, 130, 80, 90, 80, 90, 90};
             for (int i = 0; i < titles.length; i++)
                 headings.addView(tableCell(titles[i], widths[i], R.color.text_secondary));
             table.addView(headings);
@@ -1028,22 +1029,22 @@ public final class RobotsActivity extends Activity {
         String name = bot.optString("public_name");
         if (name.isEmpty()) name = bot.optString("name");
         row.addView(tableCell(String.valueOf(bot.optInt("number")), 40, R.color.text_primary));
-        TextView robotName = tableCell(name, 160, R.color.text_primary);
+        TextView robotName = tableCell(name, 140, R.color.text_primary);
         robotName.setOnClickListener(view -> openRobot(bot));
         row.addView(robotName);
-        row.addView(tableCell(bot.optString("class_name"), 150, R.color.text_primary));
-        row.addView(tableCell(bot.optString("first_security"), 150, R.color.text_primary));
+        row.addView(tableCell(bot.optString("class_name"), 110, R.color.text_primary));
+        row.addView(tableCell(bot.optString("first_security"), 140, R.color.text_primary));
         row.addView(tableCell(bot.optInt("open_positions_count") + "/"
-            + bot.optInt("closed_positions_count"), 145, R.color.text_primary));
+            + bot.optInt("closed_positions_count"), 130, R.color.text_primary));
         CheckBox on = check("", bot.optBoolean("is_on"));
         CheckBox emulator = check("", bot.optBoolean("emulator_is_on"));
-        row.addView(on, new LinearLayout.LayoutParams(dp(100), dp(48)));
-        row.addView(emulator, new LinearLayout.LayoutParams(dp(110), dp(48)));
+        row.addView(on, new LinearLayout.LayoutParams(0, dp(48), 0.8f));
+        row.addView(emulator, new LinearLayout.LayoutParams(0, dp(48), 0.9f));
         on.setOnClickListener(view -> changeState(bot, "is_on", on.isChecked()));
         emulator.setOnClickListener(view -> changeState(bot, "emulator_is_on", emulator.isChecked()));
         for (String action : new String[]{"Чарт", "Удалить", "Журнал"}) {
             int width = "Удалить".equals(action) ? 90
-                : "Журнал".equals(action) ? 95 : 100;
+                : "Журнал".equals(action) ? 90 : 80;
             TextView button = tableCell(action, width, R.color.orange);
             row.addView(button);
             button.setOnClickListener(view -> {
@@ -1064,7 +1065,7 @@ public final class RobotsActivity extends Activity {
     }
 
     private TextView withWidth(TextView cell, int width) {
-        cell.setLayoutParams(new LinearLayout.LayoutParams(dp(width), dp(48)));
+        cell.setLayoutParams(new LinearLayout.LayoutParams(0, dp(48), width / 100f));
         return cell;
     }
 

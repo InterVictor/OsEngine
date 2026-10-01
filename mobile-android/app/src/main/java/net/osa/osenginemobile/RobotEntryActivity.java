@@ -181,6 +181,9 @@ public final class RobotEntryActivity extends Activity {
             list.addView(text("В скринере пока нет торговых бумаг", 14, R.color.text_secondary));
             return;
         }
+        boolean tabletGrid = getResources().getConfiguration().smallestScreenWidthDp >= 600;
+        LinearLayout gridRow = null;
+        int gridIndex = 0;
         for (JSONObject child : children) {
             String tab = child.optString("tab_name");
             String security = child.optString("security_name");
@@ -189,9 +192,18 @@ public final class RobotEntryActivity extends Activity {
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(dp(12), dp(10), dp(12), dp(10));
             row.setBackgroundResource(R.drawable.input_background);
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            LinearLayout.LayoutParams rowParams = tabletGrid ? new LinearLayout.LayoutParams(0, -2, 1)
+                : new LinearLayout.LayoutParams(-1, -2);
             rowParams.bottomMargin = dp(6);
-            list.addView(row, rowParams);
+            if (tabletGrid) {
+                if (gridIndex % 3 == 0) {
+                    gridRow = new LinearLayout(this);
+                    list.addView(gridRow, new LinearLayout.LayoutParams(-1, -2));
+                }
+                if (gridIndex % 3 > 0) rowParams.leftMargin = dp(6);
+                gridIndex++;
+                gridRow.addView(row, rowParams);
+            } else list.addView(row, rowParams);
             TextView title = text(security, 16, R.color.text_primary);
             title.setTypeface(null, Typeface.BOLD);
             row.addView(title);
@@ -216,6 +228,12 @@ public final class RobotEntryActivity extends Activity {
                 intent.putExtra("security_name", ticker);
                 startActivity(intent);
             });
+        }
+        if (tabletGrid && gridRow != null) for (int pad = gridIndex % 3; pad > 0 && pad < 3; pad++) {
+            android.view.View filler = new android.view.View(this);
+            LinearLayout.LayoutParams fillerParams = new LinearLayout.LayoutParams(0, 1, 1);
+            fillerParams.leftMargin = dp(6);
+            gridRow.addView(filler, fillerParams);
         }
         scroll.post(() -> scroll.scrollTo(0, scrollY));
     }

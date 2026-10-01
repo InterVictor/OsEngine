@@ -52,6 +52,12 @@ public final class DataSettingsActivity extends Activity {
         final String name, className;
         final boolean original;
         boolean on;
+        Security(String name, String className) {
+            this.name = name;
+            this.className = className;
+            original = false;
+            on = true;
+        }
         Security(JSONObject json) {
             name = json.optString("name");
             className = json.optString("class_name");
@@ -68,6 +74,11 @@ public final class DataSettingsActivity extends Activity {
     private boolean loaded, busy, destroyed, resolved, simple;
     private final ArrayList<String> seriesKeys = new ArrayList<>();
     private String search = "";
+    private final java.util.TreeMap<String, ArrayList<String>> serverByClass = new java.util.TreeMap<>();
+    private boolean serverLoading, serverLoaded;
+    private String serverError;
+    private String chosenClass = "USDT", originalClass = "USDT";
+    private String simpleName = "", simpleClass = "", originalSimpleName = "", originalSimpleClass = "";
     private LinearLayout form, securityList;
     private ScrollView scroll;
     private View securitiesAnchor;
@@ -238,7 +249,14 @@ public final class DataSettingsActivity extends Activity {
                     JSONObject item = array.optJSONObject(i);
                     if (item != null) securities.add(new Security(item));
                 }
+                String savedClass = simple ? data.optString("security_class") : data.optString("securities_class");
+                chosenClass = originalClass = savedClass.isEmpty() ? "USDT" : savedClass;
+                if (simple) {
+                    simpleName = originalSimpleName = data.optString("security_name");
+                    simpleClass = originalSimpleClass = data.optString("security_class");
+                }
                 loaded = true;
+                loadServerSecurities();
                 renderForm();
                 refreshAccept();
             });
@@ -302,17 +320,16 @@ public final class DataSettingsActivity extends Activity {
             "candle_create_method_type"}) form.addView(row(fields.get(key)));
         if (simple) {
             for (String key : seriesKeys) form.addView(row(fields.get(key)));
-            heading("Инструмент");
-            form.addView(readOnlyRow("Бумага", simpleSecurity));
-            return;
+        } else {
+            form.addView(row(fields.get("time_frame")));
         }
-        form.addView(row(fields.get("time_frame")));
-        heading("Инструменты");
+        heading(simple ? "Инструмент" : "Инструменты");
         securitiesAnchor = form.getChildAt(form.getChildCount() - 1);
         counter = text("", 12, R.color.text_secondary);
         form.addView(counter);
+        form.addView(classRow());
         EditText find = new EditText(this);
-        find.setHint("поиск...");
+        find.setHint("поиск по всем бумагам класса...");
         find.setSingleLine(true);
         find.setTextColor(getColor(R.color.text_primary));
         find.setText(search);
@@ -325,51 +342,159 @@ public final class DataSettingsActivity extends Activity {
             }
         });
         form.addView(find);
-        TextView all = text("Выбрать все", 13, R.color.orange);
-        all.setGravity(Gravity.CENTER);
-        all.setBackgroundResource(R.drawable.input_background);
-        all.setOnClickListener(view -> {
-            boolean enable = false;
-            for (Security item : visibleSecurities()) if (!item.on) enable = true;
-            for (Security item : visibleSecurities()) item.on = enable;
-            renderSecurities();
-            refreshAccept();
-        });
-        form.addView(all, new LinearLayout.LayoutParams(-1, dp(40)));
+        if (!simple) {
+            TextView all = text("Выбрать все", 13, R.color.orange);
+            all.setGravity(Gravity.CENTER);
+            all.setBackgroundResource(R.drawable.input_background);
+            all.setOnClickListener(view -> {
+                ArrayList<String> names = visibleNames();
+                boolean enable = false;
+                for (String name : names) if (!isOn(name)) enable = true;
+                for (String name : names) setOn(name, enable);
+                renderSecurities();
+                refreshAccept();
+            });
+            form.addView(all, new LinearLayout.LayoutParams(-1, dp(40)));
+        }
         securityList = new LinearLayout(this);
         securityList.setOrientation(LinearLayout.VERTICAL);
         form.addView(securityList);
         renderSecurities();
     }
 
-    private ArrayList<Security> visibleSecurities() {
-        ArrayList<Security> list = new ArrayList<>();
-        for (Security item : securities)
-            if (search.isEmpty() || item.name.toUpperCase().contains(search)) list.add(item);
-        return list;
+    /** «Класс бумаг» selector: classes come from the whole server list, USDT by default. */
+    private View classRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(text("Класс бумаг", 13, R.color.text_primary), new LinearLayout.LayoutParams(0, dp(46), 1));
+        TextView value = text(chosenClass, 13, chosenClass.equals(originalClass) ? R.color.text_primary : R.color.orange);
+        value.setGravity(Gravity.CENTER);
+        value.setBackgroundResource(R.drawable.input_background);
+        value.setOnClickListener(view -> {
+            ArrayList<String> classes = new ArrayList<>(serverByClass.keySet());
+            if (!classes.contains(chosenClass)) classes.add(chosenClass);
+            if (classes.isEmpty()) return;
+            java.util.Collections.sort(classes, (a, b) -> a.equals("USDT") ? -1 : b.equals("USDT") ? 1 : a.compareTo(b));
+            String[] labels = new String[classes.size()];
+            for (int i = 0; i < labels.length; i++) {
+                ArrayList<String> list = serverByClass.get(classes.get(i));
+                labels[i] = classes.get(i) + (list == null ? "" : "  (" + list.size() + ")");
+            }
+            new AlertDialog.Builder(this, R.style.OsEngineDialog).setTitle("Класс бумаг")
+                .setItems(labels, (dialog, which) -> { chosenClass = classes.get(which); search = ""; renderForm(); refreshAccept(); })
+                .show();
+        });
+        row.addView(value, new LinearLayout.LayoutParams(0, dp(42), 1));
+        return row;
+    }
+
+    private Security configured(String name) {
+        for (Security item : securities) if (item.name.equals(name) && item.className.equals(chosenClass)) return item;
+        return null;
+    }
+
+    private boolean isOn(String name) {
+        if (simple) return name.equals(simpleName) && chosenClass.equals(simpleClass);
+        Security item = configured(name);
+        return item != null && item.on;
+    }
+
+    private void setOn(String name, boolean on) {
+        if (simple) {
+            if (on) { simpleName = name; simpleClass = chosenClass; }
+            return;
+        }
+        Security item = configured(name);
+        if (item != null) item.on = on;
+        else if (on) securities.add(new Security(name, chosenClass));
+    }
+
+    /** Names of the chosen class (the whole server list once loaded, else the configured ones), searched. */
+    private ArrayList<String> visibleNames() {
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> all = serverByClass.get(chosenClass);
+        if (all != null) names.addAll(all);
+        else for (Security item : securities) if (item.className.equals(chosenClass)) names.add(item.name);
+        ArrayList<String> result = new ArrayList<>();
+        for (String name : names) if (search.isEmpty() || name.toUpperCase().contains(search)) result.add(name);
+        return result;
+    }
+
+    private int selectedCount() {
+        int count = 0;
+        for (Security item : securities) if (item.on) count++;
+        return count;
     }
 
     private void renderSecurities() {
         securityList.removeAllViews();
-        int selected = 0;
-        for (Security item : securities) if (item.on) selected++;
-        counter.setText("selected: " + selected + " / " + securities.size());
-        for (Security item : visibleSecurities()) {
+        counter.setText(simple ? "Выбрано: " + simpleClass + " " + simpleName
+            : "selected: " + selectedCount() + " (в классе " + chosenClass + " показано по поиску)");
+        if (!serverLoaded) securityList.addView(text(serverError != null
+            ? "Не удалось загрузить список бумаг сервера: " + serverError
+            : "Загрузка списка бумаг сервера…", 12, R.color.text_secondary));
+        ArrayList<String> names = visibleNames();
+        int limit = 400;
+        for (int i = 0; i < Math.min(limit, names.size()); i++) {
+            String name = names.get(i);
             CheckBox box = new CheckBox(this);
-            box.setText(item.name + "   " + item.className);
-            box.setTextColor(getColor(item.on != item.original ? R.color.orange : R.color.text_primary));
+            box.setText(name);
+            box.setTextColor(getColor(R.color.text_primary));
             box.setTextSize(13);
-            box.setChecked(item.on);
-            box.setOnCheckedChangeListener((view, checked) -> {
-                item.on = checked;
-                box.setTextColor(getColor(item.on != item.original ? R.color.orange : R.color.text_primary));
-                int count = 0;
-                for (Security s : securities) if (s.on) count++;
-                counter.setText("selected: " + count + " / " + securities.size());
+            box.setChecked(isOn(name));
+            box.setOnClickListener(view -> {
+                setOn(name, box.isChecked());
+                if (simple) renderSecurities();
+                else counter.setText("selected: " + selectedCount() + " (в классе " + chosenClass + " показано по поиску)");
                 refreshAccept();
             });
             securityList.addView(box, new LinearLayout.LayoutParams(-1, dp(44)));
         }
+        if (names.size() > limit) securityList.addView(text("Показано " + limit + " из " + names.size()
+            + ": уточните поиск", 12, R.color.text_secondary));
+        if (names.isEmpty() && serverLoaded) securityList.addView(text("Ничего не найдено", 13, R.color.text_secondary));
+    }
+
+    private void loadServerSecurities() {
+        if (serverLoading || serverLoaded || !RemoteSsh.isConnected()) return;
+        serverLoading = true;
+        worker.execute(() -> {
+            java.util.TreeMap<String, ArrayList<String>> grouped = new java.util.TreeMap<>();
+            String error = null;
+            try {
+                Object response = bridge.callBatch(terminal, McpBridge.call("server_instance_get_securities",
+                    new JSONObject().put("type", serverType).put("number", 0)))
+                    .get("server_instance_get_securities");
+                if (response instanceof Exception) throw (Exception) response;
+                if (!(response instanceof JSONObject)) throw new IllegalStateException("Пустой ответ VPS");
+                JSONArray list = ((JSONObject) response).optJSONArray("securities");
+                if (list == null) throw new IllegalStateException("Нет списка бумаг");
+                for (int i = 0; i < list.length(); i++) {
+                    JSONObject item = list.optJSONObject(i);
+                    if (item == null) continue;
+                    String className = item.optString("nameClass");
+                    String name = item.optString("name");
+                    if (className.isEmpty() || name.isEmpty()) continue;
+                    grouped.computeIfAbsent(className, k -> new ArrayList<>()).add(name);
+                }
+                for (ArrayList<String> names : grouped.values()) java.util.Collections.sort(names);
+            } catch (Exception e) { error = e.getMessage(); }
+            String finalError = error;
+            runOnUiThread(() -> {
+                serverLoading = false;
+                if (destroyed) return;
+                if (finalError != null) serverError = finalError;
+                else {
+                    serverByClass.clear();
+                    serverByClass.putAll(grouped);
+                    serverLoaded = true;
+                    serverError = null;
+                    if (!serverByClass.containsKey(chosenClass) && serverByClass.containsKey("USDT")
+                        && chosenClass.isEmpty()) chosenClass = "USDT";
+                }
+                if (loaded) renderForm();
+            });
+        });
     }
 
     private void heading(String value) {
@@ -461,6 +586,8 @@ public final class DataSettingsActivity extends Activity {
         int count = 0;
         for (Field field : fields.values()) if (field.changed()) count++;
         if (securitiesChanged()) count++;
+        if (!simple && !chosenClass.equals(originalClass)) count++;
+        if (simple && (!simpleName.equals(originalSimpleName) || !simpleClass.equals(originalSimpleClass))) count++;
         return count;
     }
 
@@ -495,9 +622,13 @@ public final class DataSettingsActivity extends Activity {
                         args.put(field.key, field.value);
                 }
                 if (simple && seriesChanged) args.put("candle_series_parameters", series);
+                if (simple && (!simpleName.equals(originalSimpleName) || !simpleClass.equals(originalSimpleClass))) {
+                    args.put("security_class", simpleClass).put("security_name", simpleName);
+                }
+                if (!simple && !chosenClass.equals(originalClass)) args.put("securities_class", chosenClass);
                 if (!simple && securitiesChanged()) {
                     JSONArray array = new JSONArray();
-                    for (Security item : securities) array.put(new JSONObject().put("name", item.name)
+                    for (Security item : securities) if (item.original || item.on) array.put(new JSONObject().put("name", item.name)
                         .put("class_name", item.className).put("is_on", item.on));
                     args.put("securities", array);
                 }
