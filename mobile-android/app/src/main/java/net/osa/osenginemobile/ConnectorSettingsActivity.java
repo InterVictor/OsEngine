@@ -104,7 +104,7 @@ public final class ConnectorSettingsActivity extends Activity {
         });
         setContentView(root);
         root.requestApplyInsets();
-        scroll = new ScrollView(this);
+        scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);

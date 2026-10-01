@@ -154,7 +154,7 @@ public final class BotSettingsActivity extends Activity {
         header.addView(strip, stripParams);
         statusView = text("Загрузка с VPS…", 12, R.color.text_secondary);
         header.addView(statusView);
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);

@@ -117,7 +117,7 @@ public final class AddBotActivity extends Activity {
         filters.addView(find, new LinearLayout.LayoutParams(0, dp(48), 1));
         statusView = text("Загрузка стратегий с VPS…", 12, R.color.text_secondary);
         header.addView(statusView);
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);

@@ -41,7 +41,7 @@ public final class AlertsActivity extends Activity implements AlertCenter.Listen
         stateView = text("", 11, R.color.text_secondary);
         root.addView(stateView);
         root.addView(header());
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         rows = new LinearLayout(this);
         rows.setOrientation(LinearLayout.VERTICAL);

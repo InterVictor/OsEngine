@@ -138,7 +138,7 @@ public final class PositionActionActivity extends Activity {
             return insets;
         });
         root.requestApplyInsets();
-        ScrollView outer = new ScrollView(this);
+        ScrollView outer = new BarScrollView(this);
         outer.setFillViewport(true);
         root.addView(outer, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout content = column();
@@ -207,7 +207,7 @@ public final class PositionActionActivity extends Activity {
         panel.setPadding(dp(8), dp(6), dp(8), dp(6));
         TextView heading = text("Стакан", 16, R.color.orange);
         panel.addView(heading);
-        depthScroll = new ScrollView(this);
+        depthScroll = new BarScrollView(this);
         depthScroll.addView(depthContent);
         panel.addView(depthScroll, new LinearLayout.LayoutParams(-1, dp(tablet ? 310 : 160)));
         TextView grip = text("≡", 15, R.color.orange);

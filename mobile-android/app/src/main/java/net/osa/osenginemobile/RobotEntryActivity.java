@@ -85,7 +85,7 @@ public final class RobotEntryActivity extends Activity {
         });
         setContentView(root);
         root.requestApplyInsets();
-        scroll = new ScrollView(this);
+        scroll = new BarScrollView(this);
         root.addView(scroll);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);

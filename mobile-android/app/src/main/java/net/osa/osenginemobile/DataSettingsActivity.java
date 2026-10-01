@@ -69,6 +69,8 @@ public final class DataSettingsActivity extends Activity {
     private final ArrayList<String> seriesKeys = new ArrayList<>();
     private String search = "";
     private LinearLayout form, securityList;
+    private ScrollView scroll;
+    private View securitiesAnchor;
     private TextView statusView, accept, counter;
 
     @Override protected void onCreate(Bundle state) {
@@ -142,7 +144,7 @@ public final class DataSettingsActivity extends Activity {
         header.addView(strip, stripParams);
         statusView = text("Загрузка с VPS…", 12, R.color.text_secondary);
         header.addView(statusView);
-        ScrollView scroll = new ScrollView(this);
+        scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
@@ -281,6 +283,17 @@ public final class DataSettingsActivity extends Activity {
         form.removeAllViews();
         heading("Торговый сервер");
         form.addView(readOnlyRow("Сервер", serverName.isEmpty() ? serverType : serverName));
+        if (!simple) {
+            int on = 0;
+            for (Security item : securities) if (item.on) on++;
+            TextView jump = text("Список бумаг: выбрано " + on + " из " + securities.size() + "  ↓", 13, R.color.orange);
+            jump.setGravity(Gravity.CENTER);
+            jump.setBackgroundResource(R.drawable.input_background);
+            jump.setOnClickListener(view -> {
+                if (securitiesAnchor != null) scroll.smoothScrollTo(0, securitiesAnchor.getTop());
+            });
+            form.addView(jump, new LinearLayout.LayoutParams(-1, dp(44)));
+        }
         heading("Исполнение ордеров");
         for (String key : new String[]{"portfolio_name", "emulator_is_on", "commission_type", "commission_value"})
             form.addView(row(fields.get(key)));
@@ -295,6 +308,7 @@ public final class DataSettingsActivity extends Activity {
         }
         form.addView(row(fields.get("time_frame")));
         heading("Инструменты");
+        securitiesAnchor = form.getChildAt(form.getChildCount() - 1);
         counter = text("", 12, R.color.text_secondary);
         form.addView(counter);
         EditText find = new EditText(this);

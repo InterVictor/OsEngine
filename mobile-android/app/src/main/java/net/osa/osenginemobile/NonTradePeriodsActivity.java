@@ -110,7 +110,7 @@ public final class NonTradePeriodsActivity extends Activity {
         tabScroll.addView(tabs);
         root.addView(tabScroll);
 
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         content = column();
         content.setPadding(dp(14), dp(8), dp(14), dp(12));

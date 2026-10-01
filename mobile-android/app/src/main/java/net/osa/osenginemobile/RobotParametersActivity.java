@@ -123,7 +123,7 @@ public final class RobotParametersActivity extends Activity {
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabScroll.addView(tabs);
         header.addView(tabScroll);
-        scroll = new ScrollView(this);
+        scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);

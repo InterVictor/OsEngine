@@ -122,7 +122,7 @@ public final class ComparePositionsActivity extends Activity {
         message.setPadding(dp(14), dp(7), dp(14), dp(7));
         root.addView(message);
 
-        vertical = new ScrollView(this);
+        vertical = new BarScrollView(this);
         root.addView(vertical, new LinearLayout.LayoutParams(-1, 0, 1));
         horizontal = new HorizontalScrollView(this);
         vertical.addView(horizontal);

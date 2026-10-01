@@ -173,7 +173,7 @@ final class ServersPage {
         columns.addView(serversPanel, left);
         columns.addView(logPanel, right);
         addSearch(serversPanel, query);
-        listScroll = new ScrollView(activity);
+        listScroll = new BarScrollView(activity);
         serversPanel.addView(listScroll,
             new LinearLayout.LayoutParams(-1, dp(tablet ? 500 : 340)));
         list = panel();
@@ -193,7 +193,7 @@ final class ServersPage {
             (logSource.isEmpty() ? "" : " · " + logSource), 15, R.color.text_primary);
         logPanel.addView(logHeader);
         if (tablet) {
-            logScroll = new ScrollView(activity);
+            logScroll = new BarScrollView(activity);
             logPanel.addView(logScroll, new LinearLayout.LayoutParams(-1, dp(500)));
         }
         log = panel();

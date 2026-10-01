@@ -93,7 +93,7 @@ public final class ScreenerJournalActivity extends Activity {
         });
         setContentView(root);
         root.requestApplyInsets();
-        scroll = new ScrollView(this);
+        scroll = new BarScrollView(this);
         root.addView(scroll);
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);

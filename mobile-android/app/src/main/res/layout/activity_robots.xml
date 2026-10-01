@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/background"
     android:orientation="vertical">
-    <ScrollView
+    <net.osa.osenginemobile.BarScrollView
         android:id="@+id/scroll_root"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -98,7 +98,7 @@
                     android:orientation="vertical" />
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </net.osa.osenginemobile.BarScrollView>
     <HorizontalScrollView
         android:id="@+id/phone_nav"
         android:layout_width="match_parent"

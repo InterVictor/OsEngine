@@ -121,7 +121,7 @@ public final class ChartActivity extends Activity {
         header.addView(info);
         status = text("", 11, R.color.text_secondary);
         header.addView(status);
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new BarScrollView(this);
         outerScroll = scroll;
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout content = new LinearLayout(this);
