@@ -1010,6 +1010,7 @@ public final class RobotsActivity extends Activity {
             row.addView(button);
             button.setOnClickListener(view -> {
                 if ("Чарт".equals(action)) openRobot(bot);
+                else if ("Параметры".equals(action)) openParameters(bot);
                 else Toast.makeText(this, "Раздел «" + action
                     + "» будет подключён на следующем этапе", Toast.LENGTH_LONG).show();
             });
@@ -1049,6 +1050,11 @@ public final class RobotsActivity extends Activity {
         TextView chart = label("Чарт", 14, R.color.orange);
         chart.setGravity(Gravity.CENTER);
         chart.setBackgroundResource(R.drawable.input_background);
+        TextView params = label("Параметры", 14, R.color.orange);
+        params.setGravity(Gravity.CENTER);
+        params.setBackgroundResource(R.drawable.input_background);
+        top.addView(params, new LinearLayout.LayoutParams(dp(110), dp(48)));
+        params.setOnClickListener(view -> openParameters(bot));
         top.addView(chart, new LinearLayout.LayoutParams(dp(78), dp(48)));
         chart.setOnClickListener(view -> openRobot(bot));
         card.addView(top);
@@ -1077,6 +1083,16 @@ public final class RobotsActivity extends Activity {
         }
         // The robot list does not expose tab types. Resolve them on the destination screen.
         Intent intent = new Intent(this, RobotEntryActivity.class);
+        intent.putExtra("terminal_name", terminal);
+        intent.putExtra("bot_id", id);
+        intent.putExtra("bot_name", bot.optString("public_name", id));
+        startActivity(intent);
+    }
+
+    private void openParameters(JSONObject bot) {
+        String id = bot.optString("name");
+        if (id.isEmpty()) return;
+        Intent intent = new Intent(this, RobotParametersActivity.class);
         intent.putExtra("terminal_name", terminal);
         intent.putExtra("bot_id", id);
         intent.putExtra("bot_name", bot.optString("public_name", id));
