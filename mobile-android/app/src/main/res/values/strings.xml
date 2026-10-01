@@ -12,7 +12,12 @@
     <string name="connect">Подключиться</string>
     <string name="status_not_connected">SSH ещё не подключён</string>
     <string name="status_connecting">Подключение по SSH…</string>
-    <string name="status_auto_needs_password">Для автоподключения сначала войдите с паролем.</string>
+    <string name="status_auto_needs_password">Введите пароль VPS один раз, чтобы зарегистрировать ключ устройства.</string>
+    <string name="status_key_ready">Ключ устройства сохранён. Пароль не требуется.</string>
+    <string name="status_key_revoked">Ключ этого устройства отозван. Введите пароль VPS для повторной регистрации.</string>
+    <string name="status_key_registration_failed">Вход выполнен, но ключ устройства не зарегистрирован: %1$s. При следующем входе понадобится пароль.</string>
+    <string name="key_registration_title">Ключ устройства не зарегистрирован</string>
+    <string name="continue_to_terminals">Продолжить</string>
     <string name="status_connection_failed">Не удалось подключиться по SSH</string>
     <string name="host_key_title">Ключ SSH-сервера</string>
     <string name="host_key_question">Проверьте отпечаток ключа сервера перед первым подключением:</string>
@@ -35,7 +40,8 @@
     <string name="terminal_restarting">Перезапуск терминала…</string>
     <string name="terminal_preview">ПРЕДПРОСМОТР · демонстрационные данные</string>
     <string name="terminal_open_robots">Открыть роботов терминала %1$s</string>
-    <string name="terminal_open_hint">Открыть роботов  ›</string>
+    <string name="terminal_open_button">Открыть</string>
+    <string name="terminal_restart_button">Рестарт</string>
     <string name="terminal_restart_accessibility">Перезагрузить терминал %1$s</string>
     <string name="terminal_restart_failed">Не удалось перезапустить: %1$s</string>
     <string name="robots_heading">Роботы.VPS · %1$s</string>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1350" height="770" viewBox="0 0 1350 770">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.cell{fill:#12161a;stroke:#2b3239;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.th{fill:#aab3c2;font:bold 13px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}
+</style></defs>
+<rect width="1350" height="770" fill="#0d0f13"/>
+<text x="35" y="43" class="title">Окно оповещений · эскиз</text>
+<text x="35" y="67" class="small">Общее окно AlertMessageFullUi · новые события появляются сверху</text>
+<text x="39" y="101" class="white">Телефон</text>
+<rect x="34" y="115" width="366" height="612" rx="18" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="53" y="148" class="white">Окно оповещений</text><text x="359" y="148" class="white">×</text><rect x="50" y="164" width="335" height="3" fill="#fcee21"/>
+<rect x="51" y="211" width="331" height="494" class="cell"/>
+<path d="M51 251H382 M51 329H382 M51 407H382 M51 485H382 M51 563H382 M113 211V705 M210 211V705" stroke="#303840" stroke-width="1"/>
+<text x="58" y="237" class="th">Время</text><text x="121" y="237" class="th">Бот</text><text x="218" y="237" class="th">Сообщение</text>
+<text x="58" y="280" class="small">[время]</text><text x="121" y="280" class="small">[бот]</text><text x="218" y="280" class="small">[текст]</text>
+<text x="58" y="358" class="small">[время]</text><text x="121" y="358" class="small">[бот]</text><text x="218" y="358" class="small">[текст]</text>
+<text x="58" y="436" class="small">[время]</text><text x="121" y="436" class="small">[бот]</text><text x="218" y="436" class="small">[текст]</text>
+<text x="432" y="101" class="white">Планшет</text>
+<rect x="426" y="115" width="894" height="612" rx="14" class="bg" stroke="#59616a" stroke-width="2"/>
+<rect x="522" y="276" width="702" height="292" class="panel" stroke="#676f76" stroke-width="2"/>
+<text x="544" y="309" class="white">Окно оповещений</text><text x="1191" y="309" class="white">×</text>
+<rect x="537" y="326" width="671" height="224" class="cell"/>
+<path d="M537 364H1208 M537 418H1208 M537 472H1208 M657 326V550 M787 326V550" stroke="#303840" stroke-width="1"/>
+<text x="554" y="351" class="th">Время</text><text x="672" y="351" class="th">Бот</text><text x="805" y="351" class="th">Сообщение</text>
+<text x="554" y="397" class="small">[время]</text><text x="672" y="397" class="small">[бот]</text><text x="805" y="397" class="small">[текст сообщения от VPS]</text>
+<text x="554" y="451" class="small">[время]</text><text x="672" y="451" class="small">[бот]</text><text x="805" y="451" class="small">[текст сообщения от VPS]</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="790" viewBox="0 0 1480 790">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.orange{fill:#ff5500;font:bold 15px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1480" height="790" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Роботы.VPS · карточка робота · эскиз Android</text>
+<text x="28" y="64" class="small">Те же поля и действия, что в строке настольной вкладки</text>
+<text x="30" y="95" class="white">Телефон · после нажатия на робота</text>
+<rect x="28" y="109" width="370" height="650" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="140" class="orange">‹ Роботы</text><text x="263" y="140" class="white">main</text>
+<text x="45" y="177" class="title">Имя робота</text><text x="337" y="177" class="small"># —</text>
+<rect x="43" y="190" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="209" width="340" height="182" class="panel"/>
+<text x="57" y="239" class="small">Тип</text><text x="234" y="239" class="white">—</text>
+<path d="M53 251 H373" class="line"/>
+<text x="57" y="279" class="small">Первая бумага</text><text x="234" y="279" class="white">—</text>
+<path d="M53 291 H373" class="line"/>
+<text x="57" y="319" class="small">Поз (откр/закр)</text><text x="234" y="319" class="white">— / —</text>
+<path d="M53 331 H373" class="line"/>
+<text x="57" y="359" class="small">Вкл/выкл</text><rect x="234" y="344" width="21" height="21" class="button"/>
+<text x="267" y="359" class="small">Эмулятор</text><rect x="343" y="344" width="21" height="21" class="button"/>
+<text x="45" y="423" class="small">Действия робота</text>
+<rect x="43" y="439" width="340" height="45" class="button"/><text x="193" y="468" class="white">Чарт</text>
+<rect x="43" y="494" width="340" height="45" class="button"/><text x="167" y="523" class="white">Параметры</text>
+<rect x="43" y="549" width="340" height="45" class="button"/><text x="188" y="578" class="white">Удалить</text>
+<rect x="43" y="604" width="340" height="45" class="button"/><text x="191" y="633" class="white">Журнал</text>
+<text x="45" y="705" class="small">Значения заполняются из VPS</text>
+<text x="428" y="95" class="white">Планшет · действия остаются в строке таблицы</text>
+<rect x="423" y="109" width="1028" height="650" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="441" y="140" class="orange">‹ Терминалы</text><text x="577" y="140" class="white">main · Роботы.VPS</text>
+<text x="1322" y="140" class="small">Connected</text>
+<rect x="438" y="153" width="998" height="3" fill="#fcee21"/>
+<rect x="438" y="170" width="998" height="38" class="panel"/>
+<text x="454" y="195" class="orange">Роботы</text><text x="562" y="195" class="small">Позиции</text><text x="675" y="195" class="small">Серверы</text><text x="785" y="195" class="small">Портфель</text><text x="908" y="195" class="small">Прайм лог</text><text x="1033" y="195" class="small">Ордера</text>
+<rect x="438" y="226" width="998" height="90" class="panel"/>
+<g fill="#a7a8aa" font-family="Arial,sans-serif" font-size="11">
+<text x="448" y="249">#</text><text x="478" y="249">Имя робота</text><text x="584" y="249">Тип</text><text x="650" y="249">Первая бумага</text><text x="760" y="249">Поз (откр/закр)</text>
+<text x="868" y="249">Вкл</text><text x="911" y="249">Эмулятор</text><text x="985" y="249">Чарт</text><text x="1053" y="249">Параметры</text><text x="1165" y="249">Удалить</text><text x="1271" y="249">Журнал</text>
+</g>
+<path d="M444 258 H1430" class="line"/>
+<text x="448" y="288" class="white">—</text><text x="478" y="288" class="white">Имя робота</text><text x="584" y="288" class="white">—</text><text x="650" y="288" class="white">—</text><text x="760" y="288" class="white">— / —</text>
+<rect x="873" y="271" width="20" height="20" class="button"/><rect x="934" y="271" width="20" height="20" class="button"/>
+<text x="985" y="288" class="orange">Чарт</text><text x="1053" y="288" class="orange">Параметры</text><text x="1165" y="288" class="orange">Удалить</text><text x="1271" y="288" class="orange">Журнал</text>
+<text x="441" y="350" class="small">На узком планшете таблица прокручивается горизонтально.</text>
+</svg>

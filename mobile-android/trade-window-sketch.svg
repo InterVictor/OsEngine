@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{stroke:#30363c;stroke-width:1}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.ask{fill:#fe5400;font:14px Arial,sans-serif}.bid{fill:#399d36;font:14px Arial,sans-serif}.field{fill:#111217;stroke:#445059;stroke-width:1}.btn{fill:#1d2329;stroke:#49515a;stroke-width:1}
+</style></defs>
+<rect width="1400" height="850" fill="#0d0f13"/>
+<text x="35" y="40" class="title">«Торговать» → «Окно открытия позиции»</text>
+<text x="35" y="65" class="small">Полный набор исходного RobotsVpsPositionOpenUi / PositionOpenUi2</text>
+<text x="40" y="99" class="white">Телефон</text>
+<rect x="35" y="113" width="375" height="696" rx="18" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="53" y="145" class="orange">‹ Чарт</text><text x="53" y="171" class="white">Окно открытия позиции</text>
+<text x="53" y="191" class="small">main / FF143 / Base</text>
+<rect x="50" y="205" width="345" height="3" fill="#fcee21"/>
+<rect x="50" y="218" width="345" height="92" class="panel"/>
+<text x="64" y="240" class="small">Сервер</text><text x="189" y="240" class="white">BinanceFutures</text>
+<text x="64" y="263" class="small">Бумага</text><text x="189" y="263" class="white">BTCUSDT</text>
+<text x="64" y="286" class="small">Эмулятор вкл/выкл</text><text x="333" y="286" class="white">☑</text>
+<rect x="50" y="321" width="345" height="219" class="panel"/>
+<text x="64" y="344" class="small">Сумма</text><text x="125" y="344" class="small">Объём</text><text x="217" y="344" class="small">Цена</text><text x="312" y="344" class="small">Объём</text>
+<path d="M57 354 H388 M57 422 H388" class="row"/>
+<text x="68" y="378" class="ask">||||||</text><text x="139" y="378" class="ask">1.2</text><text x="218" y="378" class="ask">61 248.3</text><text x="326" y="378" class="ask">1.2</text>
+<text x="68" y="404" class="ask">||||</text><text x="139" y="404" class="ask">0.8</text><text x="218" y="404" class="ask">61 248.2</text><text x="326" y="404" class="ask">0.8</text>
+<text x="68" y="446" class="bid">|||||</text><text x="139" y="446" class="bid">1.1</text><text x="218" y="446" class="bid">61 248.1</text><text x="326" y="446" class="bid">1.1</text>
+<text x="68" y="472" class="bid">|||||||</text><text x="139" y="472" class="bid">1.4</text><text x="218" y="472" class="bid">61 248.0</text><text x="326" y="472" class="bid">1.4</text>
+<text x="64" y="519" class="tiny">При отключённой глубине — только лучшие ask / bid</text>
+<rect x="50" y="549" width="345" height="36" class="panel"/>
+<rect x="54" y="552" width="63" height="30" fill="#ff5500"/><text x="62" y="573" fill="white" font="12px Arial">Лимит</text>
+<text x="124" y="573" class="small">Маркет</text><text x="191" y="573" class="small">Стоп-Лимит</text><text x="292" y="573" class="small">Стоп-Маркет ›</text>
+<rect x="50" y="594" width="345" height="117" class="panel"/>
+<text x="65" y="624" class="small">Цена ордера</text><rect x="185" y="604" width="194" height="31" class="field"/><text x="197" y="625" class="white">61 248.1</text>
+<text x="65" y="669" class="small">Объём</text><rect x="185" y="649" width="194" height="31" class="field"/><text x="197" y="670" class="white">1</text>
+<rect x="50" y="724" width="165" height="50" class="btn"/><text x="105" y="755" class="white">Купить</text>
+<rect x="230" y="724" width="165" height="50" class="btn"/><text x="282" y="755" class="white">Продать</text>
+<text x="452" y="99" class="white">Планшет</text>
+<rect x="445" y="113" width="920" height="696" rx="14" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="465" y="145" class="orange">‹ Чарт</text><text x="575" y="145" class="white">Окно открытия позиции · main / FF143 / Base</text>
+<rect x="460" y="161" width="890" height="3" fill="#fcee21"/>
+<rect x="460" y="176" width="360" height="214" class="panel"/>
+<text x="476" y="206" class="small">Сервер:</text><text x="597" y="206" class="white">BinanceFutures</text>
+<text x="476" y="243" class="small">Бумага:</text><text x="597" y="243" class="white">BTCUSDT</text>
+<text x="476" y="280" class="small">Вкладка робота:</text><text x="597" y="280" class="white">Base</text>
+<text x="476" y="327" class="small">Эмулятор вкл/выкл</text><text x="745" y="327" class="white">☑</text>
+<rect x="832" y="176" width="518" height="404" class="panel"/>
+<text x="852" y="204" class="small">Сумма</text><text x="968" y="204" class="small">Объём</text><text x="1124" y="204" class="small">Цена</text><text x="1262" y="204" class="small">Объём</text>
+<path d="M845 217 H1337 M845 369 H1337" class="row"/>
+<text x="858" y="252" class="ask">|||||||||</text><text x="977" y="252" class="ask">2.4</text><text x="1121" y="252" class="ask">61 248.4</text><text x="1273" y="252" class="ask">2.4</text>
+<text x="858" y="290" class="ask">|||||||</text><text x="977" y="290" class="ask">1.9</text><text x="1121" y="290" class="ask">61 248.3</text><text x="1273" y="290" class="ask">1.9</text>
+<text x="858" y="328" class="ask">||||</text><text x="977" y="328" class="ask">0.8</text><text x="1121" y="328" class="ask">61 248.2</text><text x="1273" y="328" class="ask">0.8</text>
+<text x="858" y="405" class="bid">||||||</text><text x="977" y="405" class="bid">1.2</text><text x="1121" y="405" class="bid">61 248.1</text><text x="1273" y="405" class="bid">1.2</text>
+<text x="858" y="443" class="bid">|||||||</text><text x="977" y="443" class="bid">1.8</text><text x="1121" y="443" class="bid">61 248.0</text><text x="1273" y="443" class="bid">1.8</text>
+<text x="858" y="481" class="bid">||||||||</text><text x="977" y="481" class="bid">2.0</text><text x="1121" y="481" class="bid">61 247.9</text><text x="1273" y="481" class="bid">2.0</text>
+<text x="850" y="555" class="tiny">Цвет и логика уровней из исходного окна</text>
+<rect x="460" y="595" width="890" height="163" class="panel"/>
+<rect x="467" y="601" width="155" height="32" fill="#ff5500"/><text x="510" y="623" fill="white" font="14px Arial">Лимит</text>
+<rect x="625" y="601" width="155" height="32" class="btn"/><text x="672" y="623" class="white">Маркет</text>
+<rect x="783" y="601" width="175" height="32" class="btn"/><text x="818" y="623" class="white">Стоп-Лимит</text>
+<rect x="961" y="601" width="202" height="32" class="btn"/><text x="1008" y="623" class="white">Стоп-Маркет</text>
+<rect x="1166" y="601" width="175" height="32" class="btn"/><text x="1224" y="623" class="white">Фэйк</text>
+<text x="478" y="664" class="small">Цена ордера</text><rect x="618" y="643" width="184" height="30" class="field"/><text x="632" y="664" class="white">61 248.1</text>
+<text x="832" y="664" class="small">Объём</text><rect x="923" y="643" width="184" height="30" class="field"/><text x="938" y="664" class="white">1</text>
+<rect x="473" y="707" width="173" height="39" class="btn"/><text x="531" y="732" class="white">Купить</text>
+<rect x="1164" y="707" width="173" height="39" class="btn"/><text x="1218" y="732" class="white">Продать</text>
+<text x="40" y="835" class="tiny">Цены и объёмы на схеме иллюстративны; рабочий экран берёт данные только выбранного VPS-терминала.</text>
+</svg>

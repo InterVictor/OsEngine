@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="690" viewBox="0 0 1280 690">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#333a40;stroke-width:1.5}.input{fill:#111217;stroke:#4b535a;stroke-width:1}.button{fill:#1d2329;stroke:#4b535a;stroke-width:1}.title{fill:#eeefff;font:bold 24px Arial,sans-serif}.white{fill:#eeefff;font:16px Arial,sans-serif}.small{fill:#a7a8aa;font:14px Arial,sans-serif}.tiny{fill:#a7a8aa;font:12px Arial,sans-serif}.orange{fill:#ff5500;font:16px Arial,sans-serif}
+</style></defs>
+<rect width="1280" height="690" fill="#0d0f13"/>
+<text x="35" y="43" class="title">Риск Менеджер · эскиз Android</text>
+<text x="35" y="70" class="small">Исходные поля и подписи из RiskManagerUi / RobotsVpsRiskManagerUi</text>
+<text x="40" y="108" class="white">Телефон</text>
+<rect x="35" y="124" width="365" height="530" rx="18" class="bg" stroke="#595f65" stroke-width="2"/>
+<text x="54" y="157" class="orange">‹ Чарт</text>
+<text x="54" y="191" class="white">Риск Менеджер</text>
+<text x="54" y="215" class="small">main / FF143</text>
+<rect x="50" y="229" width="335" height="3" fill="#fcee21"/>
+<rect x="50" y="248" width="335" height="300" class="panel"/>
+<image x="64" y="265" width="31" height="31" href="design-assets/GreenPost.png"/>
+<text x="113" y="287" class="white">Включить</text>
+<rect x="345" y="268" width="27" height="27" class="input"/>
+<text x="350" y="288" class="orange">✓</text>
+<text x="65" y="342" class="small">Максимальный убыток за день в %</text>
+<rect x="65" y="356" width="305" height="43" class="input"/>
+<text x="79" y="384" class="white">3,0</text>
+<text x="65" y="443" class="small">Реакция на максимальный убыток</text>
+<rect x="65" y="458" width="305" height="43" class="input"/>
+<text x="79" y="486" class="white">CloseAndOff</text><text x="347" y="486" class="small">▾</text>
+<rect x="50" y="563" width="335" height="54" class="button"/>
+<text x="188" y="598" class="white">Принять</text>
+<text x="36" y="674" class="tiny">Значение процента на рисунке — только пример.</text>
+<text x="448" y="108" class="white">Планшет</text>
+<rect x="440" y="124" width="800" height="530" rx="14" class="bg" stroke="#595f65" stroke-width="2"/>
+<rect x="456" y="140" width="768" height="498" fill="#0f1115"/>
+<text x="478" y="170" class="small">Чарт · main / FF143</text>
+<path d="M480 210 H1200 M480 243 H1200 M480 276 H1200 M480 309 H1200" stroke="#272e34" stroke-width="1"/>
+<rect x="655" y="248" width="385" height="272" rx="5" class="panel"/>
+<text x="673" y="278" class="white">Риск Менеджер</text>
+<rect x="663" y="288" width="369" height="3" fill="#fcee21"/>
+<image x="674" y="304" width="25" height="25" href="design-assets/GreenPost.png"/>
+<text x="816" y="325" class="small">Включить</text><rect x="996" y="307" width="23" height="23" class="input"/><text x="1000" y="325" class="orange">✓</text>
+<text x="674" y="372" class="small">Максимальный убыток за день в %</text>
+<rect x="922" y="348" width="100" height="35" class="input"/><text x="936" y="372" class="white">3,0</text>
+<text x="674" y="420" class="small">Реакция на максимальный убыток</text>
+<rect x="922" y="396" width="100" height="35" class="input"/><text x="928" y="419" class="small">CloseAndOff ▾</text>
+<rect x="890" y="466" width="132" height="38" class="button"/><text x="928" y="492" class="white">Принять</text>
+<text x="448" y="674" class="tiny">На планшете окно остаётся компактным поверх Чарта.</text>
+</svg>

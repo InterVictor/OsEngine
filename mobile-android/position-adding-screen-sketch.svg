@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="825" viewBox="0 0 1250 825">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.ask{fill:#fe5400;font:15px Arial,sans-serif}.bid{fill:#399d36;font:15px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1250" height="825" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Окно дооткрытия позиции · эскиз Android</text>
+<text x="28" y="63" class="small">Источник: PositionAddingUi2 / RobotsVpsPositionAddingUi · пример вкладки «Лимит» и режима BidAsk</text>
+<text x="32" y="94" class="white">Телефон</text>
+<rect x="28" y="108" width="370" height="680" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="139" class="orange">‹ Позиции</text><text x="334" y="139" class="small">×</text>
+<text x="45" y="166" class="white">Окно дооткрытия позиции</text>
+<text x="45" y="188" class="small">main · Покупаем</text>
+<rect x="43" y="200" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="215" width="340" height="159" class="panel"/>
+<text x="56" y="239" class="small">Торговый сервер</text><text x="237" y="239" class="white">—</text>
+<text x="56" y="264" class="small">Инструмент</text><text x="237" y="264" class="white">—</text>
+<text x="56" y="289" class="small">Вкладка робота</text><text x="237" y="289" class="white">—</text>
+<text x="56" y="314" class="small">Номер / Статус</text><text x="237" y="314" class="white">— / —</text>
+<text x="56" y="339" class="small">Сторона / Объём</text><text x="237" y="339" class="white">Buy / —</text>
+<rect x="43" y="387" width="340" height="136" class="panel"/>
+<text x="56" y="411" class="small">Стакан · Сумма   Объём   Цена   Объём</text>
+<path d="M51 422 H375 M51 466 H375" class="line"/>
+<text x="202" y="451" class="ask">Ask  —</text><text x="202" y="493" class="bid">Bid   —</text>
+<text x="54" y="514" class="tiny">Полный стакан — только при настройке коннектора</text>
+<rect x="43" y="535" width="64" height="34" fill="#ff5500"/><text x="55" y="558" fill="#ffffff" font="13px Arial">Лимит</text>
+<text x="117" y="558" class="small">Маркет</text><text x="188" y="558" class="small">Стоп-Лимит</text><text x="295" y="558" class="small">›</text>
+<rect x="43" y="578" width="340" height="127" class="panel"/>
+<text x="56" y="609" class="small">Цена ордера</text><rect x="192" y="588" width="172" height="31" class="button"/>
+<text x="56" y="655" class="small">Объём</text><rect x="192" y="634" width="172" height="31" class="button"/>
+<rect x="43" y="718" width="340" height="43" class="button"/>
+<text x="127" y="746" class="white">Купить лимит ордером</text>
+<text x="430" y="94" class="white">Планшет</text>
+<rect x="426" y="108" width="795" height="680" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="443" y="138" class="orange">‹ Позиции</text><text x="565" y="138" class="white">main · Окно дооткрытия позиции. Покупаем</text>
+<rect x="441" y="151" width="764" height="3" fill="#fcee21"/>
+<rect x="441" y="166" width="236" height="308" class="panel"/>
+<text x="453" y="193" class="small">Торговый сервер</text><text x="604" y="193" class="white">—</text>
+<text x="453" y="230" class="small">Инструмент</text><text x="604" y="230" class="white">—</text>
+<text x="453" y="267" class="small">Вкладка робота</text><text x="604" y="267" class="white">—</text>
+<text x="453" y="304" class="small">Номер</text><text x="604" y="304" class="white">—</text>
+<text x="453" y="341" class="small">Статус</text><text x="604" y="341" class="white">—</text>
+<text x="453" y="378" class="small">Сторона</text><text x="604" y="378" class="white">Buy</text>
+<text x="453" y="415" class="small">Объём</text><text x="604" y="415" class="white">—</text>
+<rect x="689" y="166" width="516" height="308" class="panel"/>
+<text x="708" y="192" class="small">Стакан</text>
+<text x="707" y="221" class="small">Сумма</text><text x="823" y="221" class="small">Объём</text><text x="959" y="221" class="small">Цена</text><text x="1092" y="221" class="small">Объём</text>
+<path d="M703 232 H1192 M703 315 H1192 M703 397 H1192" class="line"/>
+<text x="978" y="279" class="ask">Ask  —</text><text x="978" y="362" class="bid">Bid   —</text>
+<text x="707" y="450" class="tiny">BidAsk: только две цены; полный стакан — по настройке коннектора</text>
+<rect x="441" y="489" width="110" height="37" fill="#ff5500"/><text x="472" y="513" fill="#ffffff" font="14px Arial">Лимит</text>
+<text x="565" y="513" class="small">Маркет</text><text x="680" y="513" class="small">Стоп-Лимит</text>
+<text x="827" y="513" class="small">Стоп-Маркет</text><text x="984" y="513" class="small">Фэйк</text>
+<rect x="441" y="537" width="764" height="168" class="panel"/>
+<text x="482" y="581" class="small">Цена ордера</text><rect x="665" y="557" width="315" height="33" class="button"/>
+<text x="482" y="632" class="small">Объём</text><rect x="665" y="608" width="315" height="33" class="button"/>
+<rect x="878" y="718" width="327" height="42" class="button"/>
+<text x="963" y="745" class="white">Купить лимит ордером</text>
+<text x="431" y="808" class="tiny">Поля, цены и объём заполняются только данными выбранного терминала VPS.</text>
+</svg>

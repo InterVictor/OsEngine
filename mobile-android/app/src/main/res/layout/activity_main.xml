@@ -81,7 +81,10 @@
                 android:inputType="text"
                 android:text="root" />
 
-            <TextView style="@style/OsEngineLabel" android:text="@string/ssh_password" />
+            <TextView
+                android:id="@+id/ssh_password_label"
+                style="@style/OsEngineLabel"
+                android:text="@string/ssh_password" />
             <EditText
                 android:id="@+id/ssh_password"
                 style="@style/OsEngineInput"

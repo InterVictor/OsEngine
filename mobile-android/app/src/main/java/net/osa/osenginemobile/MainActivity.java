@@ -1,10 +1,14 @@
 package net.osa.osenginemobile;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.DisplayMetrics;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.Button;
@@ -15,7 +19,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.userauth.UserAuthException;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,6 +29,7 @@ public final class MainActivity extends Activity {
     private EditText host;
     private EditText user;
     private EditText password;
+    private TextView passwordLabel;
     private CheckBox autoConnect;
     private TextView status;
     private Button connect;
@@ -54,6 +61,7 @@ public final class MainActivity extends Activity {
         host = findViewById(R.id.ssh_host);
         user = findViewById(R.id.ssh_user);
         password = findViewById(R.id.ssh_password);
+        passwordLabel = findViewById(R.id.ssh_password_label);
         autoConnect = findViewById(R.id.auto_connect);
         status = findViewById(R.id.connection_status);
         connect = findViewById(R.id.connect_button);
@@ -62,6 +70,14 @@ public final class MainActivity extends Activity {
         host.setText(profile.host());
         user.setText(profile.user());
         autoConnect.setChecked(profile.autoConnect());
+        TextWatcher targetWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void afterTextChanged(Editable s) { updatePasswordVisibility(); }
+        };
+        host.addTextChangedListener(targetWatcher);
+        user.addTextChangedListener(targetWatcher);
+        updatePasswordVisibility();
 
         autoConnect.setOnCheckedChangeListener((button, checked) -> {
             profile.setAutoConnect(checked);
@@ -77,11 +93,24 @@ public final class MainActivity extends Activity {
         layout.width = Math.min(metrics.widthPixels - Math.round(48 * metrics.density), maxWidth);
         column.setLayoutParams(layout);
 
+        String savedKey = profile.loadPrivateKey(profile.host(), profile.user());
         if (profile.autoConnect()) {
-            String saved = profile.loadPassword(profile.host(), profile.user());
-            if (saved == null) status.setText(R.string.status_auto_needs_password);
-            else beginConnect(profile.host(), profile.user(), saved);
-        }
+            if (savedKey != null) beginConnect(profile.host(), profile.user(), null, savedKey);
+            else {
+                // Migrate profiles created by the original password-only Android build.
+                String legacyPassword = profile.loadPassword(profile.host(), profile.user());
+                if (legacyPassword == null) status.setText(R.string.status_auto_needs_password);
+                else beginConnect(profile.host(), profile.user(), legacyPassword, null);
+            }
+        } else if (savedKey != null) status.setText(R.string.status_key_ready);
+    }
+
+    private void updatePasswordVisibility() {
+        boolean needsPassword = !profile.hasPrivateKey(host.getText().toString().trim(),
+            user.getText().toString().trim());
+        passwordLabel.setVisibility(needsPassword ? View.VISIBLE : View.GONE);
+        password.setVisibility(needsPassword ? View.VISIBLE : View.GONE);
+        if (!needsPassword && password.length() > 0) password.setText("");
     }
 
     @Override
@@ -108,36 +137,73 @@ public final class MainActivity extends Activity {
             user.requestFocus();
             return;
         }
-        if (password.length() == 0) {
+        String targetHost = host.getText().toString().trim();
+        String targetUser = user.getText().toString().trim();
+        String savedKey = profile.loadPrivateKey(targetHost, targetUser);
+        if (password.length() == 0 && savedKey == null) {
             password.setError(getString(R.string.error_password));
             password.requestFocus();
             return;
         }
-        String targetHost = host.getText().toString().trim();
-        String targetUser = user.getText().toString().trim();
         profile.saveForm(targetHost, targetUser, autoConnect.isChecked());
-        beginConnect(targetHost, targetUser, password.getText().toString());
+        beginConnect(targetHost, targetUser, password.getText().toString(), savedKey);
     }
 
-    private void beginConnect(String targetHost, String targetUser, String secret) {
+    private void beginConnect(String targetHost, String targetUser,
+                              String passwordSecret, String savedKey) {
         connect.setEnabled(false);
         autoConnect.setEnabled(false);
         status.setText(R.string.status_connecting);
         worker.execute(() -> {
             try {
-                SSHClient ssh = RemoteSsh.connect(this, profile, targetHost, targetUser, secret);
-                RemoteSsh.replace(ssh, targetHost);
-                if (profile.autoConnect()) {
-                    try { profile.savePassword(targetHost, targetUser, secret); }
-                    catch (Exception e) { profile.setAutoConnect(false); }
+                SSHClient ssh = null;
+                String warning = null;
+                if (savedKey != null) {
+                    try {
+                        ssh = RemoteSsh.connectWithKey(this, profile, targetHost, targetUser,
+                            savedKey);
+                    } catch (UserAuthException revoked) {
+                        profile.clearPrivateKey();
+                        RemoteSsh.close();
+                        if (passwordSecret == null || passwordSecret.isEmpty())
+                            throw new IOException(getString(R.string.status_key_revoked), revoked);
+                    }
                 }
+                if (ssh == null) {
+                    if (passwordSecret == null || passwordSecret.isEmpty())
+                        throw new IOException(getString(R.string.error_password));
+                    ssh = RemoteSsh.connect(this, profile, targetHost, targetUser, passwordSecret);
+                    RemoteSsh.replace(ssh, targetHost);
+                    try {
+                        RemoteSsh.registerDeviceKey(this, profile, targetHost, targetUser);
+                    } catch (Exception registrationError) {
+                        warning = getString(R.string.status_key_registration_failed,
+                            registrationError.getMessage());
+                    } finally {
+                        // A failed registration means the next login needs a password again.
+                        profile.clearPassword();
+                    }
+                } else {
+                    RemoteSsh.replace(ssh, targetHost);
+                    profile.clearPassword();
+                }
+                String finalWarning = warning;
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     password.setText("");
                     connect.setEnabled(true);
                     autoConnect.setEnabled(true);
                     autoConnect.setChecked(profile.autoConnect());
-                    startActivity(new Intent(this, TerminalsActivity.class));
+                    updatePasswordVisibility();
+                    if (finalWarning == null)
+                        startActivity(new Intent(this, TerminalsActivity.class));
+                    else new AlertDialog.Builder(this)
+                        .setTitle(R.string.key_registration_title)
+                        .setMessage(finalWarning)
+                        .setPositiveButton(R.string.continue_to_terminals,
+                            (dialog, which) -> startActivity(
+                                new Intent(this, TerminalsActivity.class)))
+                        .show();
                 });
             } catch (Exception e) {
                 String message = e.getMessage() == null ? getString(R.string.status_connection_failed)
@@ -146,6 +212,7 @@ public final class MainActivity extends Activity {
                     if (isFinishing() || isDestroyed()) return;
                     connect.setEnabled(true);
                     autoConnect.setEnabled(true);
+                    updatePasswordVisibility();
                     status.setText(message);
                 });
             }

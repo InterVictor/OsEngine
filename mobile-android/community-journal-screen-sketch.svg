@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="810" viewBox="0 0 1240 810">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1240" height="810" fill="#0d0f13"/>
+<text x="30" y="42" class="title">Журнал общий · эскиз Android</text>
+<text x="30" y="65" class="small">Три вкладки мобильного журнала и фильтры роботов выбранного терминала</text>
+<text x="33" y="96" class="white">Телефон</text>
+<rect x="30" y="110" width="370" height="665" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="47" y="140" class="orange">‹ Роботы.VPS</text>
+<text x="47" y="167" class="white">main · Журнал общий</text>
+<text x="47" y="187" class="small">SSH · время обновления</text>
+<rect x="45" y="200" width="340" height="3" fill="#fcee21"/>
+<rect x="45" y="215" width="87" height="34" fill="#ff5500"/>
+<text x="57" y="238" fill="#ffffff" font="13px Arial">Эквити</text>
+<text x="144" y="238" class="small">Открытые</text>
+<text x="254" y="238" class="small">Закрытые</text>
+<rect x="45" y="260" width="340" height="43" class="panel"/>
+<text x="58" y="288" class="orange">Фильтры ▾</text>
+<text x="248" y="288" class="small">Перезагрузить</text>
+<rect x="45" y="313" width="340" height="274" class="panel"/>
+<text x="59" y="337" class="small">Эквити · все выбранные роботы</text>
+<path d="M61 366 H370 M61 409 H370 M61 452 H370 M61 495 H370 M61 538 H370 M61 568 H370" class="line"/>
+<polyline points="65,527 99,506 134,516 168,473 204,484 239,447 274,452 309,403 344,414 367,372" fill="none" stroke="#ffffff" stroke-width="2"/>
+<polyline points="65,540 99,525 134,514 168,505 204,485 239,481 274,463 309,447 344,438 367,430" fill="none" stroke="#00BFFF" stroke-width="2"/>
+<polyline points="65,551 99,548 134,538 168,541 204,535 239,528 274,520 309,514 344,506 367,497" fill="none" stroke="#915000" stroke-width="2"/>
+<text x="58" y="614" font="11px Arial"><tspan fill="#ffffff">●</tspan><tspan fill="#a7a8aa"> Общая прибыль  </tspan><tspan fill="#00BFFF">●</tspan><tspan fill="#a7a8aa"> Лонг  </tspan><tspan fill="#915000">●</tspan><tspan fill="#a7a8aa"> Шорт</tspan></text>
+<rect x="45" y="628" width="340" height="112" class="panel"/>
+<text x="59" y="657" class="small">Тип линии</text><text x="270" y="657" class="white">Absolute ▾</text>
+<text x="59" y="695" class="small">Бенчмарк</text><text x="315" y="695" class="white">Off ▾</text>
+<text x="59" y="727" class="tiny">Остальные вкладки — горизонтальная прокрутка</text>
+<text x="431" y="96" class="white">Планшет</text>
+<rect x="428" y="110" width="780" height="665" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="445" y="140" class="orange">‹ Роботы.VPS</text><text x="580" y="140" class="white">main · Журнал общий</text>
+<text x="1006" y="140" class="small">SSH · обновлено</text>
+<rect x="443" y="152" width="750" height="3" fill="#fcee21"/>
+<rect x="443" y="166" width="272" height="592" class="panel"/>
+<text x="457" y="190" class="white">Фильтры    ‹</text>
+<text x="457" y="224" class="small">От</text><rect x="492" y="202" width="204" height="31" class="button"/>
+<text x="457" y="261" class="small">До</text><rect x="492" y="239" width="204" height="31" class="button"/>
+<rect x="456" y="281" width="116" height="32" class="button"/><text x="464" y="302" class="small">Перезагрузить</text>
+<text x="587" y="302" class="white">☐ Обновление</text>
+<rect x="456" y="328" width="103" height="32" fill="#ff5500"/><text x="468" y="350" fill="#ffffff" font="13px Arial">Роботы</text>
+<text x="569" y="350" class="small">Фильтр по бумагам</text>
+<rect x="456" y="370" width="245" height="373" class="bg" stroke="#30363c"/>
+<text x="466" y="394" class="small">Группа   #   Имя        Класс    Вкл/выкл  Mult % →</text>
+<path d="M460 406 H697 M460 444 H697 M460 482 H697 M460 520 H697" class="line"/>
+<text x="466" y="431" class="white">☑  робот 1</text>
+<text x="466" y="469" class="white">☑  робот 2</text>
+<text x="466" y="507" class="white">☐  робот 3</text>
+<text x="466" y="722" class="tiny">Таблица прокручивается по горизонтали</text>
+<rect x="726" y="166" width="467" height="592" class="panel"/>
+<rect x="737" y="179" width="75" height="33" fill="#ff5500"/><text x="749" y="201" fill="#ffffff" font="13px Arial">Эквити</text>
+<text x="820" y="201" class="small">Открытые позиции</text><text x="990" y="201" class="small">Закрытые позиции</text>
+<rect x="739" y="227" width="441" height="383" class="bg" stroke="#30363c"/>
+<path d="M752 274 H1167 M752 335 H1167 M752 396 H1167 M752 457 H1167 M752 518 H1167 M752 579 H1167" class="line"/>
+<polyline points="757,520 804,510 851,481 898,490 945,423 992,441 1039,383 1086,394 1133,316 1164,280" fill="none" stroke="#ffffff" stroke-width="2"/>
+<polyline points="757,540 804,531 851,510 898,504 945,484 992,470 1039,453 1086,432 1133,419 1164,401" fill="none" stroke="#00BFFF" stroke-width="2"/>
+<polyline points="757,555 804,552 851,548 898,539 945,543 992,533 1039,529 1086,516 1133,509 1164,497" fill="none" stroke="#915000" stroke-width="2"/>
+<text x="744" y="637" font="12px Arial"><tspan fill="#ffffff">●</tspan><tspan fill="#a7a8aa"> Общая прибыль    </tspan><tspan fill="#00BFFF">●</tspan><tspan fill="#a7a8aa"> Лонг    </tspan><tspan fill="#915000">●</tspan><tspan fill="#a7a8aa"> Шорт</tspan></text>
+<text x="744" y="681" class="small">Тип линии</text><text x="856" y="681" class="white">Absolute ▾</text>
+<text x="997" y="681" class="small">Бенчмарк</text><text x="1081" y="681" class="white">Off ▾</text>
+<text x="744" y="727" class="tiny">Только эквити, открытые и закрытые позиции</text>
+</svg>

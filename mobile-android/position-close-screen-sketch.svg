@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="825" viewBox="0 0 1250 825">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.ask{fill:#fe5400;font:15px Arial,sans-serif}.bid{fill:#399d36;font:15px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1250" height="825" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Окно закрытия позиции · эскиз Android</text>
+<text x="28" y="63" class="small">Источник: PositionCloseUi2 / RobotsVpsPositionCloseUi · телефон: «Стоп-Лимит», планшет: «Профит»</text>
+<text x="32" y="94" class="white">Телефон</text>
+<rect x="28" y="108" width="370" height="680" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="139" class="orange">‹ Позиции</text><text x="334" y="139" class="small">×</text>
+<text x="45" y="166" class="white">Окно закрытия позиции</text>
+<text x="45" y="188" class="small">main · выбранная позиция</text>
+<rect x="43" y="200" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="215" width="340" height="133" class="panel"/>
+<text x="56" y="240" class="small">Сервер / Инструмент</text><text x="239" y="240" class="white">— / —</text>
+<text x="56" y="266" class="small">Номер / Сторона</text><text x="239" y="266" class="white">— / —</text>
+<text x="56" y="292" class="small">Открытый объём</text><text x="239" y="292" class="white">—</text>
+<text x="56" y="318" class="small">Статус</text><text x="239" y="318" class="white">—</text>
+<rect x="43" y="360" width="340" height="104" class="panel"/>
+<text x="56" y="382" class="small">Стакан · Сумма   Объём   Цена   Объём</text>
+<path d="M52 392 H374 M52 426 H374" class="line"/>
+<text x="205" y="414" class="ask">Ask  —</text><text x="205" y="450" class="bid">Bid   —</text>
+<text x="47" y="493" class="small">Лимит</text><text x="107" y="493" class="small">Маркет</text>
+<rect x="178" y="472" width="108" height="34" fill="#ff5500"/><text x="187" y="494" fill="#ffffff" font="13px Arial">Стоп-Лимит</text>
+<text x="298" y="493" class="small">›</text>
+<rect x="43" y="517" width="340" height="200" class="panel"/>
+<text x="56" y="543" class="small">Цена активации</text><rect x="195" y="523" width="171" height="29" class="button"/>
+<text x="56" y="583" class="small">Цена ордера</text><rect x="195" y="563" width="171" height="29" class="button"/>
+<text x="56" y="622" class="white">☐ Серверный стоп ордер</text>
+<text x="56" y="661" class="small">Объём</text><rect x="195" y="640" width="171" height="29" class="button"/>
+<text x="195" y="699" class="tiny">Весь открытый объём</text>
+<rect x="43" y="727" width="221" height="41" class="button"/><text x="71" y="753" class="white">Выставить стоп ордер</text>
+<rect x="271" y="727" width="112" height="41" class="button"/><text x="293" y="753" class="white">Отозвать</text>
+<text x="430" y="94" class="white">Планшет</text>
+<rect x="426" y="108" width="795" height="680" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="443" y="138" class="orange">‹ Позиции</text><text x="565" y="138" class="white">main · Окно закрытия позиции</text>
+<rect x="441" y="151" width="764" height="3" fill="#fcee21"/>
+<rect x="441" y="166" width="236" height="308" class="panel"/>
+<text x="453" y="193" class="small">Торговый сервер</text><text x="605" y="193" class="white">—</text>
+<text x="453" y="230" class="small">Инструмент</text><text x="605" y="230" class="white">—</text>
+<text x="453" y="267" class="small">Номер</text><text x="605" y="267" class="white">—</text>
+<text x="453" y="304" class="small">Сторона</text><text x="605" y="304" class="white">—</text>
+<text x="453" y="341" class="small">Открытый объём</text><text x="605" y="341" class="white">—</text>
+<text x="453" y="378" class="small">Статус</text><text x="605" y="378" class="white">—</text>
+<rect x="689" y="166" width="516" height="308" class="panel"/>
+<text x="708" y="192" class="small">Стакан</text>
+<text x="707" y="221" class="small">Сумма</text><text x="823" y="221" class="small">Объём</text><text x="959" y="221" class="small">Цена</text><text x="1092" y="221" class="small">Объём</text>
+<path d="M703 232 H1192 M703 315 H1192 M703 397 H1192" class="line"/>
+<text x="978" y="279" class="ask">Ask  —</text><text x="978" y="362" class="bid">Bid   —</text>
+<text x="707" y="450" class="tiny">BidAsk: только две цены; полный стакан — по настройке коннектора</text>
+<text x="452" y="512" class="small">Лимит</text><text x="544" y="512" class="small">Маркет</text>
+<text x="644" y="512" class="small">Стоп-Лимит</text><text x="783" y="512" class="small">Стоп-Маркет</text>
+<rect x="926" y="488" width="102" height="38" fill="#ff5500"/><text x="952" y="512" fill="#ffffff" font="14px Arial">Профит</text>
+<text x="1052" y="512" class="small">Фэйк</text>
+<rect x="441" y="537" width="764" height="168" class="panel"/>
+<text x="482" y="581" class="small">Цена активации</text><rect x="665" y="557" width="315" height="33" class="button"/>
+<text x="482" y="632" class="small">Цена ордера</text><rect x="665" y="608" width="315" height="33" class="button"/>
+<rect x="795" y="718" width="280" height="42" class="button"/><text x="847" y="745" class="white">Выставить профит ордер</text>
+<rect x="1083" y="718" width="122" height="42" class="button"/><text x="1107" y="745" class="white">Отозвать</text>
+<text x="431" y="808" class="tiny">«Переставить стоп» и «Переставить профит» открывают это же окно с нужной вкладкой.</text>
+</svg>

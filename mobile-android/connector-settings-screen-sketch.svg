@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.cell{fill:#12161a;stroke:#2b3239;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.th{fill:#aab3c2;font:bold 12px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}.green{fill:#399d36;font:14px Arial,sans-serif}.btn{fill:#1d2329;stroke:#4b535a;stroke-width:1}
+</style></defs>
+<rect width="1400" height="860" fill="#0d0f13"/>
+<text x="33" y="42" class="title">Настройка подключения BinanceFutures · эскиз</text>
+<text x="33" y="67" class="small">Состав и порядок из AServerParameterUi / RobotsVpsServerParametersUi</text>
+<text x="36" y="101" class="white">Телефон</text>
+<rect x="31" y="115" width="363" height="713" rx="18" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="48" y="146" class="orange">‹ Серверы</text><text x="48" y="175" class="white">Настройка подключения</text><text x="48" y="197" class="small">BinanceFutures · main</text>
+<rect x="47" y="210" width="331" height="3" fill="#fcee21"/>
+<text x="48" y="239" class="orange">Преднастроенные соединения</text>
+<rect x="48" y="250" width="330" height="106" class="cell"/>
+<path d="M48 281H378 M48 319H378 M157 250V356 M208 250V356 M277 250V356" stroke="#303840" stroke-width="1"/>
+<text x="58" y="271" class="th">Имя</text><text x="163" y="271" class="th">Номер</text><text x="214" y="271" class="th">Приставка</text><text x="284" y="271" class="th">Статус</text>
+<text x="58" y="305" class="small">[экземпляр]</text><text x="164" y="305" class="small">0</text><text x="285" y="305" class="green">Connect</text>
+<text x="58" y="344" class="small">Добавить</text>
+<text x="48" y="383" class="orange">Имя</text><text x="100" y="383" class="white">BinanceFutures</text>
+<text x="48" y="409" class="orange">Статус сервера</text><text x="238" y="409" class="green">Connect</text>
+<rect x="48" y="424" width="105" height="30" fill="#ff5500"/><text x="65" y="444" class="white">Настройки</text>
+<rect x="155" y="424" width="107" height="30" class="btn"/><text x="169" y="444" class="white">Логирование</text>
+<rect x="48" y="457" width="330" height="303" class="cell"/>
+<path d="M48 490H378 M48 530H378 M48 570H378 M48 610H378 M48 650H378 M48 690H378 M48 730H378 M200 457V760" stroke="#303840" stroke-width="1"/>
+<text x="57" y="479" class="th">Название параметра</text><text x="209" y="479" class="th">Значение</text>
+<text x="57" y="515" class="white">Public key</text><text x="209" y="515" class="small">[с VPS]</text>
+<text x="57" y="555" class="white">Secret key</text><text x="209" y="555" class="white">••••••••</text>
+<text x="57" y="595" class="white">Futures Type</text><text x="209" y="595" class="white">USDT-M ▾</text>
+<text x="57" y="635" class="white">HedgeMode</text><text x="209" y="635" class="white">False ▾</text>
+<text x="57" y="675" class="white">Неторговые периоды</text><text x="209" y="675" class="orange">Неторговые периоды</text>
+<rect x="112" y="778" width="128" height="36" class="btn"/><text x="135" y="802" class="white">Подключить</text>
+<rect x="248" y="778" width="129" height="36" class="btn"/><text x="273" y="802" class="white">Отключить</text>
+<text x="430" y="101" class="white">Планшет</text>
+<rect x="425" y="115" width="942" height="713" rx="14" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="445" y="146" class="orange">‹ Серверы</text><text x="568" y="146" class="white">Настройка подключения BinanceFutures · main</text>
+<rect x="443" y="161" width="906" height="3" fill="#fcee21"/>
+<text x="445" y="193" class="orange">Преднастроенные соединения</text>
+<rect x="443" y="205" width="906" height="173" class="cell"/>
+<path d="M443 240H1349 M443 287H1349 M443 333H1349 M739 205V378 M880 205V378 M1070 205V378" stroke="#303840" stroke-width="1"/>
+<text x="456" y="228" class="th">Имя</text><text x="754" y="228" class="th">Номер</text><text x="894" y="228" class="th">Приставка</text><text x="1084" y="228" class="th">Статус</text>
+<text x="456" y="268" class="white">BinanceFutures</text><text x="754" y="268" class="white">0</text><text x="1084" y="268" class="green">Connect</text><text x="1235" y="268" class="small">Подключить</text>
+<text x="456" y="315" class="small">Добавить</text>
+<text x="445" y="407" class="orange">Имя</text><text x="506" y="407" class="white">BinanceFutures</text>
+<text x="1096" y="407" class="orange">Статус сервера</text><text x="1260" y="407" class="green">Connect</text>
+<rect x="443" y="423" width="132" height="33" fill="#ff5500"/><text x="467" y="445" class="white">Настройки</text>
+<rect x="577" y="423" width="138" height="33" class="btn"/><text x="599" y="445" class="white">Логирование</text>
+<rect x="443" y="459" width="906" height="270" class="cell"/>
+<path d="M443 493H1349 M443 532H1349 M443 571H1349 M443 610H1349 M443 649H1349 M443 688H1349 M831 459V729" stroke="#303840" stroke-width="1"/>
+<text x="457" y="482" class="th">Название параметра</text><text x="847" y="482" class="th">Значение</text>
+<text x="457" y="518" class="white">Public key</text><text x="847" y="518" class="small">[значение с VPS]</text>
+<text x="457" y="557" class="white">Secret key</text><text x="847" y="557" class="white">••••••••</text>
+<text x="457" y="596" class="white">Futures Type</text><text x="847" y="596" class="white">USDT-M ▾</text>
+<text x="457" y="635" class="white">HedgeMode</text><text x="847" y="635" class="white">False ▾</text>
+<text x="457" y="674" class="white">Неторговые периоды</text><rect x="843" y="654" width="180" height="30" class="btn"/><text x="854" y="675" class="white">Неторговые периоды</text>
+<rect x="1051" y="773" width="141" height="37" class="btn"/><text x="1076" y="798" class="white">Подключить</text>
+<rect x="1200" y="773" width="142" height="37" class="btn"/><text x="1226" y="798" class="white">Отключить</text>
+</svg>

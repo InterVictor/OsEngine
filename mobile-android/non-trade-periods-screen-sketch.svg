@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.field{fill:#111217;stroke:#4b535a;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}.btn{fill:#1d2329;stroke:#4b535a;stroke-width:1}
+</style></defs>
+<rect width="1400" height="820" fill="#0d0f13"/>
+<text x="33" y="42" class="title">Настройки неторговых периодов · эскиз</text>
+<text x="33" y="66" class="small">Структура и названия из NonTradePeriodsUi · показаны общая вкладка и вкладка одного дня</text>
+<text x="37" y="99" class="white">Телефон · общие периоды</text>
+<rect x="32" y="113" width="366" height="670" rx="18" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="49" y="145" class="orange">‹ Настройка подключения</text>
+<text x="49" y="174" class="white">Настройки неторговых периодов</text>
+<text x="49" y="195" class="small">BinanceFutures · main</text><rect x="48" y="209" width="334" height="3" fill="#fcee21"/>
+<rect x="48" y="226" width="244" height="37" fill="#ff5500"/><text x="57" y="249" class="white">Общие неторговые периоды</text>
+<rect x="294" y="226" width="88" height="37" class="btn"/><text x="303" y="249" class="white">Дни недели →</text>
+<rect x="48" y="275" width="334" height="430" class="panel"/>
+<text x="198" y="302" class="small">Начало</text><text x="294" y="302" class="small">Конец</text>
+<text x="59" y="344" class="white">☐ Неторговый</text><text x="78" y="361" class="white">период 1</text><rect x="183" y="325" width="89" height="40" class="field"/><rect x="279" y="325" width="89" height="40" class="field"/><text x="190" y="350" class="small">—:—:—:—</text><text x="286" y="350" class="small">—:—:—:—</text>
+<text x="59" y="415" class="white">☐ Неторговый</text><text x="78" y="432" class="white">период 2</text><rect x="183" y="396" width="89" height="40" class="field"/><rect x="279" y="396" width="89" height="40" class="field"/><text x="190" y="421" class="small">—:—:—:—</text><text x="286" y="421" class="small">—:—:—:—</text>
+<text x="59" y="486" class="white">☐ Неторговый</text><text x="78" y="503" class="white">период 3</text><rect x="183" y="467" width="89" height="40" class="field"/><rect x="279" y="467" width="89" height="40" class="field"/><text x="190" y="492" class="small">—:—:—:—</text><text x="286" y="492" class="small">—:—:—:—</text>
+<text x="59" y="557" class="white">☐ Неторговый</text><text x="78" y="574" class="white">период 4</text><rect x="183" y="538" width="89" height="40" class="field"/><rect x="279" y="538" width="89" height="40" class="field"/><text x="190" y="563" class="small">—:—:—:—</text><text x="286" y="563" class="small">—:—:—:—</text>
+<text x="59" y="628" class="white">☐ Неторговый</text><text x="78" y="645" class="white">период 5</text><rect x="183" y="609" width="89" height="40" class="field"/><rect x="279" y="609" width="89" height="40" class="field"/><text x="190" y="634" class="small">—:—:—:—</text><text x="286" y="634" class="small">—:—:—:—</text>
+<rect x="53" y="724" width="151" height="38" class="btn"/><text x="99" y="748" class="white">Сохранить</text>
+<rect x="219" y="724" width="157" height="38" class="btn"/><text x="270" y="748" class="white">Загрузить</text>
+<text x="432" y="99" class="white">Планшет · настройки по дням</text>
+<rect x="426" y="113" width="941" height="670" rx="14" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="446" y="145" class="orange">‹ Настройка подключения</text><text x="672" y="145" class="white">Настройки неторговых периодов · BinanceFutures</text>
+<rect x="443" y="161" width="906" height="3" fill="#fcee21"/>
+<rect x="444" y="183" width="247" height="39" class="btn"/><text x="460" y="208" class="white">Общие неторговые периоды</text>
+<rect x="693" y="183" width="310" height="39" fill="#ff5500"/><text x="717" y="208" class="white">Настройки для каждого дня недели</text>
+<rect x="1005" y="183" width="153" height="39" class="btn"/><text x="1033" y="208" class="white">Преднастройки</text>
+<rect x="444" y="237" width="906" height="43" class="panel"/>
+<text x="458" y="264" class="orange">Понедельник</text><text x="615" y="264" class="white">Вторник</text><text x="752" y="264" class="white">Среда</text><text x="876" y="264" class="white">Четверг</text><text x="1019" y="264" class="white">Пятница</text><text x="1158" y="264" class="small">Суббота  Воскресенье →</text>
+<rect x="444" y="291" width="906" height="414" class="panel"/>
+<text x="462" y="323" class="white">☐ Торгуем по понедельникам</text>
+<text x="916" y="361" class="small">Начало</text><text x="1152" y="361" class="small">Конец</text>
+<text x="463" y="405" class="white">☐ Неторговый период 1</text><rect x="890" y="376" width="179" height="38" class="field"/><rect x="1127" y="376" width="180" height="38" class="field"/><text x="911" y="401" class="small">—:—:—:—</text><text x="1148" y="401" class="small">—:—:—:—</text>
+<text x="463" y="465" class="white">☐ Неторговый период 2</text><rect x="890" y="436" width="179" height="38" class="field"/><rect x="1127" y="436" width="180" height="38" class="field"/><text x="911" y="461" class="small">—:—:—:—</text><text x="1148" y="461" class="small">—:—:—:—</text>
+<text x="463" y="525" class="white">☐ Неторговый период 3</text><rect x="890" y="496" width="179" height="38" class="field"/><rect x="1127" y="496" width="180" height="38" class="field"/><text x="911" y="521" class="small">—:—:—:—</text><text x="1148" y="521" class="small">—:—:—:—</text>
+<text x="463" y="585" class="white">☐ Неторговый период 4</text><rect x="890" y="556" width="179" height="38" class="field"/><rect x="1127" y="556" width="180" height="38" class="field"/><text x="911" y="581" class="small">—:—:—:—</text><text x="1148" y="581" class="small">—:—:—:—</text>
+<text x="463" y="645" class="white">☐ Неторговый период 5</text><rect x="890" y="616" width="179" height="38" class="field"/><rect x="1127" y="616" width="180" height="38" class="field"/><text x="911" y="641" class="small">—:—:—:—</text><text x="1148" y="641" class="small">—:—:—:—</text>
+<rect x="1051" y="724" width="138" height="38" class="btn"/><text x="1084" y="748" class="white">Сохранить</text>
+<rect x="1200" y="724" width="137" height="38" class="btn"/><text x="1234" y="748" class="white">Загрузить</text>
+</svg>

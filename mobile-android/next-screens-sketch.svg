@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="830" viewBox="0 0 1400 830">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#283037;stroke-width:1}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.green{fill:#3cb371;font:14px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1400" height="830" fill="#0d0f13"/>
+<text x="30" y="39" class="title">Следующие окна · эскизы Android</text>
+<text x="30" y="61" class="small">Параметры и журнал наследуют вкладки, действия и цвета настольной Роботы.Lite / Роботы.VPS</text>
+<text x="35" y="91" class="white">Параметры · телефон</text>
+<rect x="30" y="104" width="350" height="684" rx="18" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="48" y="136" class="orange">‹ Роботы.VPS</text><text x="48" y="162" class="white">main / FF143 · Параметры</text>
+<text x="48" y="181" class="small">SSH · обновлено 12:48:06</text>
+<rect x="45" y="194" width="320" height="3" fill="#fcee21"/>
+<rect x="45" y="207" width="53" height="31" fill="#ff5500"/><text x="55" y="228" fill="white" font="13px Arial">Base</text>
+<text x="107" y="228" class="small">Base1</text><text x="162" y="228" class="small">Base2</text><text x="220" y="228" class="small">Regime</text><text x="299" y="228" class="small">Spectrum ›</text>
+<rect x="45" y="247" width="320" height="442" class="panel"/>
+<text x="55" y="269" class="small">Название параметра</text><text x="228" y="269" class="small">Текущее значение</text>
+<path d="M52 279 H358 M218 280 V680" class="line"/>
+<g class="small">
+ <text x="58" y="302">Regime</text><text x="58" y="337">Volume type</text><text x="58" y="372">Volume</text>
+ <text x="58" y="407">Zone short frame</text><text x="58" y="442">Zone long frame</text><text x="58" y="477">Zone A2/A1 threshold</text>
+ <text x="58" y="512">Zone MA divisor</text><text x="58" y="547">Take Profit %</text><text x="58" y="582">Stop Loss %</text>
+ <text x="58" y="617">Emergency exit</text><text x="58" y="652">Emergency after bars</text>
+</g>
+<g class="white">
+ <text x="230" y="302">On ▾</text><text x="230" y="337">Deposit percent ▾</text><text x="230" y="372">1,0</text>
+ <text x="230" y="407">64</text><text x="230" y="442">152</text><text x="230" y="477">1,38</text>
+ <text x="230" y="512">5</text><text x="230" y="547">9</text><text x="230" y="582">10,0</text>
+ <text x="230" y="617">On ▾</text><text x="230" y="652">200</text>
+</g>
+<path d="M52 314 H358 M52 349 H358 M52 384 H358 M52 419 H358 M52 454 H358 M52 489 H358 M52 524 H358 M52 559 H358 M52 594 H358 M52 629 H358 M52 664 H358" class="line"/>
+<rect x="45" y="701" width="76" height="39" class="button"/><text x="52" y="726" class="small">Сохранить</text>
+<rect x="126" y="701" width="75" height="39" class="button"/><text x="135" y="726" class="small">Загрузить</text>
+<rect x="207" y="701" width="73" height="39" class="button"/><text x="216" y="726" class="small">Обновить</text>
+<rect x="285" y="701" width="80" height="39" fill="#ff5500"/><text x="299" y="726" fill="white" font="13px Arial">Принять</text>
+<text x="35" y="807" class="tiny">Названия вкладок и значения на рисунке показаны на примере FF143.</text>
+<text x="415" y="91" class="white">Журнал · телефон</text>
+<rect x="410" y="104" width="350" height="684" rx="18" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="428" y="136" class="orange">‹ Роботы.VPS</text><text x="428" y="162" class="white">main / FF143 · Журнал</text>
+<text x="428" y="181" class="small">SSH · обновлено 12:48:06</text>
+<rect x="425" y="194" width="320" height="3" fill="#fcee21"/>
+<rect x="425" y="207" width="98" height="34" fill="#ff5500"/><text x="438" y="230" fill="white" font="13px Arial">Эквити</text>
+<text x="530" y="230" class="small">Открытые</text><text x="627" y="230" class="small">Закрытые</text>
+<rect x="425" y="251" width="320" height="44" class="panel"/>
+<text x="437" y="279" class="orange">Фильтры ▾</text><text x="603" y="279" class="small">Обновить ↻</text>
+<rect x="425" y="304" width="320" height="283" class="panel"/>
+<text x="440" y="329" class="small">Эквити за выбранный период</text>
+<path d="M443 356 H730 M443 397 H730 M443 438 H730 M443 479 H730 M443 520 H730 M443 561 H730" class="line"/>
+<polyline points="447,521 476,506 506,515 535,476 565,488 594,445 624,453 653,414 683,423 725,363" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<polyline points="447,525 476,519 506,511 535,500 565,489 594,482 624,466 653,454 683,444 725,432" fill="none" stroke="#00BFFF" stroke-width="2"/>
+<polyline points="447,529 476,530 506,523 535,525 565,519 594,516 624,510 653,501 683,500 725,489" fill="none" stroke="#915000" stroke-width="2"/>
+<text x="438" y="613" font="11px Arial"><tspan fill="#FFFFFF">●</tspan><tspan fill="#a7a8aa"> Общая прибыль  </tspan><tspan fill="#00BFFF">●</tspan><tspan fill="#a7a8aa"> Лонг  </tspan><tspan fill="#915000">●</tspan><tspan fill="#a7a8aa"> Шорт</tspan></text>
+<rect x="425" y="642" width="320" height="106" class="panel"/>
+<text x="439" y="667" class="small">Тип линии</text><text x="616" y="667" class="white">Absolute ▾</text>
+<text x="439" y="704" class="small">Бенчмарк</text><text x="616" y="704" class="white">Off ▾</text>
+<text x="439" y="735" class="tiny">Остальные вкладки прокручиваются горизонтально</text>
+<text x="790" y="91" class="white">Планшет · параметры</text>
+<rect x="785" y="104" width="585" height="311" rx="12" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="800" y="132" class="orange">‹ Роботы.VPS</text><text x="935" y="132" class="white">main / FF143 · Параметры</text>
+<rect x="800" y="145" width="555" height="3" fill="#fcee21"/>
+<text x="803" y="174" class="orange">Base</text><text x="863" y="174" class="small">Base1</text><text x="928" y="174" class="small">Base2</text><text x="994" y="174" class="small">Regime switch</text><text x="1110" y="174" class="small">Spectrum</text>
+<rect x="800" y="186" width="555" height="171" class="panel"/>
+<text x="815" y="208" class="small">Название параметра</text><text x="1125" y="208" class="small">Текущее значение</text>
+<path d="M805 217 H1350 M1105 218 V354 M805 249 H1350 M805 281 H1350 M805 313 H1350 M805 345 H1350" class="line"/>
+<text x="815" y="240" class="white">Regime</text><text x="1125" y="240" class="white">On ▾</text>
+<text x="815" y="272" class="white">Volume type</text><text x="1125" y="272" class="white">Deposit percent ▾</text>
+<text x="815" y="304" class="white">Volume</text><text x="1125" y="304" class="white">1,0</text>
+<text x="815" y="336" class="white">Zone short frame</text><text x="1125" y="336" class="white">64</text>
+<rect x="800" y="368" width="115" height="31" class="button"/><text x="812" y="389" class="small">Сохранить</text>
+<rect x="923" y="368" width="112" height="31" class="button"/><text x="936" y="389" class="small">Загрузить</text>
+<rect x="1110" y="368" width="108" height="31" class="button"/><text x="1125" y="389" class="small">Обновить</text>
+<rect x="1225" y="368" width="130" height="31" fill="#ff5500"/><text x="1253" y="389" fill="white" font="13px Arial">Принять</text>
+<text x="790" y="450" class="white">Планшет · журнал</text>
+<rect x="785" y="464" width="585" height="324" rx="12" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="800" y="491" class="orange">‹ Роботы.VPS</text><text x="935" y="491" class="white">main / FF143 · Журнал</text>
+<rect x="800" y="503" width="555" height="3" fill="#fcee21"/>
+<rect x="800" y="517" width="170" height="257" class="panel"/>
+<text x="812" y="540" class="white">Фильтры    ‹</text><text x="812" y="567" class="small">От   01.09.2026</text>
+<text x="812" y="590" class="small">До  29.09.2026</text><text x="812" y="626" class="small">Роботы</text>
+<text x="812" y="648" class="white">☑ FF143</text><text x="812" y="679" class="small">Фильтр по бумагам</text>
+<text x="812" y="701" class="white">☑ BTCUSDT</text><text x="812" y="746" class="orange">Обновить ↻</text>
+<rect x="980" y="517" width="375" height="257" class="panel"/>
+<text x="990" y="540" class="orange">Эквити</text><text x="1087" y="540" class="small">Открытые позиции</text><text x="1232" y="540" class="small">Закрытые</text>
+<path d="M992 566 H1342 M992 611 H1342 M992 656 H1342 M992 701 H1342 M992 746 H1342" class="line"/>
+<polyline points="998,701 1038,689 1079,696 1120,651 1161,663 1202,618 1243,632 1284,588 1336,571" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+<polyline points="998,711 1038,709 1079,689 1120,679 1161,668 1202,657 1243,640 1284,626 1336,611" fill="none" stroke="#00BFFF" stroke-width="2"/>
+<polyline points="998,719 1038,718 1079,713 1120,708 1161,711 1202,703 1243,690 1284,684 1336,670" fill="none" stroke="#915000" stroke-width="2"/>
+<text x="1000" y="762" class="tiny">Мобильный журнал: только эквити и позиции</text>
+</svg>

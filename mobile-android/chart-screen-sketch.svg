@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850">
+<defs>
+  <style>
+    .bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.line{stroke:#30363c;stroke-width:1}.grid{stroke:#263039;stroke-width:1}.white{fill:#eeefff;font:16px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 24px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.green{fill:#3cb371;font:13px Arial,sans-serif}.chartUp{stroke:#3cb371;fill:#3cb371}.chartDown{stroke:#ff5500;fill:#ff5500}.btn{fill:#1d2329;stroke:#49515a;stroke-width:1}
+  </style>
+</defs>
+<rect width="1400" height="850" fill="#0d0f13"/>
+<text x="35" y="42" class="title">Чарт робота · эскиз</text>
+<text x="35" y="66" class="small">Действия без рубрики «Управление»; «Торговать» — последняя кнопка общего списка</text>
+<text x="40" y="104" class="white">Телефон</text>
+<rect x="35" y="122" width="360" height="692" rx="18" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="54" y="153" class="orange">‹ Роботы.VPS</text>
+<text x="54" y="180" class="white">main  /  FF143</text>
+<text x="54" y="200" class="small">BTCUSDT · Min5 · обновлено 12:48:06</text>
+<rect x="50" y="213" width="330" height="3" fill="#fcee21"/>
+<rect x="50" y="227" width="74" height="30" fill="#ff5500"/>
+<text x="59" y="248" fill="white" font="13px Arial">Base</text>
+<text x="136" y="248" class="small">Base1</text>
+<text x="207" y="248" class="small">Base2</text>
+<text x="277" y="248" class="small">Regime ›</text>
+<rect x="50" y="267" width="330" height="279" class="panel"/>
+<text x="62" y="289" class="small">BTCUSDT · свечи / индикаторы / позиции</text>
+<text x="328" y="289" class="orange">⤢</text>
+<path d="M58 324 H372 M58 368 H372 M58 412 H372 M58 456 H372 M58 500 H372 M96 300 V535 M155 300 V535 M214 300 V535 M273 300 V535 M332 300 V535" class="grid"/>
+<g stroke-width="2">
+ <path d="M84 438 V482 M116 423 V465 M148 390 V440 M180 350 V404 M212 369 V413 M244 330 V392 M276 346 V389 M308 315 V364 M340 327 V370" stroke="#88949d"/>
+ <rect x="78" y="448" width="12" height="21" class="chartUp"/><rect x="110" y="432" width="12" height="22" class="chartUp"/><rect x="142" y="398" width="12" height="31" class="chartUp"/><rect x="174" y="361" width="12" height="26" class="chartUp"/><rect x="206" y="377" width="12" height="25" class="chartDown"/><rect x="238" y="343" width="12" height="31" class="chartUp"/><rect x="270" y="356" width="12" height="22" class="chartDown"/><rect x="302" y="326" width="12" height="30" class="chartUp"/><rect x="334" y="339" width="12" height="18" class="chartDown"/>
+</g>
+<text x="58" y="537" class="tiny">← история · масштаб →</text>
+<rect x="50" y="555" width="330" height="136" class="panel"/>
+<rect x="53" y="557" width="324" height="18" class="btn"/><text x="63" y="571" class="small">Журнал</text>
+<rect x="53" y="576" width="324" height="18" class="btn"/><text x="63" y="590" class="small">Настройки торговли бота</text>
+<rect x="53" y="595" width="324" height="18" class="btn"/><text x="63" y="609" class="small">Параметры</text>
+<rect x="53" y="614" width="324" height="18" class="btn"/><text x="63" y="628" class="small">Риск-менеджер</text>
+<rect x="53" y="633" width="324" height="18" class="btn"/><text x="63" y="647" class="small">Сопровождение позиции</text>
+<rect x="53" y="652" width="324" height="18" class="btn"/><text x="63" y="666" class="small">Настройки данных</text>
+<rect x="53" y="671" width="324" height="18" class="btn"/><text x="63" y="685" class="small">Торговать</text>
+<rect x="50" y="697" width="330" height="39" class="panel"/>
+<text x="58" y="721" class="orange">Открытые</text><text x="141" y="721" class="small">Стоп-лимит</text><text x="242" y="721" class="small">Закрытые</text><text x="337" y="721" class="small">Лог</text>
+<rect x="50" y="742" width="330" height="56" class="panel"/>
+<text x="63" y="763" class="small">Позиция #70850 · BTCUSDT</text><text x="63" y="784" class="tiny">Нижняя панель раскрывается и прокручивается</text>
+<text x="438" y="104" class="white">Планшет</text>
+<rect x="430" y="122" width="930" height="692" rx="14" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="451" y="153" class="orange">‹ Роботы.VPS</text><text x="604" y="153" class="white">main / FF143 / BTCUSDT / Min5</text><text x="1222" y="153" class="small">12:48:06</text>
+<rect x="445" y="170" width="900" height="3" fill="#fcee21"/>
+<rect x="445" y="184" width="900" height="35" class="panel"/>
+<rect x="450" y="188" width="85" height="27" fill="#ff5500"/><text x="465" y="208" fill="white" font="13px Arial">FF143</text>
+<text x="556" y="208" class="small">Base</text><text x="623" y="208" class="small">Base1</text><text x="690" y="208" class="small">Base2</text><text x="757" y="208" class="small">Regime switch</text><text x="900" y="208" class="small">Spectrum</text>
+<rect x="445" y="229" width="596" height="392" class="panel"/>
+<rect x="445" y="229" width="45" height="392" fill="#1b2126"/>
+<rect x="448" y="237" width="39" height="50" fill="#ff5500"/><text x="459" y="267" fill="white" font="12px Arial">1</text>
+<text x="457" y="318" class="small">2</text><text x="457" y="362" class="small">3</text>
+<text x="510" y="251" class="small">График · свечи, индикаторы, метки позиций</text><text x="977" y="251" class="orange">⤢</text>
+<path d="M495 294 H1030 M495 349 H1030 M495 404 H1030 M495 459 H1030 M495 514 H1030 M495 569 H1030 M550 262 V605 M650 262 V605 M750 262 V605 M850 262 V605 M950 262 V605" class="grid"/>
+<polyline points="507,511 557,480 607,492 657,437 707,449 757,406 807,416 857,375 907,391 957,339 1018,352" fill="none" stroke="#d2a735" stroke-width="2"/>
+<g stroke-width="2">
+ <path d="M535 488 V537 M590 455 V510 M645 431 V484 M700 398 V459 M755 417 V465 M810 368 V425 M865 382 V432 M920 331 V393 M975 345 V397" stroke="#88949d"/>
+ <rect x="527" y="499" width="16" height="27" class="chartUp"/><rect x="582" y="468" width="16" height="28" class="chartUp"/><rect x="637" y="442" width="16" height="28" class="chartUp"/><rect x="692" y="411" width="16" height="28" class="chartUp"/><rect x="747" y="429" width="16" height="27" class="chartDown"/><rect x="802" y="383" width="16" height="28" class="chartUp"/><rect x="857" y="393" width="16" height="30" class="chartDown"/><rect x="912" y="346" width="16" height="31" class="chartUp"/><rect x="967" y="357" width="16" height="28" class="chartDown"/>
+</g>
+<text x="507" y="607" class="tiny">Прокрутка · масштаб · шкала времени</text>
+<rect x="1051" y="229" width="294" height="392" class="panel"/>
+<rect x="1066" y="245" width="264" height="40" class="btn"/><text x="1081" y="270" class="white">Журнал</text>
+<rect x="1066" y="293" width="264" height="40" class="btn"/><text x="1081" y="318" class="white">Настройки торговли бота</text>
+<rect x="1066" y="341" width="264" height="40" class="btn"/><text x="1081" y="366" class="white">Параметры</text>
+<rect x="1066" y="389" width="264" height="40" class="btn"/><text x="1081" y="414" class="white">Риск-менеджер</text>
+<rect x="1066" y="437" width="264" height="40" class="btn"/><text x="1081" y="462" class="white">Сопровождение позиции</text>
+<rect x="1066" y="485" width="264" height="40" class="btn"/><text x="1081" y="510" class="white">Настройки данных</text>
+<rect x="1066" y="533" width="264" height="40" class="btn"/><text x="1081" y="558" class="white">Торговать</text>
+<rect x="445" y="633" width="900" height="165" class="panel"/>
+<text x="462" y="658" class="orange">Открытые позиции</text><text x="634" y="658" class="small">Стоп-лимит</text><text x="757" y="658" class="small">Закрытые позиции</text><text x="946" y="658" class="small">Лог робота</text>
+<path d="M455 669 H1335" class="line"/>
+<text x="463" y="695" class="small">№ позиции</text><text x="600" y="695" class="small">Бумага</text><text x="741" y="695" class="small">Направление</text><text x="901" y="695" class="small">Объём</text><text x="1036" y="695" class="small">Цена</text><text x="1180" y="695" class="small">Состояние</text>
+<text x="463" y="724" class="white">70850</text><text x="600" y="724" class="white">BTCUSDT</text><text x="741" y="724" class="green">Buy</text><text x="901" y="724" class="white">0.01</text><text x="1036" y="724" class="white">61 250.0</text><text x="1180" y="724" class="white">Open</text>
+<text x="461" y="781" class="tiny">Разделитель позволяет изменить высоту нижней панели</text>
+<text x="40" y="837" class="tiny">Данные на рисунке схематичны; рабочий экран показывает только ответ выбранного терминала.</text>
+</svg>

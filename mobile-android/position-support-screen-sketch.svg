@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.field{fill:#111217;stroke:#4b535a;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.heading{fill:#eeefff;font:bold 15px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}.btn{fill:#1d2329;stroke:#4b535a;stroke-width:1}
+</style></defs>
+<rect width="1400" height="860" fill="#0d0f13"/>
+<text x="34" y="41" class="title">Настройки сопровождения позиций · эскиз</text>
+<text x="34" y="66" class="small">Поля и группы из BotManualControlUi / RobotsVpsPositionSupportUi</text>
+<text x="39" y="97" class="white">Телефон</text>
+<rect x="34" y="112" width="360" height="713" rx="17" class="bg" stroke="#595f65" stroke-width="2"/>
+<text x="52" y="144" class="orange">‹ Чарт</text><text x="52" y="171" class="white">Настройки сопровождения позиций</text>
+<text x="52" y="192" class="small">main / FF143 / Base</text><rect x="49" y="205" width="330" height="3" fill="#fcee21"/>
+<rect x="49" y="219" width="330" height="85" class="panel"/>
+<text x="60" y="238" class="heading">Стоп</text><text x="323" y="238" class="orange">☑</text>
+<text x="60" y="263" class="small">От входа до Стопа</text><rect x="238" y="245" width="125" height="24" class="field"/><text x="249" y="263" class="small">—</text>
+<text x="60" y="291" class="small">Проскальз.</text><rect x="238" y="273" width="125" height="24" class="field"/><text x="249" y="291" class="small">—</text>
+<rect x="49" y="310" width="330" height="85" class="panel"/>
+<text x="60" y="329" class="heading">Профит</text><text x="323" y="329" class="orange">☑</text>
+<text x="60" y="354" class="small">От входа до Профита</text><rect x="238" y="336" width="125" height="24" class="field"/><text x="249" y="354" class="small">—</text>
+<text x="60" y="382" class="small">Проскальз.</text><rect x="238" y="364" width="125" height="24" class="field"/><text x="249" y="382" class="small">—</text>
+<rect x="49" y="401" width="330" height="85" class="panel"/>
+<text x="60" y="420" class="heading">Закрытие позиции</text>
+<text x="60" y="445" class="small">☑ Секунд на закрытие</text><rect x="238" y="427" width="125" height="24" class="field"/><text x="249" y="445" class="small">—</text>
+<text x="60" y="473" class="small">☑ Макс откат цены</text><rect x="238" y="455" width="125" height="24" class="field"/><text x="249" y="473" class="small">—</text>
+<rect x="49" y="492" width="330" height="85" class="panel"/>
+<text x="60" y="511" class="heading">Открытие позиции</text>
+<text x="60" y="536" class="small">☑ Секунд на открытие</text><rect x="238" y="518" width="125" height="24" class="field"/><text x="249" y="536" class="small">—</text>
+<text x="60" y="564" class="small">☑ Макс откат цены</text><rect x="238" y="546" width="125" height="24" class="field"/><text x="249" y="564" class="small">—</text>
+<rect x="49" y="583" width="330" height="74" class="panel"/>
+<text x="60" y="602" class="heading">Ордер на закрытие отозван</text>
+<text x="60" y="628" class="small">☑ Реакция</text><text x="244" y="628" class="white">Limit ▾</text>
+<text x="60" y="648" class="small">Проскальз.</text><text x="244" y="648" class="small">—</text>
+<rect x="49" y="663" width="330" height="96" class="panel"/>
+<text x="60" y="682" class="small">Тип переменных</text><text x="235" y="682" class="white">MinPriceStep ▾</text>
+<text x="60" y="705" class="small">Время жизни ордера</text><text x="264" y="705" class="white">GTC ▾</text>
+<text x="60" y="729" class="small">☐ Лимит ордера только мейкер</text>
+<image x="61" y="773" width="27" height="27" href="design-assets/GreenPost.png"/>
+<rect x="206" y="770" width="173" height="42" class="btn"/><text x="260" y="797" class="white">Принять</text>
+<text x="430" y="97" class="white">Планшет</text>
+<rect x="425" y="112" width="940" height="713" rx="13" class="bg" stroke="#595f65" stroke-width="2"/>
+<text x="443" y="145" class="orange">‹ Чарт</text><text x="560" y="145" class="white">Настройки сопровождения позиций · main / FF143 / Base</text>
+<rect x="442" y="160" width="905" height="3" fill="#fcee21"/>
+<rect x="442" y="178" width="438" height="148" class="panel"/>
+<text x="458" y="207" class="heading">Стоп</text><text x="827" y="207" class="orange">☑</text>
+<text x="458" y="250" class="white">От входа до Стопа</text><rect x="708" y="228" width="152" height="35" class="field"/><text x="723" y="251" class="small">—</text>
+<text x="458" y="296" class="white">Проскальз.</text><rect x="708" y="274" width="152" height="35" class="field"/><text x="723" y="297" class="small">—</text>
+<rect x="892" y="178" width="455" height="148" class="panel"/>
+<text x="908" y="207" class="heading">Профит</text><text x="1304" y="207" class="orange">☑</text>
+<text x="908" y="250" class="white">От входа до Профита</text><rect x="1167" y="228" width="160" height="35" class="field"/><text x="1183" y="251" class="small">—</text>
+<text x="908" y="296" class="white">Проскальз.</text><rect x="1167" y="274" width="160" height="35" class="field"/><text x="1183" y="297" class="small">—</text>
+<rect x="442" y="339" width="438" height="166" class="panel"/>
+<text x="458" y="368" class="heading">Закрытие позиции</text>
+<text x="458" y="415" class="white">☑ Секунд на закрытие</text><rect x="708" y="393" width="152" height="35" class="field"/><text x="723" y="416" class="small">—</text>
+<text x="458" y="471" class="white">☑ Макс откат цены</text><rect x="708" y="449" width="152" height="35" class="field"/><text x="723" y="472" class="small">—</text>
+<rect x="892" y="339" width="455" height="166" class="panel"/>
+<text x="908" y="368" class="heading">Открытие позиции</text>
+<text x="908" y="415" class="white">☑ Секунд на открытие</text><rect x="1167" y="393" width="160" height="35" class="field"/><text x="1183" y="416" class="small">—</text>
+<text x="908" y="471" class="white">☑ Макс откат цены</text><rect x="1167" y="449" width="160" height="35" class="field"/><text x="1183" y="472" class="small">—</text>
+<rect x="442" y="518" width="438" height="208" class="panel"/>
+<text x="458" y="547" class="heading">Ордер на закрытие отозван</text>
+<text x="458" y="602" class="white">☑ Реакция</text><rect x="708" y="580" width="152" height="35" class="field"/><text x="723" y="603" class="white">Limit ▾</text>
+<text x="458" y="661" class="white">Проскальз.</text><rect x="708" y="639" width="152" height="35" class="field"/><text x="723" y="662" class="small">—</text>
+<rect x="892" y="518" width="455" height="208" class="panel"/>
+<text x="908" y="557" class="white">Тип переменных</text><text x="1168" y="557" class="white">MinPriceStep ▾</text>
+<text x="908" y="612" class="white">Время жизни ордера</text><text x="1202" y="612" class="white">GTC ▾</text>
+<text x="908" y="668" class="white">☐ Лимит ордера только мейкер</text>
+<image x="459" y="751" width="34" height="34" href="design-assets/GreenPost.png"/>
+<rect x="1118" y="749" width="229" height="48" class="btn"/><text x="1197" y="779" class="white">Принять</text>
+<text x="36" y="846" class="tiny">Поля «—» заполняются данными выбранной вкладки робота с VPS. Иконка инструкции — оригинальный ресурс OsEngine.</text>
+</svg>

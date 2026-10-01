@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1370" height="790" viewBox="0 0 1370 790">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.orange{fill:#ff5500;font:bold 15px Arial,sans-serif}.input{fill:#1e252a;stroke:#46525c;stroke-width:1}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1370" height="790" fill="#0d0f13"/>
+<text x="28" y="40" class="title">SSH · подтверждение ключа сервера · эскиз Android</text>
+<text x="28" y="64" class="small">Адрес и отпечаток на рисунке обозначены заполнителями</text>
+<text x="30" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="650" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="146" class="title">OsEngine Mobile</text><rect x="43" y="168" width="340" height="3" fill="#fcee21"/>
+<text x="45" y="210" class="title">Подключение SSH</text>
+<text x="45" y="256" class="small">SSH host</text><rect x="43" y="266" width="340" height="42" class="input"/>
+<text x="45" y="347" class="small">SSH user</text><rect x="43" y="357" width="340" height="42" class="input"/>
+<text x="45" y="438" class="small">SSH password</text><rect x="43" y="448" width="340" height="42" class="input"/>
+<rect x="43" y="558" width="340" height="48" class="button"/>
+<rect x="29" y="110" width="368" height="648" fill="#000000" opacity="0.53"/>
+<rect x="48" y="264" width="330" height="292" rx="7" class="panel"/>
+<text x="64" y="299" class="white">Ключ SSH-сервера</text>
+<text x="64" y="335" class="small">Проверьте отпечаток ключа</text><text x="64" y="354" class="small">сервера перед первым подключением:</text>
+<text x="64" y="388" class="white">&lt;SSH host&gt;:22</text>
+<text x="64" y="416" class="white">&lt;алгоритм&gt;</text>
+<text x="64" y="444" class="white">SHA256:&lt;отпечаток&gt;</text>
+<rect x="64" y="489" width="110" height="44" class="button"/><text x="96" y="517" class="white">Отмена</text>
+<rect x="185" y="489" width="174" height="44" class="button"/><text x="213" y="517" class="orange">Доверять ключу</text>
+<text x="428" y="95" class="white">Планшет</text>
+<rect x="423" y="109" width="918" height="650" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="445" y="146" class="title">OsEngine Mobile</text><rect x="438" y="168" width="888" height="3" fill="#fcee21"/>
+<rect x="639" y="211" width="485" height="475" class="panel"/>
+<text x="663" y="251" class="title">Подключение SSH</text>
+<text x="663" y="292" class="small">SSH host</text><rect x="662" y="302" width="438" height="42" class="input"/>
+<text x="663" y="377" class="small">SSH user</text><rect x="662" y="387" width="438" height="42" class="input"/>
+<text x="663" y="462" class="small">SSH password</text><rect x="662" y="472" width="438" height="42" class="input"/>
+<rect x="424" y="110" width="916" height="648" fill="#000000" opacity="0.53"/>
+<rect x="665" y="254" width="436" height="320" rx="7" class="panel"/>
+<text x="686" y="292" class="white">Ключ SSH-сервера</text>
+<text x="686" y="336" class="small">Проверьте отпечаток ключа сервера</text><text x="686" y="356" class="small">перед первым подключением:</text>
+<text x="686" y="395" class="white">&lt;SSH host&gt;:22</text><text x="686" y="425" class="white">&lt;алгоритм&gt;</text>
+<text x="686" y="455" class="white">SHA256:&lt;отпечаток&gt;</text>
+<rect x="686" y="502" width="169" height="48" class="button"/><text x="742" y="532" class="white">Отмена</text>
+<rect x="871" y="502" width="207" height="48" class="button"/><text x="911" y="532" class="orange">Доверять ключу</text>
+</svg>

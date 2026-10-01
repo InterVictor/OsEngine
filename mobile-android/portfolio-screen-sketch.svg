@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1580" height="800" viewBox="0 0 1580 800">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}.gridtext{fill:#a7a8aa;font:11px Arial,sans-serif}.gridvalue{fill:#eeefff;font:12px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1580" height="800" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Роботы.VPS · Портфель · эскиз Android</text>
+<text x="28" y="63" class="small">Сводная строка портфеля и строки инструментов; действия принадлежат разным строкам</text>
+<text x="31" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="658" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="140" class="orange">‹ Терминалы</text><text x="235" y="140" class="white">main · Connected</text>
+<text x="45" y="165" class="small">Роботы.VPS · последнее обновление</text>
+<rect x="43" y="178" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="192" width="340" height="37" class="panel"/>
+<text x="56" y="216" class="small">Роботы</text><text x="139" y="216" class="small">Позиции</text>
+<text x="222" y="216" class="small">Серверы</text><text x="309" y="216" class="orange">›</text>
+<text x="45" y="258" class="orange">Портфель</text>
+<rect x="43" y="272" width="340" height="228" class="panel"/>
+<text x="56" y="299" class="white">Сервер / Портфель</text><text x="56" y="323" class="small">— / —</text>
+<path d="M52 337 H374" class="line"/>
+<text x="56" y="363" class="small">Средства входящие</text><text x="265" y="363" class="white">—</text>
+<text x="56" y="389" class="small">Средства сейчас</text><text x="265" y="389" class="white">—</text>
+<text x="56" y="415" class="small">Средства блок.</text><text x="265" y="415" class="white">—</text>
+<text x="56" y="441" class="small">Незакрытая прибыль</text><text x="265" y="441" class="white">—</text>
+<rect x="56" y="453" width="314" height="34" class="button"/>
+<text x="147" y="476" class="white">Сравнить позиции</text>
+<rect x="43" y="515" width="340" height="222" class="panel"/>
+<text x="56" y="543" class="white">Инструмент  —</text>
+<path d="M52 554 H374" class="line"/>
+<text x="56" y="581" class="small">Объём входящий</text><text x="265" y="581" class="white">—</text>
+<text x="56" y="607" class="small">Объём сейчас</text><text x="265" y="607" class="white">—</text>
+<text x="56" y="633" class="small">Объём блок.</text><text x="265" y="633" class="white">—</text>
+<text x="56" y="659" class="small">Незакрытая прибыль</text><text x="265" y="659" class="white">—</text>
+<rect x="251" y="684" width="119" height="38" class="button"/>
+<text x="278" y="709" class="white">Закрыть</text>
+<text x="427" y="95" class="white">Планшет</text>
+<rect x="423" y="109" width="1126" height="658" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="441" y="140" class="orange">‹ Терминалы</text><text x="577" y="140" class="white">main · Роботы.VPS</text>
+<text x="1397" y="140" class="small">Connected</text>
+<rect x="438" y="153" width="1095" height="3" fill="#fcee21"/>
+<rect x="438" y="170" width="1095" height="38" class="panel"/>
+<text x="454" y="195" class="small">Роботы</text><text x="563" y="195" class="small">Позиции</text>
+<text x="674" y="195" class="small">Серверы</text><text x="782" y="195" class="orange">Портфель</text>
+<text x="902" y="195" class="small">Прайм лог</text><text x="1034" y="195" class="small">Ордера</text>
+<rect x="438" y="223" width="1095" height="504" class="panel"/>
+<rect x="446" y="233" width="1077" height="74" class="row"/>
+<g class="gridtext">
+<text x="452" y="263">Сервер</text><text x="542" y="263">Портфель</text>
+<text x="632" y="258">Средства</text><text x="632" y="273">входящие</text>
+<text x="722" y="258">Средства</text><text x="722" y="273">сейчас</text>
+<text x="812" y="258">Средства</text><text x="812" y="273">блок.</text>
+<text x="902" y="258">Незакрытая</text><text x="902" y="273">прибыль</text>
+<text x="992" y="263">Инструмент</text>
+<text x="1082" y="258">Объём</text><text x="1082" y="273">входящий</text>
+<text x="1172" y="258">Объём</text><text x="1172" y="273">сейчас</text>
+<text x="1262" y="258">Объём</text><text x="1262" y="273">блок.</text>
+<text x="1352" y="258">Незакрытая</text><text x="1352" y="273">прибыль</text>
+</g>
+<rect x="446" y="310" width="1077" height="56" class="row"/>
+<text x="452" y="342" class="gridvalue">—</text><text x="542" y="342" class="gridvalue">—</text>
+<text x="632" y="342" class="gridvalue">—</text><text x="722" y="342" class="gridvalue">—</text>
+<text x="812" y="342" class="gridvalue">—</text><text x="902" y="342" class="gridvalue">—</text>
+<rect x="1376" y="318" width="139" height="37" class="button"/><text x="1390" y="342" class="gridvalue">Сравнить позиции</text>
+<rect x="446" y="369" width="1077" height="56" class="row"/>
+<text x="991" y="402" class="gridvalue">—</text><text x="1082" y="402" class="gridvalue">—</text>
+<text x="1172" y="402" class="gridvalue">—</text><text x="1262" y="402" class="gridvalue">—</text>
+<text x="1352" y="402" class="gridvalue">—</text>
+<rect x="1413" y="377" width="102" height="37" class="button"/><text x="1434" y="401" class="gridvalue">Закрыть</text>
+<path d="M536 233 V425 M626 233 V425 M716 233 V425 M806 233 V425 M896 233 V425 M986 233 V425 M1076 233 V425 M1166 233 V425 M1256 233 V425 M1346 233 V425 M1407 233 V425" class="line"/>
+<rect x="446" y="675" width="450" height="10" fill="#a7a8aa"/>
+<rect x="896" y="675" width="626" height="10" fill="#30363c"/>
+<text x="448" y="710" class="tiny">Широкая таблица прокручивается горизонтально; действие остаётся в своей строке.</text>
+<text x="428" y="788" class="tiny">Поля со знаком «—» заполняются данными выбранного VPS-терминала.</text>
+</svg>

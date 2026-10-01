@@ -16,5 +16,14 @@
         </activity>
         <activity android:name=".TerminalsActivity" android:exported="false" />
         <activity android:name=".RobotsActivity" android:exported="false" />
+        <activity android:name=".ChartActivity" android:exported="false" />
+        <activity android:name=".RobotEntryActivity" android:exported="false" />
+        <activity android:name=".ConnectorSettingsActivity" android:exported="false" />
+        <activity android:name=".NonTradePeriodsActivity" android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ComparePositionsActivity" android:exported="false" />
+        <activity android:name=".ScreenerJournalActivity" android:exported="false" />
+        <activity android:name=".PositionActionActivity" android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

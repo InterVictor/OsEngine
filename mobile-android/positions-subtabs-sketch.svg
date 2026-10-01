@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="720" viewBox="0 0 1250 720">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1250" height="720" fill="#0d0f13"/>
+<text x="27" y="40" class="title">Позиции · остальные вкладки · эскиз Android</text>
+<text x="27" y="63" class="small">Состав столбцов и действий взят из таблиц настольной Роботы.VPS</text>
+<text x="32" y="94" class="white">Телефон · Стоп Лимит</text>
+<rect x="28" y="108" width="367" height="576" rx="16" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="139" class="orange">‹ Терминалы</text><text x="230" y="139" class="white">main · Позиции</text>
+<rect x="43" y="153" width="337" height="3" fill="#fcee21"/>
+<text x="47" y="187" class="small">Активные позиции</text>
+<rect x="189" y="165" width="106" height="35" fill="#ff5500"/><text x="202" y="188" fill="#ffffff" font="13px Arial">Стоп Лимит</text>
+<text x="309" y="188" class="small">Заверш. ›</text>
+<rect x="43" y="214" width="337" height="286" class="panel"/>
+<text x="56" y="240" class="white">Номер  —</text><text x="337" y="240" class="orange">⋮</text>
+<path d="M52 251 H371" class="line"/>
+<text x="56" y="276" class="small">Время создания</text><text x="232" y="276" class="white">—</text>
+<text x="56" y="303" class="small">Имя вкладки / Бумага</text><text x="232" y="303" class="white">— / —</text>
+<text x="56" y="330" class="small">Объём / Сторона</text><text x="232" y="330" class="white">— / —</text>
+<text x="56" y="357" class="small">Тип активации</text><text x="232" y="357" class="white">—</text>
+<text x="56" y="384" class="small">Цена активации</text><text x="232" y="384" class="white">—</text>
+<text x="56" y="411" class="small">Цена ордера</text><text x="232" y="411" class="white">—</text>
+<text x="56" y="438" class="small">Время жизни свечей</text><text x="232" y="438" class="white">—</text>
+<text x="56" y="465" class="small">Тип жизни заявки</text><text x="232" y="465" class="white">—</text>
+<rect x="43" y="514" width="337" height="108" class="panel"/>
+<text x="56" y="542" class="orange">Действия стоп-лимита</text>
+<path d="M52 551 H371 M52 585 H371" class="line"/>
+<text x="56" y="575" class="white">Удалить все</text>
+<text x="56" y="609" class="white">Удалить выбранную</text>
+<text x="430" y="94" class="white">Планшет · Завершённые позиции</text>
+<rect x="426" y="108" width="797" height="576" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="443" y="139" class="orange">‹ Терминалы</text><text x="576" y="139" class="white">main · Позиции</text>
+<rect x="441" y="153" width="766" height="3" fill="#fcee21"/>
+<text x="449" y="187" class="small">Активные позиции</text><text x="623" y="187" class="small">Стоп Лимит</text>
+<rect x="756" y="165" width="210" height="35" fill="#ff5500"/><text x="774" y="188" fill="#ffffff" font="13px Arial">Завершённые позиции</text>
+<rect x="441" y="215" width="766" height="366" class="panel"/>
+<rect x="450" y="225" width="748" height="47" class="row"/>
+<text x="458" y="254" class="small">Номер</text><text x="535" y="254" class="small">Время отк</text>
+<text x="666" y="254" class="small">Время зак.</text><text x="799" y="254" class="small">Бот</text>
+<text x="877" y="254" class="small">Инструмент</text><text x="1028" y="254" class="small">Напр.</text>
+<text x="1118" y="254" class="small">Состояние</text>
+<rect x="450" y="273" width="748" height="54" class="row"/>
+<path d="M526 225 V328 M658 225 V328 M791 225 V328 M870 225 V328 M1021 225 V328 M1110 225 V328" class="line"/>
+<text x="458" y="306" class="white">70850</text><text x="540" y="306" class="white">—</text>
+<text x="668" y="306" class="white">—</text><text x="801" y="306" class="white">FF143</text>
+<text x="883" y="306" class="white">BTCUSDT</text><text x="1033" y="306" class="white">Buy</text>
+<text x="1122" y="306" class="white">Done</text>
+<rect x="450" y="338" width="314" height="11" fill="#a7a8aa"/>
+<rect x="764" y="338" width="434" height="11" fill="#30363c"/>
+<text x="450" y="380" class="tiny">Горизонтальная прокрутка сохраняет 19 исходных колонок</text>
+<rect x="451" y="493" width="747" height="63" class="panel"/>
+<text x="466" y="519" class="orange">Действие выбранной завершённой позиции</text>
+<text x="466" y="545" class="white">Удалить позицию</text>
+<text x="430" y="705" class="tiny">Номер на рисунке приведён только для иллюстрации; фактические значения поступают с VPS.</text>
+</svg>

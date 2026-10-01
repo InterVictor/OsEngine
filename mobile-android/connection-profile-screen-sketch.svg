@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1370" height="790" viewBox="0 0 1370 790">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.input{fill:#1e252a;stroke:#46525c;stroke-width:1}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.orange{fill:#ff5500;font:bold 15px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}.muted{fill:#7e858a;font:13px Arial,sans-serif}
+</style></defs>
+<rect width="1370" height="790" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Профиль подключения · эскиз Android</text>
+<text x="28" y="64" class="small">Настройки SSH для всего VPS; терминалы выбираются на предыдущем экране</text>
+<text x="30" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="650" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="140" class="orange">‹ Терминалы</text>
+<text x="45" y="181" class="title">Профиль подключения</text>
+<rect x="43" y="193" width="340" height="3" fill="#fcee21"/>
+<text x="45" y="231" class="small">SSH-соединение</text><text x="235" y="231" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<text x="45" y="270" class="orange">SSH host</text>
+<rect x="43" y="281" width="340" height="42" class="input"/><text x="56" y="307" class="white">сохранённый адрес VPS</text>
+<text x="45" y="353" class="orange">SSH user</text>
+<rect x="43" y="364" width="340" height="42" class="input"/><text x="56" y="390" class="white">root</text>
+<rect x="43" y="438" width="20" height="20" class="input"/><text x="47" y="454" class="orange">✓</text>
+<text x="73" y="448" class="white">Автоподключение по SSH</text><text x="73" y="467" class="white">при запуске</text>
+<rect x="43" y="507" width="340" height="50" class="button"/><text x="163" y="538" class="white">Сменить VPS</text>
+<rect x="43" y="569" width="340" height="50" class="button"/><text x="166" y="600" class="white">Отключиться</text>
+<text x="45" y="665" class="small">Для нового подключения пароль</text><text x="45" y="684" class="small">вводится на стартовом экране SSH.</text>
+<text x="426" y="95" class="white">Планшет</text>
+<rect x="421" y="109" width="920" height="650" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="439" y="140" class="orange">‹ Терминалы</text><text x="1159" y="140" class="small">SSH · Connected</text>
+<rect x="436" y="153" width="890" height="3" fill="#fcee21"/>
+<rect x="640" y="188" width="475" height="519" class="panel"/>
+<text x="664" y="224" class="title">Профиль подключения</text>
+<text x="664" y="259" class="small">Текущий VPS</text><text x="1023" y="259" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<text x="664" y="298" class="orange">SSH host</text>
+<rect x="663" y="309" width="426" height="41" class="input"/><text x="678" y="335" class="white">сохранённый адрес VPS</text>
+<text x="664" y="379" class="orange">SSH user</text>
+<rect x="663" y="390" width="426" height="41" class="input"/><text x="678" y="416" class="white">root</text>
+<rect x="663" y="459" width="20" height="20" class="input"/><text x="667" y="475" class="orange">✓</text>
+<text x="693" y="475" class="white">Автоподключение по SSH при запуске</text>
+<rect x="663" y="514" width="205" height="48" class="button"/><text x="721" y="544" class="white">Сменить VPS</text>
+<rect x="882" y="514" width="207" height="48" class="button"/><text x="943" y="544" class="white">Отключиться</text>
+<text x="663" y="608" class="small">Пароль не отображается в профиле.</text>
+<text x="663" y="631" class="small">После отключения откроется первый экран SSH.</text>
+</svg>

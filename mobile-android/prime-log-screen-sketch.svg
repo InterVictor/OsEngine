@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="790" viewBox="0 0 1480 790">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.orange{fill:#ff5500;font:bold 15px Arial,sans-serif}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1480" height="790" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Роботы.VPS · Прайм лог · эскиз Android</text>
+<text x="28" y="64" class="small">Три поля настольного журнала: Время · Тип · Сообщение</text>
+<text x="30" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="650" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="140" class="orange">‹ Ещё</text><text x="235" y="140" class="white">main · Connected</text>
+<text x="45" y="169" class="white">Прайм лог</text>
+<rect x="43" y="182" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="202" width="340" height="115" class="panel"/>
+<text x="56" y="230" class="small">Время</text><text x="280" y="230" class="small">Тип</text>
+<text x="56" y="257" class="white">—</text><text x="280" y="257" class="white">—</text>
+<path d="M53 273 H373" class="line"/>
+<text x="56" y="296" class="small">Сообщение</text><text x="159" y="296" class="white">—</text>
+<rect x="43" y="329" width="340" height="115" class="panel"/>
+<text x="56" y="357" class="small">Время</text><text x="280" y="357" class="small">Тип</text>
+<text x="56" y="384" class="white">—</text><text x="280" y="384" class="white">—</text>
+<path d="M53 400 H373" class="line"/>
+<text x="56" y="423" class="small">Сообщение</text><text x="159" y="423" class="white">—</text>
+<rect x="43" y="456" width="340" height="115" class="panel"/>
+<text x="56" y="484" class="small">Время</text><text x="280" y="484" class="small">Тип</text>
+<text x="56" y="511" class="white">—</text><text x="280" y="511" class="white">—</text>
+<path d="M53 527 H373" class="line"/>
+<text x="56" y="550" class="small">Сообщение</text><text x="159" y="550" class="white">—</text>
+<rect x="389" y="203" width="3" height="530" fill="#273038"/><rect x="389" y="206" width="3" height="110" fill="#66727b"/>
+<text x="43" y="732" class="small">Прокрутка записей</text>
+<text x="428" y="95" class="white">Планшет</text>
+<rect x="423" y="109" width="1028" height="650" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="441" y="140" class="orange">‹ Терминалы</text><text x="577" y="140" class="white">main · Роботы.VPS</text>
+<text x="1320" y="140" class="small">Connected</text>
+<rect x="438" y="153" width="998" height="3" fill="#fcee21"/>
+<rect x="438" y="170" width="998" height="38" class="panel"/>
+<text x="454" y="195" class="small">Роботы</text><text x="563" y="195" class="small">Позиции</text>
+<text x="674" y="195" class="small">Серверы</text><text x="782" y="195" class="small">Портфель</text>
+<text x="902" y="195" class="orange">Прайм лог</text><text x="1034" y="195" class="small">Ордера</text>
+<rect x="438" y="223" width="998" height="500" class="panel"/>
+<rect x="446" y="231" width="982" height="40" class="row"/>
+<text x="460" y="257" class="small">Время</text><text x="670" y="257" class="small">Тип</text><text x="795" y="257" class="small">Сообщение</text>
+<path d="M655 232 V714 M780 232 V714" class="line"/>
+<rect x="446" y="272" width="982" height="42" class="row"/>
+<text x="460" y="299" class="white">—</text><text x="670" y="299" class="white">—</text><text x="795" y="299" class="white">—</text>
+<rect x="446" y="315" width="982" height="42" class="row"/>
+<text x="460" y="342" class="white">—</text><text x="670" y="342" class="white">—</text><text x="795" y="342" class="white">—</text>
+<rect x="446" y="358" width="982" height="42" class="row"/>
+<text x="460" y="385" class="white">—</text><text x="670" y="385" class="white">—</text><text x="795" y="385" class="white">—</text>
+<rect x="1420" y="271" width="5" height="442" fill="#273038"/><rect x="1420" y="275" width="5" height="105" fill="#66727b"/>
+</svg>

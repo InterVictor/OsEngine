@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1350" height="830" viewBox="0 0 1350 830">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.tiny{fill:#a7a8aa;font:11px Arial,sans-serif}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}.line{stroke:#354049;stroke-width:1}
+</style></defs>
+<rect width="1350" height="830" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Роботы.VPS · Ордера · эскиз Android</text>
+<text x="28" y="62" class="small">Активные и завершённые ордера выбранного терминала · 12 исходных колонок</text>
+<text x="32" y="94" class="white">Телефон · активные ордера</text>
+<rect x="28" y="108" width="368" height="681" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="139" class="orange">‹ Ещё</text><text x="247" y="139" class="white">main · Ордера</text>
+<text x="45" y="165" class="small">SSH · время последнего обновления</text>
+<rect x="43" y="178" width="338" height="3" fill="#fcee21"/>
+<rect x="43" y="193" width="157" height="37" fill="#ff5500"/><text x="55" y="218" fill="#ffffff" font="13px Arial">Активные ордера</text>
+<text x="211" y="218" class="small">Завершённые ›</text>
+<rect x="43" y="243" width="338" height="45" class="panel"/>
+<text x="55" y="271" class="small">Страница 1 из —</text><text x="235" y="271" class="white">‹      ›</text>
+<rect x="43" y="301" width="338" height="272" class="panel"/>
+<text x="56" y="326" class="small">ID</text><text x="190" y="326" class="white">—</text>
+<text x="56" y="353" class="small">ID на бирже</text><text x="190" y="353" class="white">—</text>
+<path d="M52 365 H372" class="line"/>
+<text x="56" y="390" class="small">Инструмент</text><text x="190" y="390" class="white">—</text>
+<text x="56" y="417" class="small">Портфель</text><text x="190" y="417" class="white">—</text>
+<text x="56" y="444" class="small">Напр. / Статус</text><text x="190" y="444" class="white">— / —</text>
+<text x="56" y="471" class="small">Цена / Исполнение</text><text x="213" y="471" class="white">— / —</text>
+<text x="56" y="498" class="small">Объём / Тип</text><text x="190" y="498" class="white">— / —</text>
+<text x="56" y="525" class="small">Время выст.</text><text x="190" y="525" class="white">—</text>
+<text x="56" y="552" class="small">RoundTrip</text><text x="190" y="552" class="white">—</text>
+<rect x="43" y="586" width="338" height="77" class="panel"/>
+<text x="56" y="618" class="small">Количество на странице:</text><text x="264" y="618" class="white">— ▾</text>
+<text x="56" y="648" class="tiny">Всего страниц сервер пока не возвращает</text>
+<text x="428" y="94" class="white">Планшет · завершённые ордера</text>
+<rect x="424" y="108" width="898" height="681" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="442" y="140" class="orange">‹ Терминалы</text><text x="579" y="140" class="white">main · Роботы.VPS</text>
+<text x="1177" y="140" class="small">Connected</text>
+<rect x="439" y="153" width="867" height="3" fill="#fcee21"/>
+<rect x="439" y="170" width="867" height="38" class="panel"/>
+<text x="457" y="195" class="small">Роботы</text><text x="558" y="195" class="small">Позиции</text>
+<text x="665" y="195" class="small">Серверы</text><text x="770" y="195" class="small">Портфель</text>
+<text x="894" y="195" class="small">Прайм лог</text><text x="1025" y="195" class="orange">Ордера</text>
+<text x="449" y="247" class="small">Активные ордера</text>
+<rect x="616" y="223" width="205" height="37" fill="#ff5500"/><text x="633" y="247" fill="#ffffff" font="14px Arial">Завершённые ордера</text>
+<rect x="439" y="273" width="867" height="45" class="panel"/>
+<text x="453" y="301" class="small">Страница 1 из —</text><text x="640" y="301" class="white">‹      ›</text>
+<text x="880" y="301" class="small">Количество на странице:</text><text x="1082" y="301" class="white">— ▾</text>
+<rect x="439" y="330" width="867" height="398" class="panel"/>
+<rect x="448" y="339" width="848" height="52" class="row"/>
+<text x="458" y="369" class="small">ID</text><text x="521" y="369" class="small">ID на бирже</text>
+<text x="665" y="369" class="small">Время выст.</text><text x="822" y="369" class="small">Инструмент</text>
+<text x="982" y="369" class="small">Портфель</text><text x="1113" y="369" class="small">Напр.</text>
+<text x="1203" y="369" class="small">Статус</text>
+<rect x="448" y="393" width="848" height="54" class="row"/>
+<path d="M514 339 V449 M658 339 V449 M815 339 V449 M974 339 V449 M1106 339 V449 M1195 339 V449" class="line"/>
+<text x="459" y="426" class="white">—</text><text x="527" y="426" class="white">—</text>
+<text x="673" y="426" class="white">—</text><text x="831" y="426" class="white">—</text>
+<text x="989" y="426" class="white">—</text><text x="1121" y="426" class="white">—</text>
+<text x="1209" y="426" class="white">—</text>
+<rect x="448" y="665" width="314" height="11" fill="#a7a8aa"/>
+<rect x="762" y="665" width="534" height="11" fill="#30363c"/>
+<text x="448" y="704" class="tiny">Прокрутка вправо: Цена · Исполнение · Объём · Тип · RoundTrip</text>
+<text x="428" y="807" class="tiny">Данные первой сотни ордеров отдаёт выбранный на VPS торговый коннектор.</text>
+</svg>

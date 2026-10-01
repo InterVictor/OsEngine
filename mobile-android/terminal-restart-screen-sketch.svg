@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1370" height="790" viewBox="0 0 1370 790">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:15px Arial,sans-serif}.small{fill:#a7a8aa;font:13px Arial,sans-serif}.orange{fill:#ff5500;font:bold 15px Arial,sans-serif}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1370" height="790" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Терминалы · подтверждение перезагрузки · эскиз Android</text>
+<text x="28" y="64" class="small">Команда относится только к выбранному терминалу, а не ко всему VPS</text>
+<text x="30" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="650" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="144" class="title">Терминалы</text><text x="45" y="168" class="small">VPS · SSH Connected</text>
+<rect x="43" y="184" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="217" width="340" height="88" class="panel"/>
+<text x="57" y="245" class="white">main</text><text x="342" y="245" class="orange">↻</text>
+<text x="57" y="278" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<rect x="43" y="315" width="340" height="88" class="panel"/>
+<text x="57" y="343" class="white">binance</text><text x="342" y="343" class="orange">↻</text>
+<text x="57" y="376" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<rect x="29" y="110" width="368" height="648" fill="#000000" opacity="0.53"/>
+<rect x="49" y="303" width="329" height="206" rx="7" class="panel"/>
+<text x="65" y="342" class="white">Перезагрузить терминал?</text>
+<text x="65" y="382" class="small">Сервис binance будет</text><text x="65" y="402" class="small">перезапущен на VPS.</text>
+<rect x="66" y="443" width="137" height="43" class="button"/><text x="108" y="470" class="white">Отмена</text>
+<rect x="211" y="443" width="148" height="43" class="button"/><text x="235" y="470" class="orange">Перезагрузка</text>
+<text x="428" y="95" class="white">Планшет</text>
+<rect x="423" y="109" width="918" height="650" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="445" y="146" class="title">Терминалы</text><text x="1170" y="146" class="small">VPS · SSH Connected</text>
+<rect x="438" y="161" width="888" height="3" fill="#fcee21"/>
+<rect x="441" y="205" width="880" height="100" class="panel"/>
+<text x="461" y="237" class="white">main</text><text x="1280" y="237" class="orange">↻</text>
+<text x="461" y="275" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<rect x="441" y="315" width="880" height="100" class="panel"/>
+<text x="461" y="347" class="white">binance</text><text x="1280" y="347" class="orange">↻</text>
+<text x="461" y="385" fill="#3cb371" font-family="Arial,sans-serif" font-size="14">Connected</text>
+<rect x="424" y="110" width="916" height="648" fill="#000000" opacity="0.53"/>
+<rect x="682" y="287" width="400" height="224" rx="7" class="panel"/>
+<text x="705" y="327" class="white">Перезагрузить терминал?</text>
+<text x="705" y="374" class="small">Сервис binance будет перезапущен на VPS.</text>
+<rect x="706" y="438" width="168" height="48" class="button"/><text x="759" y="469" class="white">Отмена</text>
+<rect x="890" y="438" width="168" height="48" class="button"/><text x="916" y="469" class="orange">Перезагрузка</text>
+</svg>

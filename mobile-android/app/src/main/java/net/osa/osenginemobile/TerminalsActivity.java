@@ -141,21 +141,36 @@ public final class TerminalsActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(header, new LinearLayout.LayoutParams(-1, dp(48)));
+        card.addView(header, new LinearLayout.LayoutParams(-1, -2));
         TextView name = label(terminal.name, 20, R.color.text_primary);
         name.setTypeface(null, android.graphics.Typeface.BOLD);
         header.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView restart = label("↻", 26, R.color.orange);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        header.addView(actions, new LinearLayout.LayoutParams(dp(96), -2));
+        TextView open = label(getString(R.string.terminal_open_button), 14, R.color.text_primary);
+        open.setGravity(Gravity.CENTER);
+        open.setBackgroundResource(R.drawable.button_background);
+        open.setContentDescription(getString(R.string.terminal_open_robots, terminal.name));
+        actions.addView(open, new LinearLayout.LayoutParams(-1, dp(36)));
+        open.setOnClickListener(view -> openRobots(terminal));
+        open.setEnabled(!preview);
+        if (preview) open.setAlpha(0.45f);
+        TextView restart = label(getString(R.string.terminal_restart_button), 14, R.color.orange);
         restart.setGravity(Gravity.CENTER);
         restart.setBackgroundResource(R.drawable.restart_outline);
         restart.setContentDescription(getString(R.string.terminal_restart_accessibility,
             terminal.name));
         restart.setTooltipText(getString(R.string.terminal_restart_accessibility,
             terminal.name));
-        header.addView(restart, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout.LayoutParams restartParams = new LinearLayout.LayoutParams(-1, dp(36));
+        restartParams.topMargin = dp(5);
+        actions.addView(restart, restartParams);
         restart.setOnClickListener(view -> confirmRestart(terminal));
-        restart.setEnabled(!preview && !unavailable);
-        if (preview || unavailable) restart.setAlpha(0.45f);
+        boolean canRestart = !preview && !unavailable
+            && !restartingServices.contains(terminal.service);
+        restart.setEnabled(canRestart);
+        if (!canRestart) restart.setAlpha(0.45f);
 
         String state;
         int stateColor = R.color.text_secondary;
@@ -190,21 +205,18 @@ public final class TerminalsActivity extends Activity {
             ? 100.0 * terminal.memoryBytes / vpsRamTotal : Double.NaN;
         addMetric(card, "RAM", memory(terminal.memoryBytes) + "  ·  "
             + percent(ramPercent) + " VPS", ramPercent);
-        TextView openHint = label(getString(R.string.terminal_open_hint), 14, R.color.orange);
-        openHint.setGravity(Gravity.END);
-        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
-        hintParams.topMargin = dp(12);
-        card.addView(openHint, hintParams);
         card.setContentDescription(getString(R.string.terminal_open_robots, terminal.name));
         card.setClickable(true);
         card.setFocusable(true);
-        card.setOnClickListener(view -> {
-            if (preview) return;
-            Intent intent = new Intent(this, RobotsActivity.class);
-            intent.putExtra("terminal_name", terminal.name);
-            startActivity(intent);
-        });
+        card.setOnClickListener(view -> openRobots(terminal));
         return card;
+    }
+
+    private void openRobots(VpsSnapshot.Terminal terminal) {
+        if (preview) return;
+        Intent intent = new Intent(this, RobotsActivity.class);
+        intent.putExtra("terminal_name", terminal.name);
+        startActivity(intent);
     }
 
     private void addMetric(LinearLayout card, String title, String value, double amount) {

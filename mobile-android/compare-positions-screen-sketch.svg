@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="820" viewBox="0 0 1420 820">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.cell{fill:#12161a;stroke:#252c32;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.th{fill:#aab3c2;font:bold 12px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}.green{fill:#399d36;font:14px Arial,sans-serif}.red{fill:#ee605e;font:14px Arial,sans-serif}.btn{fill:#1d2329;stroke:#4b535a;stroke-width:1}
+</style></defs>
+<rect width="1420" height="820" fill="#0d0f13"/>
+<text x="32" y="42" class="title">Модуль сравнения позиций · эскиз</text>
+<text x="32" y="66" class="small">Поля и порядок из ComparePositionsModuleUi / RobotsVpsComparePositionsUi</text>
+<text x="37" y="100" class="white">Телефон</text>
+<rect x="32" y="115" width="365" height="670" rx="18" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="50" y="145" class="orange">‹ Портфель</text><text x="50" y="175" class="white">Модуль сравнения позиций</text>
+<text x="50" y="199" class="small">Подключение: BinanceFutures-0</text><rect x="48" y="214" width="334" height="3" fill="#fcee21"/>
+<rect x="48" y="229" width="334" height="381" class="panel"/>
+<text x="59" y="249" class="small">Таблица → показан правый край после прокрутки</text>
+<rect x="59" y="262" width="312" height="331" class="cell"/>
+<path d="M59 295H371 M59 333H371 M59 372H371 M59 411H371 M59 450H371 M59 489H371 M59 528H371 M206 262V593 M267 262V593" stroke="#303840" stroke-width="1"/>
+<text x="69" y="283" class="th">Инструмент</text><text x="214" y="283" class="th">Игнор</text><text x="278" y="283" class="th">Действие</text>
+<text x="69" y="318" class="small">[строка портфеля]</text>
+<text x="69" y="355" class="white">[тикер]</text><rect x="226" y="343" width="13" height="13" class="cell"/>
+<text x="69" y="394" class="white">[тикер]</text><rect x="226" y="382" width="13" height="13" class="cell"/><rect x="273" y="377" width="91" height="26" class="btn"/><text x="291" y="395" class="white">Синх.</text>
+<text x="69" y="433" class="small">[тикер]</text><rect x="226" y="421" width="13" height="13" class="cell"/><text x="227" y="433" class="orange">✓</text>
+<rect x="69" y="568" width="252" height="4" fill="#303840"/><rect x="69" y="568" width="82" height="4" fill="#ff5500"/>
+<text x="58" y="632" class="white">☐ Автоматическое сообщение</text><text x="78" y="652" class="white">об ошибке</text>
+<rect x="215" y="669" width="166" height="35" class="btn"/><text x="233" y="692" class="white">Синхронизировать</text>
+<text x="51" y="721" class="small">Период проверки</text><text x="245" y="721" class="white">Min1 ▾</text>
+<text x="51" y="750" class="small">Задержка в секундах</text><text x="245" y="750" class="white">—</text>
+<text x="434" y="100" class="white">Планшет</text>
+<rect x="428" y="115" width="955" height="670" rx="14" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="449" y="146" class="orange">‹ Портфель</text><text x="580" y="146" class="white">Модуль сравнения позиций</text>
+<rect x="445" y="160" width="921" height="3" fill="#fcee21"/>
+<text x="450" y="193" class="orange">Подключение BinanceFutures-0</text>
+<rect x="446" y="208" width="918" height="435" class="panel"/>
+<text x="459" y="231" class="small">Таблица настольного окна · «Игнор» и «Синх.» относятся к каждому инструменту</text>
+<rect x="459" y="244" width="891" height="377" class="cell"/>
+<path d="M459 286H1350 M459 323H1350 M459 370H1350 M459 417H1350 M459 464H1350 M459 511H1350 M459 558H1350 M537 244V621 M630 244V621 M690 244V621 M765 244V621 M840 244V621 M917 244V621 M993 244V621 M1069 244V621 M1146 244V621 M1211 244V621" stroke="#303840" stroke-width="1"/>
+<text x="463" y="269" class="th">Портфель</text><text x="541" y="269" class="th">Инструмент</text><text x="633" y="269" class="th">Статус</text>
+<text x="694" y="259" class="th">Роботы</text><text x="694" y="276" class="th">Лонг</text><text x="769" y="259" class="th">Роботы</text><text x="769" y="276" class="th">Шорт</text><text x="844" y="259" class="th">Роботы</text><text x="844" y="276" class="th">Общее</text>
+<text x="921" y="259" class="th">Портфель</text><text x="921" y="276" class="th">Лонг</text><text x="997" y="259" class="th">Портфель</text><text x="997" y="276" class="th">Шорт</text><text x="1073" y="259" class="th">Портфель</text><text x="1073" y="276" class="th">Общее</text><text x="1152" y="269" class="th">Игнор</text>
+<text x="463" y="307" class="white">[портфель]</text><text x="695" y="307" class="small">—</text><text x="770" y="307" class="small">—</text>
+<text x="541" y="352" class="white">[тикер]</text><text x="634" y="352" class="green">Normal</text><rect x="1168" y="339" width="14" height="14" class="cell"/>
+<text x="541" y="399" class="white">[тикер]</text><text x="634" y="399" class="red">Error</text><rect x="1168" y="386" width="14" height="14" class="cell"/><rect x="1220" y="380" width="120" height="28" class="btn"/><text x="1254" y="399" class="white">Синх.</text>
+<text x="541" y="446" class="small">[тикер]</text><text x="634" y="446" class="small">Error</text><rect x="1168" y="433" width="14" height="14" class="cell"/><text x="1168" y="446" class="orange">✓</text>
+<text x="450" y="680" class="white">☐ Автоматическое сообщение об ошибке</text>
+<rect x="1170" y="655" width="179" height="36" class="btn"/><text x="1189" y="679" class="white">Синхронизировать</text>
+<text x="450" y="727" class="orange">Период проверки</text><rect x="622" y="706" width="127" height="30" class="btn"/><text x="636" y="727" class="white">Min1 ▾</text>
+<text x="984" y="727" class="orange">Задержка в секундах</text><rect x="1211" y="706" width="139" height="30" class="btn"/><text x="1226" y="727" class="small">—</text>
+</svg>

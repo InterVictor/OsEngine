@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1580" height="940" viewBox="0 0 1580 940">
+<defs><style>
+.bg{fill:#101217}.panel{fill:#151a1e;stroke:#30363c;stroke-width:1.5}.row{fill:#171c20;stroke:#354049;stroke-width:1}.title{fill:#eeefff;font:bold 23px Arial,sans-serif}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.orange{fill:#ff5500;font:bold 14px Arial,sans-serif}.green{fill:#3cb371}.coral{fill:#ff7f50}.line{stroke:#354049;stroke-width:1}.button{fill:#1e252a;stroke:#46525c;stroke-width:1}
+</style></defs>
+<rect width="1580" height="940" fill="#0d0f13"/>
+<text x="28" y="40" class="title">Роботы.VPS · Серверы · эскиз Android</text>
+<text x="28" y="64" class="small">Пример оформления: BinanceFutures / Connect; реальные данные приходят от выбранного терминала</text>
+<text x="30" y="95" class="white">Телефон</text>
+<rect x="28" y="109" width="370" height="800" rx="17" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="45" y="140" class="orange">‹ Терминалы</text><text x="240" y="140" class="white">main</text>
+<text x="45" y="169" class="orange">Серверы</text><text x="145" y="169" class="small">· Connected</text>
+<rect x="43" y="182" width="340" height="3" fill="#fcee21"/>
+<rect x="43" y="197" width="340" height="37" class="panel"/>
+<text x="56" y="221" class="small">поиск...</text><text x="286" y="221" class="small">‹  1 / 2  ›</text>
+<text x="45" y="260" class="small">Источник</text><text x="249" y="260" class="small">Статус</text>
+<rect x="43" y="270" width="340" height="55" class="panel"/>
+<rect x="44" y="271" width="338" height="53" class="green"/>
+<text x="55" y="303" fill="#101217" font-family="Arial,sans-serif" font-size="14">BinanceFutures</text>
+<text x="255" y="303" fill="#101217" font-family="Arial,sans-serif" font-size="14">Connect</text>
+<text x="357" y="303" fill="#101217" font-family="Arial,sans-serif" font-size="18">⋮</text>
+<rect x="43" y="334" width="340" height="55" class="panel"/>
+<text x="55" y="367" class="white">—</text><text x="255" y="367" class="small">Disabled</text><text x="357" y="367" class="white">⋮</text>
+<rect x="43" y="404" width="20" height="20" class="button"/>
+<text x="47" y="420" class="orange">✓</text><text x="72" y="420" class="white">Авто-развёртывание подключений</text>
+<text x="45" y="455" class="orange">Журнал · BinanceFutures</text>
+<rect x="43" y="469" width="340" height="146" class="panel"/>
+<text x="56" y="493" class="small">Время</text><text x="190" y="493" class="small">Тип</text>
+<text x="56" y="521" class="white">—</text><text x="190" y="521" class="white">—</text>
+<path d="M53 533 H373" class="line"/>
+<text x="56" y="553" class="small">Сообщение</text><text x="155" y="553" class="white">—</text>
+<path d="M53 568 H373" class="line"/>
+<text x="56" y="591" class="white">—</text><text x="190" y="591" class="white">—</text>
+<text x="45" y="646" class="small">Настольные служебные действия</text>
+<rect x="43" y="660" width="164" height="39" class="button"/><rect x="218" y="660" width="165" height="39" class="button"/>
+<text x="55" y="685" class="small">Правила поддержки</text><text x="279" y="685" class="small">Прокси</text>
+<rect x="43" y="708" width="340" height="39" class="button"/><text x="136" y="733" class="small">Нагрузка на систему</text>
+<rect x="43" y="756" width="340" height="39" class="button"/><text x="137" y="781" class="small">Доступность серверов</text>
+<text x="44" y="824" class="small">Служебные окна ожидают методов VPS</text>
+<text x="426" y="95" class="white">Планшет</text>
+<rect x="421" y="109" width="1128" height="800" rx="13" class="bg" stroke="#555b61" stroke-width="2"/>
+<text x="439" y="140" class="orange">‹ Терминалы</text><text x="575" y="140" class="white">main · Роботы.VPS</text><text x="1409" y="140" class="small">Connected</text>
+<rect x="436" y="153" width="1098" height="3" fill="#fcee21"/>
+<rect x="436" y="170" width="1098" height="38" class="panel"/>
+<text x="452" y="195" class="small">Роботы</text><text x="557" y="195" class="small">Позиции</text>
+<text x="668" y="195" fill="#3cb371" font-family="Arial,sans-serif" font-weight="bold" font-size="14">Серверы</text>
+<text x="779" y="195" class="small">Портфель</text><text x="899" y="195" class="small">Прайм лог</text><text x="1031" y="195" class="small">Ордера</text>
+<rect x="436" y="223" width="369" height="601" class="panel"/>
+<rect x="448" y="237" width="343" height="38" class="panel"/>
+<text x="460" y="261" class="small">поиск...</text><text x="705" y="261" class="small">‹  1 / 2  ›</text>
+<rect x="448" y="287" width="343" height="36" class="row"/>
+<text x="460" y="311" class="small">Источник</text><text x="653" y="311" class="small">Статус</text>
+<rect x="448" y="324" width="343" height="44" class="green"/>
+<text x="460" y="351" fill="#101217" font-family="Arial,sans-serif" font-size="14">BinanceFutures</text>
+<text x="653" y="351" fill="#101217" font-family="Arial,sans-serif" font-size="14">Connect</text>
+<text x="770" y="351" fill="#101217" font-family="Arial,sans-serif" font-size="17">⋮</text>
+<rect x="448" y="369" width="343" height="44" class="row"/>
+<text x="460" y="396" class="white">—</text><text x="653" y="396" class="small">Disabled</text><text x="770" y="396" class="white">⋮</text>
+<rect x="449" y="769" width="18" height="18" class="button"/><text x="452" y="783" class="orange">✓</text>
+<text x="476" y="784" class="white">Авто-развёртывание подключений</text>
+<rect x="817" y="223" width="717" height="601" class="panel"/>
+<text x="830" y="252" class="orange">Журнал · BinanceFutures</text>
+<rect x="829" y="269" width="692" height="38" class="row"/>
+<text x="841" y="294" class="small">Время</text><text x="1047" y="294" class="small">Тип</text><text x="1160" y="294" class="small">Сообщение</text>
+<path d="M1034 270 V810 M1148 270 V810" class="line"/>
+<rect x="829" y="308" width="692" height="42" class="row"/>
+<text x="841" y="335" class="white">—</text><text x="1047" y="335" class="white">—</text><text x="1160" y="335" class="white">—</text>
+<rect x="829" y="351" width="692" height="42" class="row"/>
+<text x="841" y="378" class="white">—</text><text x="1047" y="378" class="white">—</text><text x="1160" y="378" class="white">—</text>
+<rect x="829" y="394" width="692" height="42" class="row"/>
+<text x="841" y="421" class="white">—</text><text x="1047" y="421" class="white">—</text><text x="1160" y="421" class="white">—</text>
+<rect x="1435" y="843" width="99" height="41" class="button"/><text x="1463" y="869" class="small">Прокси</text>
+<rect x="436" y="843" width="215" height="41" class="button"/><text x="463" y="869" class="small">Правила поддержки</text>
+<rect x="664" y="843" width="215" height="41" class="button"/><text x="704" y="869" class="small">Нагрузка на систему</text>
+<rect x="892" y="843" width="215" height="41" class="button"/><text x="930" y="869" class="small">Доступность серверов</text>
+</svg>

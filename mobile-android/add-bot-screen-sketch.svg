@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="830" viewBox="0 0 1400 830">
+<defs><style>
+.bg{fill:#111217}.panel{fill:#151a1e;stroke:#343c43;stroke-width:1.5}.cell{fill:#12161a;stroke:#2b3239;stroke-width:1}.white{fill:#eeefff;font:14px Arial,sans-serif}.small{fill:#a7a8aa;font:12px Arial,sans-serif}.title{fill:#eeefff;font:bold 22px Arial,sans-serif}.th{fill:#aab3c2;font:bold 12px Arial,sans-serif}.orange{fill:#ff5500;font:14px Arial,sans-serif}.btn{fill:#1d2329;stroke:#4b535a;stroke-width:1}
+</style></defs>
+<rect width="1400" height="830" fill="#0d0f13"/>
+<text x="35" y="43" class="title">Создание робота · эскиз</text>
+<text x="35" y="67" class="small">Поля, таблица и действия из CreateBotDialog / BotCreateUi2</text>
+<text x="39" y="100" class="white">Телефон</text>
+<rect x="34" y="114" width="365" height="685" rx="18" class="bg" stroke="#59616a" stroke-width="2"/>
+<text x="52" y="145" class="orange">‹ Роботы.VPS</text><text x="52" y="174" class="white">Создание робота</text><text x="52" y="197" class="small">main</text><rect x="50" y="210" width="334" height="3" fill="#fcee21"/>
+<text x="52" y="248" class="orange">Имя</text><rect x="150" y="225" width="189" height="32" class="cell"/><text x="162" y="247" class="small">[имя робота]</text><text x="354" y="248" class="white">?</text>
+<text x="52" y="286" class="orange">Расположение</text><rect x="174" y="264" width="165" height="32" class="cell"/><text x="184" y="286" class="white">All ▾</text><text x="354" y="286" class="white">?</text>
+<rect x="51" y="306" width="332" height="32" class="cell"/><text x="64" y="327" class="small">поиск...</text>
+<text x="55" y="362" class="white">‹</text><text x="155" y="362" class="small">совпадения</text><text x="354" y="362" class="white">›</text>
+<rect x="51" y="375" width="332" height="343" class="cell"/>
+<path d="M51 414H383 M51 456H383 M51 498H383 M51 540H383 M51 582H383 M91 375V718 M272 375V718" stroke="#303840" stroke-width="1"/>
+<text x="61" y="400" class="th">#</text><text x="101" y="400" class="th">Тип стратегии</text><text x="284" y="400" class="th">Располож. →</text>
+<rect x="52" y="415" width="330" height="40" fill="#ff5500" opacity="0.5"/>
+<text x="61" y="441" class="white">1</text><text x="101" y="441" class="white">[стратегия VPS]</text><text x="284" y="441" class="white">Script</text>
+<text x="61" y="483" class="small">2</text><text x="101" y="483" class="white">[стратегия VPS]</text><text x="284" y="483" class="small">Include</text>
+<text x="61" y="525" class="small">3</text><text x="101" y="525" class="white">[стратегия VPS]</text><text x="284" y="525" class="small">Script</text>
+<rect x="61" y="694" width="297" height="4" fill="#303840"/><rect x="61" y="694" width="62" height="4" fill="#ff5500"/>
+<rect x="52" y="742" width="142" height="39" class="btn"/><text x="79" y="757" class="small">Обновить</text><text x="69" y="773" class="small">информацию</text>
+<image x="202" y="747" width="27" height="27" href="design-assets/GreenPost.png"/>
+<rect x="236" y="742" width="146" height="39" class="btn"/><text x="283" y="766" class="white">Принять</text>
+<text x="435" y="100" class="white">Планшет</text>
+<rect x="429" y="114" width="939" height="685" rx="14" class="bg" stroke="#59616a" stroke-width="2"/>
+<rect x="601" y="130" width="600" height="652" class="panel" stroke="#676f76" stroke-width="2"/>
+<text x="619" y="158" class="white">Создание робота</text><text x="1172" y="158" class="white">×</text>
+<text x="619" y="194" class="orange">Имя</text><rect x="721" y="174" width="189" height="31" class="cell"/><text x="735" y="195" class="small">[имя робота]</text><text x="919" y="195" class="white">?</text>
+<text x="619" y="233" class="orange">Расположение</text><rect x="721" y="213" width="189" height="31" class="cell"/><text x="735" y="234" class="white">All ▾</text><text x="919" y="234" class="white">?</text>
+<rect x="955" y="213" width="227" height="31" class="cell"/><text x="968" y="234" class="small">поиск...</text>
+<text x="955" y="192" class="white">‹</text><text x="1045" y="192" class="small">совпадения</text><text x="1174" y="192" class="white">›</text>
+<rect x="615" y="266" width="572" height="452" class="cell"/>
+<path d="M615 303H1187 M615 345H1187 M615 387H1187 M615 429H1187 M615 471H1187 M652 266V718 M789 266V718 M885 266V718 M977 266V718 M1107 266V718" stroke="#303840" stroke-width="1"/>
+<text x="625" y="289" class="th">#</text><text x="662" y="289" class="th">Тип стратегии</text><text x="794" y="289" class="th">Располож.</text><text x="890" y="289" class="th">Источники</text><text x="982" y="289" class="th">Индикаторы</text><text x="1115" y="289" class="th">Описание</text>
+<rect x="616" y="304" width="570" height="40" fill="#ff5500" opacity="0.5"/>
+<text x="625" y="331" class="white">1</text><text x="662" y="331" class="white">[стратегия VPS]</text><text x="794" y="331" class="white">Script</text><text x="890" y="331" class="white">[из VPS]</text><text x="982" y="331" class="white">[из VPS]</text><text x="1136" y="331" class="white">?</text>
+<text x="625" y="373" class="small">2</text><text x="662" y="373" class="white">[стратегия VPS]</text><text x="794" y="373" class="small">Include</text><text x="1136" y="373" class="white">?</text>
+<rect x="616" y="736" width="273" height="31" class="btn"/><text x="663" y="757" class="white">Обновить информацию</text>
+<image x="894" y="739" width="27" height="27" href="design-assets/GreenPost.png"/>
+<rect x="928" y="736" width="258" height="31" class="btn"/><text x="1026" y="757" class="white">Принять</text>
+</svg>

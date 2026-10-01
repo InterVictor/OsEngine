@@ -9,6 +9,13 @@
         <item name="android:windowBackground">@color/background</item>
     </style>
 
+    <style name="OsEngineDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@color/panel</item>
+        <item name="android:colorAccent">@color/orange</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
     <style name="OsEngineInput">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">52dp</item>
