@@ -131,6 +131,7 @@ final class JournalPage {
         legend.addView(text("● Лонг   ", 12, 0xFF00BFFF, true));
         legend.addView(text("● Шорт", 12, 0xFF915000, true));
         target.addView(legend);
+        addBars(activity, target, points, tablet);
         JSONObject summary = object("bot_journal_get_summary");
         if (summary != null) {
             pair("Общая прибыль", number(summary, "total_profit_abs"));
@@ -169,7 +170,8 @@ final class JournalPage {
                 total = total.add(change);
                 if ("Buy".equals(position.optString("side"))) longs = longs.add(change);
                 else if ("Sell".equals(position.optString("side"))) shorts = shorts.add(change);
-                points.put(new JSONObject().put("total", total.doubleValue())
+                points.put(new JSONObject().put("total", total.doubleValue()).put("change", change.doubleValue())
+                    .put("time", position.optString("time_create"))
                     .put("long", longs.doubleValue()).put("short", shorts.doubleValue()));
             } catch (Exception ignored) { /* Malformed position is skipped, never guessed. */ }
         }
@@ -247,6 +249,75 @@ final class JournalPage {
 
     private int dp(int value) {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
+    }
+
+    /** Column charts under the equity lines (JournalUi2): profit of every position and of every month. */
+    static void addBars(Activity activity, LinearLayout target, JSONArray points, boolean tablet) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        TextView byPosition = new TextView(activity);
+        byPosition.setText("Прибыль по позициям");
+        byPosition.setTextSize(12);
+        byPosition.setTextColor(activity.getColor(R.color.text_secondary));
+        byPosition.setPadding(0, Math.round(10 * density), 0, 0);
+        target.addView(byPosition);
+        double[] changes = new double[points.length()];
+        for (int i = 0; i < changes.length; i++) changes[i] = points.optJSONObject(i) == null ? 0
+            : points.optJSONObject(i).optDouble("change", 0);
+        target.addView(new BarGraph(activity, changes),
+            new LinearLayout.LayoutParams(-1, Math.round((tablet ? 200 : 150) * density)));
+        java.util.LinkedHashMap<String, Double> months = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < points.length(); i++) {
+            JSONObject point = points.optJSONObject(i);
+            if (point == null) continue;
+            String time = point.optString("time");
+            String key = time.length() >= 7 ? time.substring(0, 7) : "?";
+            months.merge(key, point.optDouble("change", 0), Double::sum);
+        }
+        if (months.size() < 1) return;
+        TextView monthly = new TextView(activity);
+        monthly.setText("Прибыль по месяцам: " + String.join(", ", months.keySet()));
+        monthly.setTextSize(12);
+        monthly.setTextColor(activity.getColor(R.color.text_secondary));
+        monthly.setPadding(0, Math.round(10 * density), 0, 0);
+        target.addView(monthly);
+        double[] sums = new double[months.size()];
+        int index = 0;
+        for (double value : months.values()) sums[index++] = value;
+        target.addView(new BarGraph(activity, sums),
+            new LinearLayout.LayoutParams(-1, Math.round((tablet ? 160 : 120) * density)));
+    }
+
+    static final class BarGraph extends View {
+        private final double[] values;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        BarGraph(Activity activity, double[] values) {
+            super(activity);
+            this.values = values;
+            setBackgroundResource(R.drawable.input_background);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (values.length == 0) return;
+            double max = 0;
+            for (double value : values) max = Math.max(max, Math.abs(value));
+            if (max == 0) max = 1;
+            float left = 12, right = getWidth() - 12, top = 12, bottom = getHeight() - 12;
+            float zero = (top + bottom) / 2f;
+            paint.setColor(0xFF384047);
+            paint.setStrokeWidth(1);
+            canvas.drawLine(left, zero, right, zero, paint);
+            float slot = (right - left) / values.length;
+            float width = Math.max(1.5f, slot * 0.7f);
+            for (int i = 0; i < values.length; i++) {
+                float x = left + slot * (i + .5f);
+                float height = (float) (Math.abs(values[i]) / max * (zero - top));
+                paint.setColor(values[i] >= 0 ? 0xFFDCDCDC : 0xFF8B0000);
+                if (values[i] >= 0) canvas.drawRect(x - width / 2, zero - height, x + width / 2, zero, paint);
+                else canvas.drawRect(x - width / 2, zero, x + width / 2, zero + height, paint);
+            }
+        }
     }
 
     static final class Graph extends View {

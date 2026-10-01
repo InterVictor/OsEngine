@@ -158,6 +158,7 @@ public final class ChartActivity extends Activity {
         LinearLayout.LayoutParams graph = new LinearLayout.LayoutParams(-1,
             dp(getResources().getConfiguration().smallestScreenWidthDp >= 600 ? 490 : 340));
         graph.topMargin = dp(8);
+        baseChartHeight = graph.height;
         content.addView(chart, graph);
         HorizontalScrollView lowerScroller = new HorizontalScrollView(this);
         this.lowerScroller = lowerScroller;
@@ -187,6 +188,7 @@ public final class ChartActivity extends Activity {
         worker.execute(() -> {
             JSONArray nextSources = null;
             JSONObject snapshot = null;
+            JSONArray indicatorList = null;
             JSONObject lower = null;
             String lowerError = null;
             String error = null;
@@ -238,6 +240,14 @@ public final class ChartActivity extends Activity {
                     if (value instanceof Exception) throw (Exception) value;
                     if (!(value instanceof JSONObject)) throw new IllegalStateException("Нет данных графика");
                     snapshot = (JSONObject) value;
+                    // Indicator values are computed by the robot on the VPS; the phone only draws them.
+                    try {
+                        Object indicators = bridge.callBatch(terminal, McpBridge.call("bot_chart_get_indicators",
+                            new JSONObject().put("bot_id", botId).put("tab_name", selected)
+                                .put("candle_count", 500))).get("bot_chart_get_indicators");
+                        if (indicators instanceof JSONObject)
+                            indicatorList = ((JSONObject) indicators).optJSONArray("indicators");
+                    } catch (Exception ignored) { /* indicators are optional */ }
                     try {
                         if (SystemClock.elapsedRealtime() - lastLowerFetchMs < 15_000)
                             throw new SkipLowerFetch();
@@ -260,6 +270,7 @@ public final class ChartActivity extends Activity {
             } catch (Exception e) { error = e.getMessage(); }
             JSONArray resolvedSources = nextSources;
             JSONObject resolvedSnapshot = snapshot;
+            JSONArray resolvedIndicators = indicatorList;
             JSONObject resolvedLower = lower;
             String resolvedLowerError = lowerError;
             String finalError = error;
@@ -287,6 +298,7 @@ public final class ChartActivity extends Activity {
                         + resolvedSnapshot.optString("time_frame") + " · " + tabName);
                     JSONArray candles = resolvedSnapshot.optJSONArray("candles");
                     if (candles != null) chart.setCandles(candles);
+                    if (resolvedIndicators != null) chart.setIndicators(resolvedIndicators);
                     status.setText("Обновлено " + LocalTime.now()
                         .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
                         + " · свечей " + resolvedSnapshot.optInt("count"));
@@ -421,8 +433,12 @@ public final class ChartActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    private int baseChartHeight;
+
     private final class CandleView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private JSONArray indicators = new JSONArray();
+        private final ArrayList<String> areas = new ArrayList<>();
         private final ScaleGestureDetector scale = new ScaleGestureDetector(ChartActivity.this,
             new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 @Override public boolean onScale(ScaleGestureDetector detector) {
@@ -443,6 +459,110 @@ public final class ChartActivity extends Activity {
         }
 
         void setCandles(JSONArray next) { candles = next; invalidate(); }
+
+        /** Indicators of the robot's tab: «Prime» lines go over the price, other areas get panels below. */
+        void setIndicators(JSONArray next) {
+            indicators = next;
+            ArrayList<String> found = new ArrayList<>();
+            for (int i = 0; i < next.length(); i++) {
+                JSONObject item = next.optJSONObject(i);
+                if (item == null || !item.optBoolean("is_supported", true)) continue;
+                String area = item.optString("area", "Prime");
+                if (!area.isEmpty() && !"Prime".equals(area) && !found.contains(area)) found.add(area);
+            }
+            if (!found.equals(areas)) {
+                areas.clear();
+                areas.addAll(found);
+                android.view.ViewGroup.LayoutParams params = getLayoutParams();
+                if (params != null && baseChartHeight > 0) {
+                    params.height = baseChartHeight + areas.size() * dp(PANEL_DP);
+                    setLayoutParams(params);
+                }
+            }
+            invalidate();
+        }
+
+        private static final int PANEL_DP = 110;
+
+        /** Value of series point aligned to candle i (values are the trailing candle_count points). */
+        private double valueAt(JSONArray values, int candleIndex) {
+            int index = values.length() - (candles.length() - candleIndex);
+            return index < 0 || index >= values.length() ? Double.NaN : values.optDouble(index, Double.NaN);
+        }
+
+        private boolean skip(double value, boolean zeroIsGap, int candleIndex) {
+            return Double.isNaN(value) || (value == 0 && (zeroIsGap || candleIndex == candles.length() - 1));
+        }
+
+        private void drawSeries(Canvas canvas, JSONObject series, int start, int end,
+                                float left, float bar, double min, double max, float top, float bottom) {
+            JSONArray values = series.optJSONArray("values");
+            if (values == null) return;
+            boolean zeroIsGap = series.optBoolean("zero_is_gap");
+            paint.setColor(series.optInt("color_argb", 0xFFFFFFFF) | 0xFF000000);
+            paint.setStrokeWidth(Math.max(1, dp(Math.min(3, Math.max(1, series.optInt("line_width", 1))))));
+            float px = 0, py = 0;
+            boolean have = false;
+            for (int i = start; i < end; i++) {
+                double v = valueAt(values, i);
+                if (skip(v, zeroIsGap, i)) { have = false; continue; }
+                float x = left + bar * (i - start + .5f);
+                float y = y(v, min, max, top, bottom);
+                if (have && y >= top - dp(2) && y <= bottom + dp(2) && py >= top - dp(2) && py <= bottom + dp(2))
+                    canvas.drawLine(px, py, x, y, paint);
+                px = x; py = y; have = true;
+            }
+        }
+
+        private void drawPanels(Canvas canvas, int start, int end, float left, float right, float bar,
+                                float panelTop) {
+            for (int a = 0; a < areas.size(); a++) {
+                float top = panelTop + a * dp(PANEL_DP) + dp(6);
+                float bottom = panelTop + (a + 1) * dp(PANEL_DP) - dp(6);
+                double min = Double.POSITIVE_INFINITY, max = Double.NEGATIVE_INFINITY;
+                for (int s = 0; s < indicators.length(); s++) {
+                    JSONObject item = indicators.optJSONObject(s);
+                    if (item == null || !areas.get(a).equals(item.optString("area"))) continue;
+                    JSONArray list = item.optJSONArray("data_series");
+                    if (list == null) continue;
+                    for (int k = 0; k < list.length(); k++) {
+                        JSONObject series = list.optJSONObject(k);
+                        JSONArray values = series == null ? null : series.optJSONArray("values");
+                        if (values == null) continue;
+                        for (int i = start; i < end; i++) {
+                            double v = valueAt(values, i);
+                            if (skip(v, series.optBoolean("zero_is_gap"), i)) continue;
+                            min = Math.min(min, v); max = Math.max(max, v);
+                        }
+                    }
+                }
+                paint.setColor(0xFF313A42);
+                paint.setStrokeWidth(1);
+                canvas.drawLine(left, top - dp(3), right, top - dp(3), paint);
+                paint.setColor(getColor(R.color.text_secondary));
+                paint.setTextSize(dp(10));
+                canvas.drawText(areas.get(a), left, top + dp(8), paint);
+                if (!Double.isFinite(min)) continue;
+                if (max <= min) max = min + 1;
+                canvas.drawText(compact(max), right + dp(3), top + dp(8), paint);
+                canvas.drawText(compact(min), right + dp(3), bottom, paint);
+                for (int s = 0; s < indicators.length(); s++) {
+                    JSONObject item = indicators.optJSONObject(s);
+                    if (item == null || !areas.get(a).equals(item.optString("area"))) continue;
+                    JSONArray list = item.optJSONArray("data_series");
+                    if (list == null) continue;
+                    for (int k = 0; k < list.length(); k++) {
+                        JSONObject series = list.optJSONObject(k);
+                        if (series != null) drawSeries(canvas, series, start, end, left, bar, min, max, top, bottom);
+                    }
+                }
+            }
+        }
+
+        private String compact(double value) {
+            return java.math.BigDecimal.valueOf(value).round(new java.math.MathContext(4))
+                .stripTrailingZeros().toPlainString();
+        }
         void resetViewport() { count = 65; offset = 0; invalidate(); }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
@@ -482,7 +602,8 @@ public final class ChartActivity extends Activity {
             if (!Double.isFinite(low)) return;
             if (high <= low) high = low + 1;
             float left = dp(8), right = getWidth() - dp(48);
-            float top = dp(20), bottom = getHeight() - dp(24);
+            float panelsHeight = areas.size() * dp(PANEL_DP);
+            float top = dp(20), bottom = getHeight() - dp(24) - panelsHeight;
             paint.setColor(0xFF313A42);
             paint.setStrokeWidth(1);
             for (int j = 0; j < 5; j++) {
@@ -505,6 +626,19 @@ public final class ChartActivity extends Activity {
                 canvas.drawRect(x - Math.max(1, bar * .32f), Math.min(yOpen, yClose),
                     x + Math.max(1, bar * .32f), Math.max(yOpen + 1, yClose), paint);
             }
+            for (int s = 0; s < indicators.length(); s++) {
+                JSONObject item = indicators.optJSONObject(s);
+                if (item == null || !item.optBoolean("is_supported", true)) continue;
+                String area = item.optString("area", "Prime");
+                if (!area.isEmpty() && !"Prime".equals(area)) continue;
+                JSONArray list = item.optJSONArray("data_series");
+                if (list == null) continue;
+                for (int k = 0; k < list.length(); k++) {
+                    JSONObject series = list.optJSONObject(k);
+                    if (series != null) drawSeries(canvas, series, start, end, left, bar, low, high, top, bottom);
+                }
+            }
+            drawPanels(canvas, start, end, left, right, bar, bottom + dp(24));
         }
 
         private float y(double price, double min, double max, float top, float bottom) {

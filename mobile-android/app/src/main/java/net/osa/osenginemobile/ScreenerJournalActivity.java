@@ -234,6 +234,7 @@ public final class ScreenerJournalActivity extends Activity {
         legend.addView(colored("● Лонг   ", 0xFF00BFFF));
         legend.addView(colored("● Шорт", 0xFF915000));
         content.addView(legend);
+        JournalPage.addBars(this, content, points, tablet);
         JSONObject last = points.optJSONObject(points.length() - 1);
         if (last != null) content.addView(text("Общая прибыль: "
             + BigDecimal.valueOf(last.optDouble("total"))
