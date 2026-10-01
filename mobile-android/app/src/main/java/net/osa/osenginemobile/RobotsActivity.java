@@ -109,7 +109,8 @@ public final class RobotsActivity extends Activity {
         ordersPage = new OrdersPage(this, pageContent,
             (ScrollView) findViewById(R.id.scroll_root), tablet);
         portfolioPage = new PortfolioPage(this, pageContent,
-            (ScrollView) findViewById(R.id.scroll_root), tablet, this::openComparePositions);
+            (ScrollView) findViewById(R.id.scroll_root), tablet, this::openComparePositions,
+            this::confirmCloseOnBoard);
         journalPage = new JournalPage(this, pageContent,
             (ScrollView) findViewById(R.id.scroll_root), tablet, () -> {
                 handler.removeCallbacks(journalPolling);
@@ -714,6 +715,43 @@ public final class RobotsActivity extends Activity {
         intent.putExtra("server_number", portfolio.optInt("serverNumber"));
         intent.putExtra("portfolio_name", portfolio.optString("number"));
         startActivity(intent);
+    }
+
+    /** The portfolio table's «Закрыть»: cancels robot orders, deletes their positions, closes on the exchange. */
+    private void confirmCloseOnBoard(JSONObject portfolio, JSONObject position) {
+        if (!available || !RemoteSsh.isConnected()) {
+            Toast.makeText(this, "Нет связи с VPS", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String security = position.optString("securityNameCode");
+        String type = portfolio.optString("serverType");
+        int number = portfolio.optInt("serverNumber");
+        if (security.isEmpty() || type.isEmpty()) return;
+        new AlertDialog.Builder(this, R.style.OsEngineDialog)
+            .setTitle("Закрыть позицию на бирже")
+            .setMessage("Вы хотите закрыть позицию на бирже?\n\n" + security + "\nСервер: " + type + " #" + number
+                + "\nТерминал: " + terminal + "\n\nЗаявки роботов по этой бумаге будут отменены, их позиции "
+                + "удалены, остаток закроется рыночным ордером.")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Закрыть", (dialog, which) -> {
+                loading = true;
+                worker.execute(() -> {
+                    String error = null;
+                    try {
+                        Object result = bridge.callBatch(terminal, McpBridge.call(
+                            "server_instance_close_position_on_board", new JSONObject()
+                                .put("type", type).put("number", number).put("security_name", security)))
+                            .get("server_instance_close_position_on_board");
+                        if (result instanceof Exception) throw (Exception) result;
+                    } catch (Exception e) { error = e.getMessage(); }
+                    String finalError = error;
+                    runOnUiThread(() -> {
+                        loading = false;
+                        Toast.makeText(this, finalError == null ? "Команда закрытия отправлена: " + security
+                            : "Не удалось закрыть: " + finalError, Toast.LENGTH_LONG).show();
+                    });
+                });
+            }).show();
     }
 
     private void showPositionActions(int section, JSONObject row) {

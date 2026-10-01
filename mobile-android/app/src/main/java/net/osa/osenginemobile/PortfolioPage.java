@@ -27,6 +27,7 @@ final class PortfolioPage {
     private final ScrollView outer;
     private final boolean tablet;
     private final java.util.function.Consumer<JSONObject> openCompare;
+    private final java.util.function.BiConsumer<JSONObject, JSONObject> closeOnBoard;
     private JSONArray portfolios = new JSONArray();
     private boolean loaded;
     private String error;
@@ -37,12 +38,14 @@ final class PortfolioPage {
     private HorizontalScrollView tableScroll;
 
     PortfolioPage(Activity activity, LinearLayout target, ScrollView outer, boolean tablet,
-                  java.util.function.Consumer<JSONObject> openCompare) {
+                  java.util.function.Consumer<JSONObject> openCompare,
+                  java.util.function.BiConsumer<JSONObject, JSONObject> closeOnBoard) {
         this.activity = activity;
         this.target = target;
         this.outer = outer;
         this.tablet = tablet;
         this.openCompare = openCompare;
+        this.closeOnBoard = closeOnBoard;
     }
 
     void showData(JSONArray rows, String message) {
@@ -121,7 +124,7 @@ final class PortfolioPage {
                 number(portfolio, "valueBegin"), number(portfolio, "valueCurrent"),
                 number(portfolio, "valueBlocked"), number(portfolio, "unrealizedPnl"),
                 "", "", "", "", ""};
-            addRow(table, summary, portfolio);
+            addRow(table, summary, portfolio, null, null);
             JSONArray positions = portfolio.optJSONArray("positions");
             int count = 0;
             if (positions != null) for (int j = 0; j < positions.length(); j++) {
@@ -131,24 +134,30 @@ final class PortfolioPage {
                     position.optString("securityNameCode"), number(position, "valueBegin"),
                     number(position, "valueCurrent"), number(position, "valueBlocked"),
                     number(position, "unrealizedPnl")};
-                addRow(table, values, null);
+                addRow(table, values, null, portfolio, position);
                 count++;
             }
             if (count == 0) {
                 String[] empty = new String[HEADERS.length];
                 java.util.Arrays.fill(empty, "");
                 empty[6] = "No positions";
-                addRow(table, empty, null);
+                addRow(table, empty, null, null, null);
             }
         }
         tableScroll = horizontal;
     }
 
-    private void addRow(LinearLayout table, String[] values, JSONObject portfolio) {
+    private void addRow(LinearLayout table, String[] values, JSONObject portfolio,
+                        JSONObject owner, JSONObject position) {
         LinearLayout row = new LinearLayout(activity);
         for (int i = 0; i < HEADERS.length; i++) row.addView(cell(values[i], false, WIDTHS[i]));
-        TextView action = cell(portfolio == null ? "" : "Сравнить позиции", false, 145);
+        TextView action = cell(portfolio != null ? "Сравнить позиции" : position != null ? "Закрыть" : "",
+            false, 145);
         if (portfolio != null) action.setOnClickListener(view -> openCompare.accept(portfolio));
+        else if (position != null) {
+            action.setTextColor(activity.getColor(R.color.orange));
+            action.setOnClickListener(view -> closeOnBoard.accept(owner, position));
+        }
         row.addView(action);
         table.addView(row);
     }
@@ -178,6 +187,10 @@ final class PortfolioPage {
                 TextView name = text(position.optString("securityNameCode"), 15, R.color.text_primary);
                 name.setTypeface(null, Typeface.BOLD);
                 instrument.addView(name);
+                TextView close = text("Закрыть", 13, R.color.orange);
+                close.setPadding(0, dp(8), 0, dp(8));
+                close.setOnClickListener(view -> closeOnBoard.accept(portfolio, position));
+                instrument.addView(close);
                 for (int k = 7; k <= 10; k++)
                     instrument.addView(line(HEADERS[k], number(position,
                         new String[]{"valueBegin", "valueCurrent", "valueBlocked", "unrealizedPnl"}[k - 7])));

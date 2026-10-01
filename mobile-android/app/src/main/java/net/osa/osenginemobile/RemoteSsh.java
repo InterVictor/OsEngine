@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.crypto.KeyAgreement;
 
 final class RemoteSsh {
-    private static SSHClient client;
-    private static String connectedHost;
+    private static volatile SSHClient client;
+    private static volatile String connectedHost;
 
     private RemoteSsh() { }
 
@@ -181,11 +181,12 @@ final class RemoteSsh {
         connectedHost = host;
     }
 
-    static synchronized boolean isConnected() {
-        return client != null && client.isConnected();
+    static boolean isConnected() {
+        SSHClient current = client;
+        return current != null && current.isConnected();
     }
 
-    static synchronized String host() { return connectedHost; }
+    static String host() { return connectedHost; }
 
     static synchronized String run(String shellCommand) throws IOException {
         if (!isConnected()) throw new IOException("SSH не подключён");
