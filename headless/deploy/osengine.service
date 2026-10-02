@@ -1,0 +1,24 @@
+# systemd-юнит серверной сборки OsEngine (Роботы Light без окон).
+# Установка:  sudo cp osengine.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#             sudo systemctl enable --now osengine
+# Журнал:     journalctl -u osengine -f        Остановка: sudo systemctl stop osengine
+[Unit]
+Description=OsEngine headless (Robots Light)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=osengine
+WorkingDirectory=/opt/osengine/data
+ExecStart=/opt/osengine/app/OsEngine --root /opt/osengine/data --mcp-port 6500 --mcp-key-file /opt/osengine/mcp.key
+# SIGTERM -> мягкая остановка (флаг работы снят, 5 с на потоки), затем выход
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+Environment=DOTNET_gcServer=0
+# MCP API слушает все адреса, но снаружи порт закрыт ufw; доступ — через SSH-туннель
+
+[Install]
+WantedBy=multi-user.target

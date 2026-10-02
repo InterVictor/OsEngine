@@ -1,0 +1,11 @@
+# Какие классы OsEngine разрешено подменять пустышками (регулярные выражения по пути файла).
+# Всё остальное shimloop.sh компилирует настоящим кодом.
+\.xaml\.cs$
+\.g\.cs$
+# другие коннекторы (сервер работает только с Binance Futures)
+^Market/Servers/(AExchange|Alor|AscendEX|AstsBridge|Atp|BCS|BinanceData|BingX|BitGet|BitGetData|BitGetUnified|BitMart|Bitfinex|BloFin|Bybit|BybitData|CoinEx|Deribit|ExMo|Finam|FinamGrpc|GateIo|GateIoData|HTX|InteractiveBrokers|KiteConnect|KuCoin|MFD|MOEX|MetaTrader5|Mexc|MoexAlgopack|MoexFixFastCurrency|MoexFixFastSpot|MoexFixFastTwimeFutures|NinjaTrader|OKX|OKXData|Pionex|Plaza|Polygon|QscalpMarketDepth|QuikLua|RSSNews|SmartLabNews|TData|TInvest|TelegramNews|TraderNet|Transaq|TwelveData|Woo|XT|YahooFinance)/
+^Market/Servers/Binance/Spot/BinanceServerSpot\.cs$
+^Market/Servers/Binance/Spot/BinanceSpotServerPermission\.cs$
+# справка, темы оформления, всплывающие окна алертов
+^Instructions/
+^Themes/

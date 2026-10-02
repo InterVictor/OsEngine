@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Разведка (этап 0): ядро OsEngine под net10.0 без WPF/WinForms.
+       Исходники берутся из $(OsEngineSrc) ссылками, не копируются. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>OsEngine</AssemblyName>
+    <RootNamespace>OsEngine</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="72.1.0.3" />
+  </ItemGroup>
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);HEADLESS</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OsEngineSrc Condition="'$(OsEngineSrc)'==''">D:\OsEngine-fork\project\OsEngine</OsEngineSrc>
+    <NoWarn>$(NoWarn);CS0618;CS0162;CS0168;CS0169;CS0219;CS0414;CS0649;CS0067;CS8981;SYSLIB0014;SYSLIB0021;SYSLIB0022;SYSLIB0023;SYSLIB0045</NoWarn>
+    <ErrorLog>errors.sarif</ErrorLog>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Shim.Generated.cs" />
+    <Compile Include="HeadlessProgram.cs" />
+    <Compile Include="ScriptNamespaces.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Google.Protobuf" Version="3.31.0" />
+    <PackageReference Include="Google.Api.CommonProtos" Version="2.16.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+    <PackageReference Include="System.ServiceModel.Syndication" Version="9.0.5" />
+    <PackageReference Include="WTelegramClient" Version="4.3.4" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.5" />
+    <!-- ICU внутри сборки: серверу не нужен libicu из apt -->
+    <PackageReference Include="Microsoft.ICU.ICU4C.Runtime" Version="72.1.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="RestSharp"><HintPath>$(OsEngineSrc)\bin\Debug\RestSharp.dll</HintPath></Reference>
+    <Reference Include="WebSocket4Net"><HintPath>$(OsEngineSrc)\bin\Debug\WebSocket4Net.dll</HintPath></Reference>
+    <Reference Include="SuperSocket.ClientEngine"><HintPath>$(OsEngineSrc)\bin\Debug\SuperSocket.ClientEngine.dll</HintPath></Reference>
+    <Reference Include="LiteDB"><HintPath>$(OsEngineSrc)\bin\Debug\LiteDB.dll</HintPath></Reference>
+    <Reference Include="Jayrock.Json"><HintPath>$(OsEngineSrc)\bin\Debug\Jayrock.Json.dll</HintPath></Reference>
+    <Reference Include="FinamApi"><HintPath>$(OsEngineSrc)/bin/Debug/FinamApi.dll</HintPath></Reference>
+    <Reference Include="NSec.Cryptography"><HintPath>$(OsEngineSrc)\bin\Debug\NSec.Cryptography.dll</HintPath></Reference>
+  </ItemGroup>
+  <Import Project="core-files.props" />
+</Project>

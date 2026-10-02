@@ -1,0 +1,24 @@
+OsEngine.Headless/bin/
+OsEngine.Headless/obj/
+OsEngine.Headless/errors.sarif
+errors.txt
+missing.txt
+missing_class.tsv
+members.txt
+per_file.txt
+ShimGen/bin/
+ShimGen/obj/
+OsEngine.Headless/core-src/
+PathFix/bin/
+PathFix/obj/
+
+# вывод генераторов (пересоздаётся bash shimloop.sh / gen.sh) и файлы с путями конкретного компьютера
+OsEngine.Headless/Shim.Generated.cs
+OsEngine.Headless/core-files.props
+OsEngine.Headless/shimmed-osengine-types.txt
+ShimGen/refs.json
+pathfix-report.tsv
+path-literals.tsv
+# архивы откатов серверных сборок и пакеты
+*.tgz
+*.tar.gz
