@@ -81,7 +81,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         // isScreener: tabName is a BotTabScreener — like BotPanel.ChangeActiveTab for a screener, the window shows
         // the screener's securities table in place of the chart and only the "Control" side tab.
-        public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName, bool isScreener = false)
+        public RobotsVpsChartWindow(RemoteMcpClient client, string botId, string botName, string tabName, bool isScreener = false, bool isScreenerSecurity = false)
         {
             InitializeComponent();
             _client = client;
@@ -89,6 +89,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
             _botName = botName;
             _tabName = tabName;
             _isScreener = isScreener;
+            _isScreenerSecurity = isScreenerSecurity;
             _layoutName = "Vps_" + botId;
 
             StickyBorders.Listen(this);
@@ -1136,6 +1137,11 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         #region Screener tab — BotTabScreener.StartPaint / CreateSecuritiesGrid / NewGrid_Click, fed by bot_screener_get_tabs
 
         private readonly bool _isScreener;
+
+        // the chart of one screener security (BotTabScreener.ShowChart: a CandleEngine holding only that tab) —
+        // its "Journal" shows the journal of this security only, not of the whole robot
+        private readonly bool _isScreenerSecurity;
+        private string JournalTabName => _isScreenerSecurity ? _tabName : null;
         private DataGridView _screenerGrid;
         private List<string> _screenerChildTabs = new List<string>();
         private int _screenerPreviousActiveRow;
@@ -1340,7 +1346,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
                 if (tabColumn == 8)
                 {
-                    RobotsVpsChartWindow chart = new RobotsVpsChartWindow(_client, _botId, _botName + " / " + security, childTab);
+                    RobotsVpsChartWindow chart = new RobotsVpsChartWindow(_client, _botId, _botName + " / " + security, childTab, isScreenerSecurity: true);
                     chart.Show();
                     chart.Activate();
                 }
@@ -1556,7 +1562,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
             try
             {
-                List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, _botId).ConfigureAwait(true);
+                List<BotPanelJournal> panelsJournal = await RobotsVpsJournalData.LoadAsync(_client, _botId, JournalTabName).ConfigureAwait(true);
 
                 if (_remoteJournalWindow != null)
                 {
@@ -1566,8 +1572,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
                 _remoteJournalWindow = new RobotsVpsJournalUi(panelsJournal, StartProgram.IsOsTrader) { Owner = this };
                 RemoteMcpClient journalClient = _client;
                 string journalBotName = _botId;
-                _remoteJournalWindow.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, journalBotName, panelsJournal);
-                _remoteJournalWindow.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, name, tabNum, number);
+                _remoteJournalWindow.ReloadDataAsync = () => RobotsVpsJournalData.RefreshAsync(journalClient, journalBotName, panelsJournal, JournalTabName);
+                // the panel of a screener security is named after its tab — the position belongs to the robot
+                _remoteJournalWindow.DeletePositionOnServer = (name, tabNum, number) => RobotsVpsJournalData.DeleteOnServer(journalClient, journalBotName, tabNum, number);
                 _remoteJournalWindow.Closed += (s, args) => _remoteJournalWindow = null;
                 _remoteJournalWindow.Show();
             }
