@@ -1,7 +1,7 @@
 # AGENTS.md — mobile-android (OsEngine Mobile)
 
 Android-клиент для управления терминалами OsEngine на VPS (по SSH, как окно «VPS» в OsEngine).
-Подпроект репозитория форка `D:\OsEngine-fork`, ветка `feature/robots-vps`.
+Подпроект репозитория форка `D:\OsEngine-fork`, ветка `osengine-vps` (основная; `feature/robots-vps` — прежняя, не обновляется).
 
 ## Git
 
