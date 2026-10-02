@@ -1,9 +1,9 @@
 ﻿# Ввод ключей биржи в коннектор OsEngine на сервере через MCP API (SSH-туннель должен быть поднят).
 # Ключи спрашиваются здесь, в окне PowerShell, и уходят только на сервер — нигде не печатаются и не сохраняются на ПК.
 #
-#   powershell -ExecutionPolicy Bypass -File D:\ff-research\tools\set-server-keys.ps1            # ключи BinanceFutures из буфера обмена
-#   powershell -ExecutionPolicy Bypass -File D:\ff-research\tools\set-server-keys.ps1 -Typed     # скрытый ввод с клавиатуры
-#   powershell -ExecutionPolicy Bypass -File D:\ff-research\tools\set-server-keys.ps1 -Test      # только проверка связи
+#   powershell -ExecutionPolicy Bypass -File D:\OsEngine-fork\tools\set-server-keys.ps1            # ключи BinanceFutures из буфера обмена
+#   powershell -ExecutionPolicy Bypass -File D:\OsEngine-fork\tools\set-server-keys.ps1 -Typed     # скрытый ввод с клавиатуры
+#   powershell -ExecutionPolicy Bypass -File D:\OsEngine-fork\tools\set-server-keys.ps1 -Test      # только проверка связи
 #
 # Параметры: -Type (тип коннектора, по умолчанию BinanceFutures), -Number (номер экземпляра, 0),
 #            -McpJson (откуда брать адрес и X-Api-Key сервера).
