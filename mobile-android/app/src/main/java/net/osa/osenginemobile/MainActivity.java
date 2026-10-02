@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
+    static final String EXTRA_RELOGIN = "relogin_message";
     private EditText host;
     private EditText user;
     private EditText password;
@@ -46,7 +47,7 @@ public final class MainActivity extends Activity {
             int top;
             int bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -94,7 +95,12 @@ public final class MainActivity extends Activity {
         column.setLayoutParams(layout);
 
         String savedKey = profile.loadPrivateKey(profile.host(), profile.user());
-        if (profile.autoConnect()) {
+        String lostMessage = getIntent().getStringExtra(EXTRA_RELOGIN);
+        if (lostMessage != null) {
+            status.setText(lostMessage);
+            scheduleRetry();
+        }
+        else if (profile.autoConnect()) {
             if (savedKey != null) beginConnect(profile.host(), profile.user(), null, savedKey);
             else {
                 // Migrate profiles created by the original password-only Android build.
@@ -103,6 +109,37 @@ public final class MainActivity extends Activity {
                 else beginConnect(profile.host(), profile.user(), legacyPassword, null);
             }
         } else if (savedKey != null) status.setText(R.string.status_key_ready);
+    }
+
+    private final android.os.Handler retryHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean retrying;
+
+    /** After a lost link keep trying with the device key while this screen is open (the network may be back). */
+    private void scheduleRetry() {
+        String savedKey = profile.loadPrivateKey(profile.host(), profile.user());
+        if (savedKey == null || retrying) return;
+        retrying = true;
+        retryHandler.postDelayed(new Runnable() {
+            @Override public void run() {
+                retrying = false;
+                if (isFinishing() || isDestroyed() || RemoteSsh.isConnected()) return;
+                if (connect.isEnabled()) beginConnect(profile.host(), profile.user(), null, savedKey);
+                scheduleRetry();
+            }
+        }, 8_000);
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String lost = intent.getStringExtra(EXTRA_RELOGIN);
+        if (lost != null) {
+            status.setText(lost);
+            scheduleRetry();
+        }
+        connect.setEnabled(true);
+        autoConnect.setEnabled(true);
+        updatePasswordVisibility();
     }
 
     private void updatePasswordVisibility() {
@@ -123,6 +160,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         worker.shutdownNow();
+        retryHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 

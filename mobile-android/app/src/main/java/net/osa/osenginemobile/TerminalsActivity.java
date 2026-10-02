@@ -46,7 +46,9 @@ public final class TerminalsActivity extends Activity {
         ScreenLayout.apply(this, 760);
         status = findViewById(R.id.server_status);
         terminalList = findViewById(R.id.terminal_list);
-        preview = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        findViewById(R.id.settings_button).setOnClickListener(view ->
+            startActivity(new Intent(this, SettingsActivity.class)));
+        preview =(getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
             && getIntent().getBooleanExtra("preview_terminals", false);
         if (preview) {
             showSnapshot(previewSnapshot());

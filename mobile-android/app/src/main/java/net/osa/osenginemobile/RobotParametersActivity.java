@@ -88,7 +88,7 @@ public final class RobotParametersActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -103,7 +103,7 @@ public final class RobotParametersActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(14), dp(12), dp(14), 0);
-        root.addView(header);
+        root.addView(Ime.hide(header));
         TextView back = text("‹ Роботы.VPS · " + terminal, 15, R.color.orange);
         back.setOnClickListener(view -> onBackPressed());
         header.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
@@ -131,7 +131,7 @@ public final class RobotParametersActivity extends Activity {
         scroll.addView(content);
         LinearLayout files = new LinearLayout(this);
         files.setPadding(dp(14), dp(6), dp(14), 0);
-        root.addView(files);
+        root.addView(Ime.hide(files));
         TextView save = action("Сохранить");
         TextView load = action("Загрузить");
         files.addView(save, new LinearLayout.LayoutParams(0, dp(42), 1));
@@ -151,7 +151,7 @@ public final class RobotParametersActivity extends Activity {
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
-        root.addView(buttons);
+        root.addView(Ime.hide(buttons));
         refreshButton = action("Обновить");
         acceptButton = action("Принять");
         buttons.addView(refreshButton, new LinearLayout.LayoutParams(0, dp(42), 1));

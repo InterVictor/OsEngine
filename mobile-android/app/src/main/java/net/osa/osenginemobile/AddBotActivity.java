@@ -64,7 +64,7 @@ public final class AddBotActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -125,7 +125,7 @@ public final class AddBotActivity extends Activity {
         scroll.addView(list);
         LinearLayout buttons = new LinearLayout(this);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
-        root.addView(buttons);
+        root.addView(Ime.hide(buttons));
         TextView refresh = text("Обновить информацию", 13, R.color.orange);
         refresh.setGravity(Gravity.CENTER);
         refresh.setBackgroundResource(R.drawable.input_background);

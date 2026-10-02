@@ -124,7 +124,7 @@ public final class BotSettingsActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -139,7 +139,7 @@ public final class BotSettingsActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(14), dp(12), dp(14), 0);
-        root.addView(header);
+        root.addView(Ime.hide(header));
         TextView back = text("‹ " + botName, 15, R.color.orange);
         back.setOnClickListener(view -> onBackPressed());
         header.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
@@ -162,7 +162,7 @@ public final class BotSettingsActivity extends Activity {
         scroll.addView(form);
         LinearLayout buttons = new LinearLayout(this);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
-        root.addView(buttons);
+        root.addView(Ime.hide(buttons));
         accept = text("Принять", 14, R.color.text_primary);
         accept.setGravity(Gravity.CENTER);
         accept.setBackgroundResource(R.drawable.input_background);

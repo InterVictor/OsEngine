@@ -92,7 +92,7 @@ public final class ConnectorSettingsActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -137,7 +137,7 @@ public final class ConnectorSettingsActivity extends Activity {
         LinearLayout buttons = panel();
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
-        root.addView(buttons);
+        root.addView(Ime.hide(buttons));
         connectButton = action("Подключить");
         disconnectButton = action("Отключить");
         buttons.addView(connectButton, new LinearLayout.LayoutParams(0, dp(42), 1));

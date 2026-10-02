@@ -74,6 +74,9 @@ public final class DataSettingsActivity extends Activity {
     private boolean loaded, busy, destroyed, resolved, simple;
     private final ArrayList<String> seriesKeys = new ArrayList<>();
     private String search = "";
+    private static final int PAGE = 60;
+    private int shownLimit = PAGE;
+    private final android.os.Handler searchHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final java.util.TreeMap<String, ArrayList<String>> serverByClass = new java.util.TreeMap<>();
     private boolean serverLoading, serverLoaded;
     private String serverError;
@@ -102,6 +105,7 @@ public final class DataSettingsActivity extends Activity {
     @Override protected void onDestroy() {
         destroyed = true;
         worker.shutdownNow();
+        searchHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
@@ -126,7 +130,7 @@ public final class DataSettingsActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -141,7 +145,7 @@ public final class DataSettingsActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(14), dp(12), dp(14), 0);
-        root.addView(header);
+        root.addView(Ime.hide(header));
         TextView back = text("‹ " + botName, 15, R.color.orange);
         back.setOnClickListener(view -> onBackPressed());
         header.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
@@ -163,7 +167,7 @@ public final class DataSettingsActivity extends Activity {
         scroll.addView(form);
         LinearLayout buttons = new LinearLayout(this);
         buttons.setPadding(dp(14), dp(6), dp(14), dp(8));
-        root.addView(buttons);
+        root.addView(Ime.hide(buttons));
         accept = text("Принять", 14, R.color.text_primary);
         accept.setGravity(Gravity.CENTER);
         accept.setBackgroundResource(R.drawable.input_background);
@@ -331,14 +335,22 @@ public final class DataSettingsActivity extends Activity {
         EditText find = new EditText(this);
         find.setHint("поиск по всем бумагам класса...");
         find.setSingleLine(true);
+        find.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        find.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
         find.setTextColor(getColor(R.color.text_primary));
         find.setText(search);
+        find.setOnFocusChangeListener((view, focused) -> {
+            if (focused) view.postDelayed(() -> scroll.smoothScrollTo(0, Math.max(0, view.getTop() - dp(8))), 600);
+        });
         find.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void afterTextChanged(Editable s) {
                 search = s.toString().trim().toUpperCase();
-                renderSecurities();
+                shownLimit = PAGE;
+                searchHandler.removeCallbacksAndMessages(null);
+                searchHandler.postDelayed(() -> { if (!destroyed && securityList != null) renderSecurities(); }, 250);
             }
         });
         form.addView(find);
@@ -381,7 +393,7 @@ public final class DataSettingsActivity extends Activity {
                 labels[i] = classes.get(i) + (list == null ? "" : "  (" + list.size() + ")");
             }
             new AlertDialog.Builder(this, R.style.OsEngineDialog).setTitle("Класс бумаг")
-                .setItems(labels, (dialog, which) -> { chosenClass = classes.get(which); search = ""; renderForm(); refreshAccept(); })
+                .setItems(labels, (dialog, which) -> { chosenClass = classes.get(which); search = ""; shownLimit = PAGE; renderForm(); refreshAccept(); })
                 .show();
         });
         row.addView(value, new LinearLayout.LayoutParams(0, dp(42), 1));
@@ -416,7 +428,13 @@ public final class DataSettingsActivity extends Activity {
         if (all != null) names.addAll(all);
         else for (Security item : securities) if (item.className.equals(chosenClass)) names.add(item.name);
         ArrayList<String> result = new ArrayList<>();
-        for (String name : names) if (search.isEmpty() || name.toUpperCase().contains(search)) result.add(name);
+        ArrayList<String> rest = new ArrayList<>();
+        for (String name : names) {
+            String upper = name.toUpperCase();
+            if (search.isEmpty() || upper.startsWith(search)) result.add(name);
+            else if (upper.contains(search)) rest.add(name);
+        }
+        result.addAll(rest);   // names that start with the query come first
         return result;
     }
 
@@ -434,7 +452,7 @@ public final class DataSettingsActivity extends Activity {
             ? "Не удалось загрузить список бумаг сервера: " + serverError
             : "Загрузка списка бумаг сервера…", 12, R.color.text_secondary));
         ArrayList<String> names = visibleNames();
-        int limit = 400;
+        int limit = shownLimit;
         for (int i = 0; i < Math.min(limit, names.size()); i++) {
             String name = names.get(i);
             CheckBox box = new CheckBox(this);
@@ -450,8 +468,14 @@ public final class DataSettingsActivity extends Activity {
             });
             securityList.addView(box, new LinearLayout.LayoutParams(-1, dp(44)));
         }
-        if (names.size() > limit) securityList.addView(text("Показано " + limit + " из " + names.size()
-            + ": уточните поиск", 12, R.color.text_secondary));
+        if (!search.isEmpty() && serverLoaded) securityList.addView(text("Найдено: " + names.size(), 12, R.color.text_secondary), 0);
+        if (names.size() > limit) {
+            TextView more = text("Показать ещё (показано " + limit + " из " + names.size() + ")", 13, R.color.orange);
+            more.setGravity(Gravity.CENTER);
+            more.setBackgroundResource(R.drawable.input_background);
+            more.setOnClickListener(view -> { shownLimit += PAGE; renderSecurities(); });
+            securityList.addView(more, new LinearLayout.LayoutParams(-1, dp(44)));
+        }
         if (names.isEmpty() && serverLoaded) securityList.addView(text("Ничего не найдено", 13, R.color.text_secondary));
     }
 
@@ -492,7 +516,7 @@ public final class DataSettingsActivity extends Activity {
                     if (!serverByClass.containsKey(chosenClass) && serverByClass.containsKey("USDT")
                         && chosenClass.isEmpty()) chosenClass = "USDT";
                 }
-                if (loaded) renderForm();
+                if (loaded) { if (securityList != null) renderSecurities(); else renderForm(); }
             });
         });
     }

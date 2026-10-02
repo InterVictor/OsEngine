@@ -10,6 +10,7 @@
         android:theme="@style/OsEngineTheme">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -18,6 +19,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".TerminalsActivity" android:exported="false" />
+        <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".RobotsActivity" android:exported="false" />
         <activity android:name=".ChartActivity" android:exported="false" />
         <activity android:name=".RobotParametersActivity" android:exported="false" />

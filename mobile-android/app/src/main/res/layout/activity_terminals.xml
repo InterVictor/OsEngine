@@ -29,13 +29,27 @@
                     android:contentDescription="@string/logo_description"
                     android:src="@drawable/os_logo" />
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
+                    android:layout_weight="1"
                     android:text="OsEngine Mobile"
                     android:textColor="@color/text_primary"
-                    android:textSize="22sp"
+                    android:textSize="20sp"
                     android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/settings_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:background="@drawable/restart_outline"
+                    android:contentDescription="@string/settings_button"
+                    android:gravity="center"
+                    android:minWidth="0dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="⚙ Настройки"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
             </LinearLayout>
             <View
                 android:layout_width="match_parent"

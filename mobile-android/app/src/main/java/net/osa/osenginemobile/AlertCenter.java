@@ -35,6 +35,13 @@ final class AlertCenter {
 
     static synchronized List<Alert> snapshot() { return new ArrayList<>(alerts); }
 
+    /** After a silent SSH re-login: restart the event streams of every terminal seen before. */
+    static void restartStreams(Context context) {
+        java.util.ArrayList<String> names;
+        synchronized (AlertCenter.class) { names = new java.util.ArrayList<>(streams.keySet()); }
+        for (String name : names) ensureStream(context, name);
+    }
+
     static synchronized String streamStates() {
         StringBuilder text = new StringBuilder();
         for (Map.Entry<String, String> entry : states.entrySet()) {

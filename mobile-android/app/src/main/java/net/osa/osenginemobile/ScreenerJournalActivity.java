@@ -82,7 +82,7 @@ public final class ScreenerJournalActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top; bottom = bars.bottom;
             } else {
                 top = insets.getSystemWindowInsetTop();
@@ -108,11 +108,10 @@ public final class ScreenerJournalActivity extends Activity {
         body.addView(title);
         status = text("Загрузка журнала…", 12, R.color.text_secondary);
         body.addView(status);
-        tabScroll = new HorizontalScrollView(this);
-        tabScroll.setHorizontalScrollBarEnabled(false);
+        tabScroll = null;   // three tabs share the width, nothing slides
         tabs = new LinearLayout(this);
-        tabScroll.addView(tabs);
-        body.addView(tabScroll);
+        tabs.setBaselineAligned(false);
+        body.addView(tabs, new LinearLayout.LayoutParams(-1, -2));
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         body.addView(content);
@@ -198,10 +197,12 @@ public final class ScreenerJournalActivity extends Activity {
         String[] names = {"Эквити", "Открытые позиции", "Закрытые позиции"};
         for (int i = 0; i < names.length; i++) {
             final int index = i;
-            TextView tab = text(names[i], 13, selected == i ? R.color.orange : R.color.text_primary);
+            TextView tab = text(names[i], 12, selected == i ? R.color.orange : R.color.text_primary);
             tab.setGravity(Gravity.CENTER);
             tab.setBackgroundResource(R.drawable.input_background);
-            tabs.addView(tab, new LinearLayout.LayoutParams(dp(145), dp(48)));
+            LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+            if (i > 0) tabParams.leftMargin = dp(4);
+            tabs.addView(tab, tabParams);
             tab.setOnClickListener(view -> {
                 selected = index;
                 positions = new JSONArray();
@@ -212,8 +213,6 @@ public final class ScreenerJournalActivity extends Activity {
                 handler.post(polling);
             });
         }
-        tabScroll.post(() -> tabScroll.smoothScrollTo(
-            Math.max(0, tabs.getChildAt(selected).getLeft() - dp(12)), 0));
     }
 
     private void renderEquity() {

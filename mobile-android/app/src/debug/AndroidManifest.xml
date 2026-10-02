@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: the screens that have a preview mode can be started from adb with an extra named preview_... -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity android:name="net.osa.osenginemobile.SettingsActivity"
+            android:exported="true" tools:replace="android:exported" />
+        <activity android:name="net.osa.osenginemobile.TerminalsActivity"
+            android:exported="true" tools:replace="android:exported" />
+    </application>
+</manifest>

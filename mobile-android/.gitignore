@@ -3,3 +3,6 @@
 local.properties
 **/build/
 *.iml
+
+# the root .gitignore ignores **/Debug/**.xml (build output); this one is a source file
+!app/src/debug/AndroidManifest.xml

@@ -75,7 +75,7 @@ public final class NonTradePeriodsActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int top, bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -91,24 +91,24 @@ public final class NonTradePeriodsActivity extends Activity {
         TextView back = text("‹ Настройка подключения " + type, 14, R.color.orange);
         back.setPadding(dp(14), 0, 0, 0);
         back.setOnClickListener(view -> finish());
-        root.addView(back, new LinearLayout.LayoutParams(-1, dp(44)));
+        root.addView(Ime.hide(back), new LinearLayout.LayoutParams(-1, dp(44)));
         TextView title = text("Настройки неторговых периодов", 19, R.color.text_primary);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding(dp(14), 0, dp(14), 0);
-        root.addView(title, new LinearLayout.LayoutParams(-1, dp(42)));
+        root.addView(Ime.hide(title), new LinearLayout.LayoutParams(-1, dp(42)));
         View strip = new View(this);
         strip.setBackgroundColor(getColor(R.color.brand_strip));
-        root.addView(strip, new LinearLayout.LayoutParams(-1, dp(2)));
+        root.addView(Ime.hide(strip), new LinearLayout.LayoutParams(-1, dp(2)));
 
         message = text("Загрузка с VPS…", 12, R.color.text_secondary);
         message.setPadding(dp(14), dp(7), dp(14), dp(7));
-        root.addView(message);
+        root.addView(Ime.hide(message));
 
         HorizontalScrollView tabScroll = new HorizontalScrollView(this);
         tabScroll.setHorizontalScrollBarEnabled(false);
         tabs = row();
         tabScroll.addView(tabs);
-        root.addView(tabScroll);
+        root.addView(Ime.hide(tabScroll));
 
         ScrollView scroll = new BarScrollView(this);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -124,7 +124,7 @@ public final class NonTradePeriodsActivity extends Activity {
         LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0, dp(44), 1);
         second.leftMargin = dp(8);
         footer.addView(load, second);
-        root.addView(footer);
+        root.addView(Ime.hide(footer));
         save.setOnClickListener(view -> filePicker(Intent.ACTION_CREATE_DOCUMENT, EXPORT));
         load.setOnClickListener(view -> filePicker(Intent.ACTION_OPEN_DOCUMENT, IMPORT));
         render();

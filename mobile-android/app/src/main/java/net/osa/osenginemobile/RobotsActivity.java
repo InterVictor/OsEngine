@@ -83,7 +83,7 @@ public final class RobotsActivity extends Activity {
             int top;
             int bottom;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
                 top = bars.top;
                 bottom = bars.bottom;
             } else {
@@ -948,8 +948,8 @@ public final class RobotsActivity extends Activity {
         int previousX = phoneScroll == null ? 0 : phoneScroll.getScrollX();
         nav.removeAllViews();
         String[] tabs = tablet
-            ? new String[]{"Роботы", "Позиции", "Серверы", "Портфель", "Журнал", "Прайм лог", "Ордера"}
-            : new String[]{"Роботы", "Позиции", "Серверы", "Портфель", "Журнал", "Ещё"};
+            ? new String[]{"Роботы", "Журнал", "Серверы", "Портфель", "Позиции", "Прайм лог", "Ордера"}
+            : new String[]{"Роботы", "Журнал", "Серверы", "Портфель", "Позиции", "Ещё"};
         boolean connected = false;
         if (available) for (int i = 0; i < servers.length(); i++) {
             JSONObject server = servers.optJSONObject(i);

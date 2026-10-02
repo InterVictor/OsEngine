@@ -82,18 +82,19 @@ final class JournalPage {
         if (error != null) target.addView(text(error + (loaded ? " · последний снимок " + updatedAt : ""),
             13, R.color.text_secondary));
         else if (loaded) target.addView(text("Обновлено " + updatedAt, 12, R.color.text_secondary));
-        tabsScroll = new HorizontalScrollView(activity);
-        tabsScroll.setHorizontalScrollBarEnabled(false);
+        tabsScroll = null;   // three tabs share the width, nothing slides
         LinearLayout tabs = new LinearLayout(activity);
-        tabsScroll.addView(tabs);
-        target.addView(tabsScroll);
+        tabs.setBaselineAligned(false);
+        target.addView(tabs, new LinearLayout.LayoutParams(-1, -2));
         for (int i = 0; i < TABS.length; i++) {
             int index = i;
-            TextView tab = text(TABS[i], 13, selected == i ? R.color.orange : R.color.text_primary);
+            TextView tab = text(TABS[i], 12, selected == i ? R.color.orange : R.color.text_primary);
             tab.setGravity(Gravity.CENTER);
-            tab.setPadding(dp(12), 0, dp(12), 0);
+            tab.setPadding(dp(4), 0, dp(4), 0);
             tab.setBackgroundResource(R.drawable.input_background);
-            tabs.addView(tab, new LinearLayout.LayoutParams(dp(tablet ? 150 : 145), dp(44)));
+            LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+            if (i > 0) tabParams.leftMargin = dp(4);
+            tabs.addView(tab, tabParams);
             tab.setOnClickListener(view -> {
                 selected = index;
                 render(false);
@@ -348,12 +349,15 @@ final class JournalPage {
             if (!Double.isFinite(min)) return;
             if (max == min) { max += 1; min -= 1; }
             paint.setColor(0xFF384047);
-            paint.setStrokeWidth(1);
-            float left = 24, right = getWidth() - 24, top = 24, bottom = getHeight() - 24;
+            paint.setStrokeWidth(getResources().getDisplayMetrics().density);
+            float margin = 12 * getResources().getDisplayMetrics().density;
+            float left = margin, right = getWidth() - margin, top = margin, bottom = getHeight() - margin;
             canvas.drawLine(left, bottom, right, bottom, paint);
             for (int series = 0; series < fields.length; series++) {
                 paint.setColor(colors[series]);
-                paint.setStrokeWidth(series == 0 ? 3 : 2);
+                float line = getResources().getDisplayMetrics().density;
+                paint.setStrokeWidth(series == 0 ? 3.5f * line : 2.5f * line);
+                paint.setStrokeCap(Paint.Cap.ROUND);
                 float previousX = 0, previousY = 0;
                 for (int i = 0; i < points.length(); i++) {
                     JSONObject point = points.optJSONObject(i);
@@ -362,7 +366,6 @@ final class JournalPage {
                     float y = (float) (bottom - (point.optDouble(fields[series], 0) - min)
                         / (max - min) * (bottom - top));
                     if (i > 0) canvas.drawLine(previousX, previousY, x, y, paint);
-                    canvas.drawCircle(x, y, 3, paint);
                     previousX = x; previousY = y;
                 }
             }

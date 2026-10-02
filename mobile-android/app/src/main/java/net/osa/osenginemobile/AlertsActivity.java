@@ -24,7 +24,7 @@ public final class AlertsActivity extends Activity implements AlertCenter.Listen
         root.setBackgroundColor(getColor(R.color.panel));
         root.setPadding(dp(14), dp(12), dp(14), dp(12));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
             view.setPadding(dp(14), bars.top + dp(12), dp(14), bars.bottom + dp(12));
             return insets;
         });
