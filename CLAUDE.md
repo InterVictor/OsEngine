@@ -27,8 +27,10 @@
 - `master` — чистое зеркало `AlexWan/OsEngine:master`, коммитов не делать, только fast-forward.
 - `osengine-vps` — рабочая ветка; upstream вливается сюда.
 - `feature/robots-vps` — заморожена (тег `robots-vps-before-split`).
-- `pr/*` — предложения разработчикам; создавать от свежего `master`. Влитую правку оптимизатора (`pr/optimizer-fixed-params`) в
-  `osengine-vps` ещё нужно перенести — см. план упорядочивания в `D:\ff-research\CLAUDE.md`.
+- `pr/*` — предложения разработчикам; создавать от свежего `master`. Правка оптимизатора (`pr/optimizer-fixed-params`, PR в AlexWan
+  закрыт без слияния) влита в `osengine-vps` 2026-10-02 (коммит `15a80f9`); ветка остаётся как источник для нового PR.
+- Терминал стратегий: `project/OsEngine/bin/Debug` содержит скопированные из `masterBB` `Engine` и `Data` (в git не попадают) и роботы
+  FF14x из `D:\ff-research\robots`. План упорядочивания и статус шагов — в `D:\ff-research\CLAUDE.md`.
 
 ## Не коммитить
 
