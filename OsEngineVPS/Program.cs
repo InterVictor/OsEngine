@@ -43,6 +43,11 @@ namespace OsEngineVPS
             {
                 Thread.CurrentThread.CurrentCulture = OsLocalization.CurCulture;
 
+                // What OsEngine's MainWindow sets on start: its background loops (the chart painter and ~50 others)
+                // run only while this flag is up — without it the charts stayed empty
+                OsEngine.MainWindow.ProccesIsWorked = true;
+                OsEngine.MainWindow.DebuggerIsWork = System.Diagnostics.Debugger.IsAttached;
+
                 // alerts raised by the remote terminals are shown in the usual alert window
                 AlertMessageManager.TextBoxFromStaThread = new System.Windows.Controls.TextBox();
             };

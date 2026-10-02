@@ -43,6 +43,7 @@ namespace OsEngineVPS
             Closing += (s, e) =>
             {
                 VpsRemoteSession.InstancesChanged -= OnInstancesChanged;
+                OsEngine.MainWindow.ProccesIsWorked = false; // stops OsEngine's background loops, as on OsEngine exit
                 _settings.ShutdownConnection();
                 Application.Current.Shutdown();
             };
