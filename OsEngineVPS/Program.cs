@@ -39,18 +39,17 @@ namespace OsEngineVPS
             // the main window of this program instead of OsEngine's MainWindow
             app.StartupUri = new Uri("pack://application:,,,/OsEngineVPS;component/MainUi.xaml");
 
-            app.Startup += (s, e) =>
-            {
-                Thread.CurrentThread.CurrentCulture = OsLocalization.CurCulture;
+            // What OsEngine's MainWindow sets on start. Done here, not in app.Startup: OsEngine.App.OnStartup does not
+            // call the base method, so the Startup event never fires.
+            Thread.CurrentThread.CurrentCulture = OsLocalization.CurCulture;
 
-                // What OsEngine's MainWindow sets on start: its background loops (the chart painter and ~50 others)
-                // run only while this flag is up — without it the charts stayed empty
-                OsEngine.MainWindow.ProccesIsWorked = true;
-                OsEngine.MainWindow.DebuggerIsWork = System.Diagnostics.Debugger.IsAttached;
+            // OsEngine's background loops (the chart painter and ~50 others) run only while this flag is up —
+            // without it the charts stayed empty
+            OsEngine.MainWindow.ProccesIsWorked = true;
+            OsEngine.MainWindow.DebuggerIsWork = System.Diagnostics.Debugger.IsAttached;
 
-                // alerts raised by the remote terminals are shown in the usual alert window
-                AlertMessageManager.TextBoxFromStaThread = new System.Windows.Controls.TextBox();
-            };
+            // alerts raised by the remote terminals are shown in the usual alert window
+            AlertMessageManager.TextBoxFromStaThread = new System.Windows.Controls.TextBox();
 
             app.Run();
         }
