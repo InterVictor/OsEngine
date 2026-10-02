@@ -15,7 +15,6 @@ using OsEngine.OsData;
 using OsEngine.OsOptimizer;
 using OsEngine.OsTrader.Gui;
 using OsEngine.OsTrader.Gui.BlockInterface;
-using OsEngine.OsTrader.Gui.RobotsVps;
 using OsEngine.OsTrader.SystemAnalyze;
 using OsEngine.PrimeSettings;
 using System;
@@ -42,16 +41,14 @@ namespace OsEngine
     {
         private static MainWindow _window;
 
-        private RobotsVpsUi _vpsSettingsUi;
-        private bool _vpsAutoConnectStarted;
-
         private UpdateResponse _updServerResp;
 
         private int _commitsCount;
 
         public static Dispatcher GetDispatcher
         {
-            get { return _window.Dispatcher; }
+            // OsEngine's windows also run inside OsEngineVPS, where this main window is never created
+            get { return _window?.Dispatcher ?? Application.Current.Dispatcher; }
         }
 
         public static bool DebuggerIsWork;
@@ -272,7 +269,6 @@ namespace OsEngine
                 });
 
                 ProccesIsWorked = false;
-                _vpsSettingsUi?.ShutdownConnection(); // Роботы.VPS: закрыть SSH-туннель и MCP-клиенты
                 _mcpMaster?.SendTerminalStopped("shutting_down");
                 StopMcpHost();
                 GlobalGUILayout.IsClosed = true;
@@ -299,22 +295,6 @@ namespace OsEngine
 
         private void MainWindow_ContentRendered(object sender, EventArgs e)
         {
-            if (!_vpsAutoConnectStarted && RobotsVpsUi.IsAutoConnectOnStartupEnabled())
-            {
-                _vpsAutoConnectStarted = true;
-                try
-                {
-                    EnsureVpsSettingsWindow();
-                    _vpsSettingsUi.Show();
-                    _vpsSettingsUi.Hide();
-                    _vpsSettingsUi.StartAutomaticConnect();
-                }
-                catch (Exception error)
-                {
-                    MessageBox.Show("VPS auto-connect failed: " + error.Message);
-                }
-            }
-
             Task.Run(() =>
             {
                 Thread.Sleep(1000);
@@ -353,7 +333,6 @@ namespace OsEngine
 
             ButtonTesterLight.Content = OsLocalization.MainWindow.OsTesterLiteName;
             ButtonRobotLight.Content = OsLocalization.MainWindow.OsBotStationLiteName;
-            ButtonRobotVps.Content = OsLocalization.MainWindow.OsBotStationVpsName;
 
             ChangeButtonCommits();
 
@@ -398,15 +377,6 @@ namespace OsEngine
             if (e.Exception != null
                 && e.Exception.ToString().Contains("(995):") == true)
             { // игнорируем прерывания потока за делом по кансел токену
-                return;
-            }
-
-            if (e.Exception != null
-                && e.Exception.InnerExceptions.Count > 0
-                && System.Linq.Enumerable.All(e.Exception.InnerExceptions, ex => ex is Renci.SshNet.Common.SshException))
-            { // Роботы.VPS: при обрыве SSH-соединения посреди команды SSH.NET оставляет свою внутреннюю задачу с ошибкой,
-              // которую никто не ждёт. Наш вызов эту ошибку уже обработал, туннель переподключается сам — это не сбой терминала
-                e.SetObserved();
                 return;
             }
 
@@ -1158,58 +1128,6 @@ namespace OsEngine
             }
         }
 
-        // "Роботы. VPS" не запускает локальный движок (нет ServerMaster.RealStarted, нет смены _startProgram) —
-        // это лёгкий просмотрщик/пульт для ДРУГОГО экземпляра OsEngine по MCP API. Поэтому, в отличие от
-        // остальных пунктов меню, окно открывается немодально и не закрывает главное меню/процесс.
-        private void ButtonVpsSettings_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                EnsureVpsSettingsWindow();
-                _vpsSettingsUi.Show();
-                _vpsSettingsUi.Activate();
-            }
-            catch (Exception error)
-            {
-                MessageBox.Show(error.ToString());
-            }
-        }
-
-        private void EnsureVpsSettingsWindow()
-        {
-            if (_vpsSettingsUi != null) return;
-            _vpsSettingsUi = new RobotsVpsUi();
-            _vpsSettingsUi.Closed += (s, e) => _vpsSettingsUi = null;
-        }
-
-        private void ButtonRobotVps_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // One terminal on the VPS (or not connected yet) — open it right away; several — ask which one.
-                IReadOnlyList<string> instances = VpsRemoteSession.InstanceNames;
-                string instance = instances.Count > 0 ? instances[0] : VpsRemoteSession.MainInstance;
-
-                if (instances.Count > 1)
-                {
-                    RobotsVpsInstancePickerUi picker = new RobotsVpsInstancePickerUi(instances);
-
-                    if (picker.ShowDialog() != true)
-                    {
-                        return;
-                    }
-
-                    instance = picker.SelectedInstance;
-                }
-
-                RobotsVpsWorkspaceUi workspaceUi = new RobotsVpsWorkspaceUi(instance);
-                workspaceUi.Show();
-            }
-            catch (Exception error)
-            {
-                MessageBox.Show(error.ToString());
-            }
-        }
         private void ButtonData_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1901,9 +1819,9 @@ namespace OsEngine
             }
         }
 
-        // Fork (feature/robots-vps): information only. The built-in updater (UpdateModuleUi) downloads the official binaries
-        // into bin\Debug and replaces the files that differ — this fork's OsEngine.dll always differs, so Robots.VPS and the
-        // other fork changes would be gone. The count still tells that the official OsEngine has news; they are taken into
+        // Fork: information only. The built-in updater (UpdateModuleUi) downloads the official binaries into bin\Debug and
+        // replaces the files that differ — this fork's OsEngine.dll always differs (MCP tools used by OsEngineVPS and the VPS
+        // server build), so they would be gone. The count still tells that the official OsEngine has news; they are taken into
         // the fork through git (D:\ff-research\tools\check-upstream.sh shows what changed).
         private void ButtonNewCommits_Click(object sender, RoutedEventArgs e)
         {
@@ -1913,10 +1831,10 @@ namespace OsEngine
 
                 CustomMessageBoxUi ui = new CustomMessageBoxUi(OsLocalization.ConvertToLocString(
                     "Eng:New changes in the official OsEngine: " + count + ".\n\n" +
-                    "This terminal is a fork, so the built-in updater is switched off: it would replace this build with the official one and remove Robots.VPS. " +
+                    "This terminal is a fork, so the built-in updater is switched off: it would replace this build with the official one and remove the fork's changes. " +
                     "Official changes are merged into the fork through git — ask Claude to \"pull the main branch\"._" +
                     "Ru:Новых изменений в официальном OsEngine: " + count + ".\n\n" +
-                    "Этот терминал — форк, поэтому встроенное обновление отключено: оно заменило бы эту сборку официальной и убрало бы Роботы.VPS. " +
+                    "Этот терминал — форк, поэтому встроенное обновление отключено: оно заменило бы эту сборку официальной и убрало бы доработки форка. " +
                     "Изменения основной ветки вносятся в форк через git — попросите Claude «подтянуть основную ветку»._"));
                 ui.ShowDialog();
             }

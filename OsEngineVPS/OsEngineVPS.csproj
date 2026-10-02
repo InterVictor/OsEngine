@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    OsEngineVPS: remote control of OsEngine terminals on a VPS (SSH tunnel + MCP).
+    A separate program built on OsEngine as a library: the windows, themes and styles are OsEngine's own
+    (it runs OsEngine.App with its own main window), the local OsEngine terminal is not involved.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>OsEngineVPS</AssemblyName>
+    <RootNamespace>OsEngine.OsTrader.Gui.RobotsVps</RootNamespace>
+    <StartupObject>OsEngineVPS.Program</StartupObject>
+    <ApplicationIcon>..\project\OsEngine\OsLogo.ico</ApplicationIcon>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\project\OsEngine\OsEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the windows reference "/Images/..." of their own assembly: the same pictures as OsEngine's -->
+    <Resource Include="..\project\OsEngine\Images\**\*.png;..\project\OsEngine\Images\**\*.ico">
+      <Link>Images\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- VPS setup/update scripts, uploaded by "Deploy server" / "Update build"; the headless package is placed next to them -->
+    <None Update="RobotsVps\Provisioning\osengine-setup.sh">
+      <Link>VpsServer\osengine-setup.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="RobotsVps\Provisioning\osengine-update.sh">
+      <Link>VpsServer\osengine-update.sh</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

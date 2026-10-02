@@ -1,0 +1,28 @@
+<Window x:Class="OsEngineVPS.MainUi"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="OsEngineVPS" Height="850" Width="1300" MinWidth="700" MinHeight="450"
+        Style="{StaticResource WindowStyleCanResize}"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Images/OsLogo.ico">
+    <!-- header: Settings (VPS connection and administration) + connection state; below — one tab per VPS terminal,
+         each showing the Robots.VPS workspace of that terminal -->
+    <Grid Background="{DynamicResource StandardBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="6,6,6,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Name="ButtonSettings" Content="Settings" Width="110" Height="28" Click="ButtonSettings_Click"
+                    ToolTip="VPS connection and administration: SSH, terminals, files, monitoring, MCP access"/>
+            <TextBlock Grid.Column="1" Name="TextBlockConnection" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="Gray"/>
+        </Grid>
+
+        <TabControl Grid.Row="1" Name="TabControlTerminals" Margin="4,2,4,4"/>
+    </Grid>
+</Window>

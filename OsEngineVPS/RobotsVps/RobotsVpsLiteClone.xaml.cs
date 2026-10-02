@@ -208,8 +208,9 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
 
         private void Local()
         {
+            // the workspace names its own window; inside the OsEngineVPS tabs the window shows all terminals
             Window owner = Window.GetWindow(this);
-            if (owner != null)
+            if (owner != null && !(owner is OsEngineVPS.MainUi))
                 owner.Title = "Robots.VPS " + OsEngine.PrimeSettings.PrimeSettingsMaster.LabelInHeaderBotStation
                     + (string.Equals(InstanceName, VpsRemoteSession.MainInstance, StringComparison.OrdinalIgnoreCase) ? "" : " — " + InstanceName);
             LabelOsa.Content = "V_" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
@@ -401,7 +402,7 @@ namespace OsEngine.OsTrader.Gui.RobotsVps
         private void ButtonSystemStress_Click(object sender, RoutedEventArgs e) => OsEngine.OsTrader.SystemAnalyze.SystemUsageAnalyzeMaster.ShowDialog();
         private void ButtonServerAvailability_Click(object sender, RoutedEventArgs e) => OsEngine.OsTrader.ServerAvailability.ServerAvailabilityMaster.ShowDialog();
 
-        // VPS terminal this workspace shows (VpsRemoteSession instance name); set by RobotsVpsWorkspaceUi before load.
+        // VPS terminal this workspace shows (VpsRemoteSession instance name); set by the OsEngineVPS main window (one tab per terminal) before load.
         public string InstanceName { get; set; } = VpsRemoteSession.MainInstance;
 
         private void VpsRemoteSession_InstancesChanged()
