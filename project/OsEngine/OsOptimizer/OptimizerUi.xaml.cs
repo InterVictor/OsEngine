@@ -377,6 +377,7 @@ namespace OsEngine.OsOptimizer
                 if (_gridParameters != null)
                 {
                     _gridParameters.DataError -= _gridSources_DataError;
+                    _gridParameters.CurrentCellDirtyStateChanged -= _gridParameters_CurrentCellDirtyStateChanged;
                     DataGridFactory.ClearLinks(_gridParameters);
                     _gridParameters.Rows.Clear();
                     _gridParameters.Columns.Clear();
@@ -906,6 +907,9 @@ namespace OsEngine.OsOptimizer
             try
             {
                 AindicatorCacheServer.Clear();
+
+                // незавершённый ввод в ячейке таблицы параметров должен попасть в параметры
+                _gridParameters?.EndEdit();
 
                 SaveParametersFromTable();
 
@@ -2204,6 +2208,7 @@ namespace OsEngine.OsOptimizer
 
             _gridParameters.Rows.Add(null, null);
             _gridParameters.DataError += _gridParameters_DataError;
+            _gridParameters.CurrentCellDirtyStateChanged += _gridParameters_CurrentCellDirtyStateChanged;
 
             HostParam.Child = _gridParameters;
             _gridParameters.DataError += _gridSources_DataError;
@@ -2587,7 +2592,7 @@ namespace OsEngine.OsOptimizer
             // 3 Param Defoult Value
 
             row.Cells.Add(new DataGridViewTextBoxCell());
-            row.Cells[^1].Value = parameterInt.ValueIntDefolt.ToString();
+            row.Cells[^1].Value = parameterInt.ValueInt.ToString();
 
             if (isOptimize == true)
             {
@@ -2681,7 +2686,7 @@ namespace OsEngine.OsOptimizer
             // 3 Param Defoult Value
 
             row.Cells.Add(new DataGridViewTextBoxCell());
-            row.Cells[^1].Value = parameterDecimal.ValueDecimalDefolt.ToString();
+            row.Cells[^1].Value = parameterDecimal.ValueDecimal.ToString();
 
             if (isOptimize == true)
             {
@@ -2775,7 +2780,7 @@ namespace OsEngine.OsOptimizer
             // 3 Param Defoult Value
 
             row.Cells.Add(new DataGridViewTextBoxCell());
-            row.Cells[^1].Value = parameterDecimalCheckBox.ValueDecimalDefolt.ToString();
+            row.Cells[^1].Value = parameterDecimalCheckBox.ValueDecimal.ToString();
 
             if (isOptimize == true)
             {
@@ -2956,6 +2961,18 @@ namespace OsEngine.OsOptimizer
 
         private void SaveParametersFromTable()
         {
+            // окно должно работать с текущими списками мастера: если список был
+            // пересоздан (например, запросом через MCP API), правки из таблицы
+            // применяются к актуальному списку, а не к устаревшему
+            List<IIStrategyParameter> masterParameters = _master.ParametersCurrent;
+
+            if (masterParameters != null &&
+                !ReferenceEquals(_parameters, masterParameters))
+            {
+                _parameters = masterParameters;
+                _parametersActive = _master.ParametersOnCurrent;
+            }
+
             if (_parameters == null)
             {
                 return;
@@ -3016,7 +3033,9 @@ namespace OsEngine.OsOptimizer
                     }
                     else if (parameter.Type == StrategyParameterType.Int)
                     {
-                        int valueDefoult = Convert.ToInt32(row.Cells[3].Value);
+                        // колонка 3 - текущее значение (ValueInt): именно оно используется
+                        // в тесте для параметров вне перебора
+                        int value = Convert.ToInt32(row.Cells[3].Value);
                         int valueStart = Convert.ToInt32(row.Cells[4].Value);
                         int valueStep = Convert.ToInt32(row.Cells[5].Value);
                         int valueStop = Convert.ToInt32(row.Cells[6].Value);
@@ -3036,14 +3055,17 @@ namespace OsEngine.OsOptimizer
                         if (valueStart != param.ValueIntStart ||
                             valueStep != param.ValueIntStep ||
                             valueStop != param.ValueIntStop ||
-                            valueDefoult != param.ValueIntDefolt ||
                             stepType != param.StepType)
                         {
-                            _parameters.Insert(i_param, new StrategyParameterInt(parameter.Name, valueDefoult,
-                                valueStart, valueStop, valueStep));
+                            StrategyParameterInt newParam = new StrategyParameterInt(parameter.Name, param.ValueIntDefolt,
+                                valueStart, valueStop, valueStep);
+                            newParam.StepType = stepType;
+                            _parameters.Insert(i_param, newParam);
                             _parameters.RemoveAt(i_param + 1);
-                            ((StrategyParameterInt)_parameters[i_param]).StepType = stepType;
+                            param = newParam;
                         }
+
+                        param.ValueInt = value;
 
                         DataGridViewCheckBoxCell box = (DataGridViewCheckBoxCell)row.Cells[0];
                         if (row.Cells[0].Value == null ||
@@ -3060,7 +3082,8 @@ namespace OsEngine.OsOptimizer
                     }
                     else if (parameter.Type == StrategyParameterType.Decimal)
                     {
-                        decimal valueDefoult = row.Cells[3].Value.ToString().ToDecimal();
+                        // колонка 3 - текущее значение (ValueDecimal)
+                        decimal value = row.Cells[3].Value.ToString().ToDecimal();
                         decimal valueStart = row.Cells[4].Value.ToString().ToDecimal();
                         decimal valueStep = row.Cells[5].Value.ToString().ToDecimal();
                         decimal valueStop = row.Cells[6].Value.ToString().ToDecimal();
@@ -3080,14 +3103,17 @@ namespace OsEngine.OsOptimizer
                         if (valueStart != param.ValueDecimalStart ||
                             valueStep != param.ValueDecimalStep ||
                             valueStop != param.ValueDecimalStop ||
-                            valueDefoult != param.ValueDecimalDefolt ||
                             stepType != param.StepType)
                         {
-                            _parameters.Insert(i_param, new StrategyParameterDecimal(parameter.Name, valueDefoult,
-                               valueStart, valueStop, valueStep));
+                            StrategyParameterDecimal newParam = new StrategyParameterDecimal(parameter.Name, param.ValueDecimalDefolt,
+                               valueStart, valueStop, valueStep);
+                            newParam.StepType = stepType;
+                            _parameters.Insert(i_param, newParam);
                             _parameters.RemoveAt(i_param + 1);
-                            ((StrategyParameterDecimal)_parameters[i_param]).StepType = stepType;
+                            param = newParam;
                         }
+
+                        param.ValueDecimal = value;
                         if (row.Cells[0].Value == null ||
                             (bool)row.Cells[0].Value == false)
                         {
@@ -3102,22 +3128,14 @@ namespace OsEngine.OsOptimizer
                     }
                     else if (parameter.Type == StrategyParameterType.DecimalCheckBox)
                     {
-                        decimal valueDefoult = row.Cells[3].Value.ToString().ToDecimal();
+                        // колонка 3 - текущее значение (ValueDecimal)
+                        decimal value = row.Cells[3].Value.ToString().ToDecimal();
                         decimal valueStart = row.Cells[4].Value.ToString().ToDecimal();
                         decimal valueStep = row.Cells[5].Value.ToString().ToDecimal();
                         decimal valueStop = row.Cells[6].Value.ToString().ToDecimal();
                         StrategyParameterStepType stepType;
                         Enum.TryParse(row.Cells[7].Value.ToString(), out stepType);
                         bool isChecked = Convert.ToBoolean(row.Cells[8].Value.ToString());
-
-                        if (isChecked)
-                        {
-                            ((StrategyParameterDecimalCheckBox)parameter).CheckState = CheckState.Checked;
-                        }
-                        else
-                        {
-                            ((StrategyParameterDecimalCheckBox)parameter).CheckState = CheckState.Unchecked;
-                        }
 
                         if (valueStart > valueStop)
                         {
@@ -3131,13 +3149,25 @@ namespace OsEngine.OsOptimizer
                         if (valueStart != param.ValueDecimalStart ||
                             valueStep != param.ValueDecimalStep ||
                             valueStop != param.ValueDecimalStop ||
-                            valueDefoult != param.ValueDecimalDefolt ||
                             stepType != param.StepType)
                         {
-                            _parameters.Insert(i_param, new StrategyParameterDecimalCheckBox(parameter.Name, valueDefoult,
-                               valueStart, valueStop, valueStep, true));
+                            StrategyParameterDecimalCheckBox newParam = new StrategyParameterDecimalCheckBox(parameter.Name, param.ValueDecimalDefolt,
+                               valueStart, valueStop, valueStep, isChecked);
+                            newParam.StepType = stepType;
+                            _parameters.Insert(i_param, newParam);
                             _parameters.RemoveAt(i_param + 1);
-                            ((StrategyParameterDecimalCheckBox)_parameters[i_param]).StepType = stepType;
+                            param = newParam;
+                        }
+
+                        param.ValueDecimal = value;
+
+                        if (isChecked)
+                        {
+                            param.CheckState = CheckState.Checked;
+                        }
+                        else
+                        {
+                            param.CheckState = CheckState.Unchecked;
                         }
                         if (row.Cells[0].Value == null ||
                             (bool)row.Cells[0].Value == false)
@@ -3220,11 +3250,39 @@ namespace OsEngine.OsOptimizer
             }
         }
 
+        private void _gridParameters_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                // выбор в выпадающем списке и галочка фиксируются сразу, а не при уходе
+                // фокуса из ячейки - иначе "Старт" читал из таблицы старое значение
+                if (_gridParameters == null ||
+                    !_gridParameters.IsCurrentCellDirty)
+                {
+                    return;
+                }
+
+                if (_gridParameters.CurrentCell is DataGridViewComboBoxCell ||
+                    _gridParameters.CurrentCell is DataGridViewCheckBoxCell)
+                {
+                    _gridParameters.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            }
+            catch (Exception ex)
+            {
+                _master?.SendLogMessage(ex.ToString(), LogMessageType.Error);
+            }
+        }
+
         private void _gridParameters_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
             try
             {
                 SaveParametersFromTable();
+                // без явного сохранения на диск ручной ввод в таблице терялся при следующем
+                // обращении к OptimizerMaster.Parameters (например, из MCP API), которое
+                // пересобирает список параметров заново из файла на диске
+                _master.SaveStandardParameters();
                 Task.Run(new Action(PaintCountBotsInOptimization));
             }
             catch (Exception ex)
