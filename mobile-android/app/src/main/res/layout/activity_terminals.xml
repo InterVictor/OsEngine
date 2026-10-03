@@ -89,9 +89,30 @@
                 android:background="@drawable/input_background"
                 android:orientation="vertical"
                 android:padding="16dp">
-                <TextView android:id="@+id/cpu_value" style="@style/OsEngineMetric" android:text="CPU  —" />
-                <TextView android:id="@+id/ram_value" style="@style/OsEngineMetric" android:text="RAM  —" />
-                <TextView android:id="@+id/disk_value" style="@style/OsEngineMetric" android:text="Диск  —" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/cpu_value" style="@style/OsEngineMetric"
+                        android:layout_width="0dp" android:layout_weight="1" android:text="CPU  —" />
+                    <TextView android:id="@+id/cpu_total" style="@style/OsEngineMetric"
+                        android:layout_width="wrap_content" android:gravity="end"
+                        android:textColor="@color/text_secondary" android:text="" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/ram_value" style="@style/OsEngineMetric"
+                        android:layout_width="0dp" android:layout_weight="1" android:text="RAM  —" />
+                    <TextView android:id="@+id/ram_total" style="@style/OsEngineMetric"
+                        android:layout_width="wrap_content" android:gravity="end"
+                        android:textColor="@color/text_secondary" android:text="" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/disk_value" style="@style/OsEngineMetric"
+                        android:layout_width="0dp" android:layout_weight="1" android:text="Диск  —" />
+                    <TextView android:id="@+id/disk_total" style="@style/OsEngineMetric"
+                        android:layout_width="wrap_content" android:gravity="end"
+                        android:textColor="@color/text_secondary" android:text="" />
+                </LinearLayout>
             </LinearLayout>
             <TextView
                 android:layout_width="match_parent"

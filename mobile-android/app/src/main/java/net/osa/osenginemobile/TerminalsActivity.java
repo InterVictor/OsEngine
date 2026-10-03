@@ -153,6 +153,9 @@ public final class TerminalsActivity extends Activity {
         ((TextView) findViewById(R.id.cpu_value)).setText("CPU  " + percent(snapshot.cpuPercent));
         ((TextView) findViewById(R.id.ram_value)).setText("RAM  " + percent(snapshot.ramPercent));
         ((TextView) findViewById(R.id.disk_value)).setText("Диск  " + percent(snapshot.diskPercent));
+        ((TextView) findViewById(R.id.cpu_total)).setText(snapshot.cores > 0 ? coresText(snapshot.cores) : "");
+        ((TextView) findViewById(R.id.ram_total)).setText(snapshot.ramTotal > 0 ? gigabytes(snapshot.ramTotal) : "");
+        ((TextView) findViewById(R.id.disk_total)).setText(snapshot.diskTotal > 0 ? gigabytes(snapshot.diskTotal) : "");
         terminalList.removeAllViews();
         if (snapshot.terminals.isEmpty()) {
             TextView empty = label(getString(R.string.terminal_empty), 14,
@@ -166,16 +169,15 @@ public final class TerminalsActivity extends Activity {
         }
     }
 
-    private View statZone(String big, String caption, int color, boolean toOpenJournal,
+    /** journalTab: 0 «Эквити» (chart), 1 «Открытые позиции»; the zone opens that journal tab of the terminal. */
+    private View statZone(String big, String caption, int color, int journalTab,
                           VpsSnapshot.Terminal terminal) {
         LinearLayout zone = new LinearLayout(this);
         zone.setOrientation(LinearLayout.VERTICAL);
         zone.setGravity(Gravity.CENTER);
-        if (toOpenJournal) {
-            zone.setBackgroundResource(R.drawable.input_background);
-            zone.setOnClickListener(view -> openRobots(terminal, "Журнал", 1));
-            zone.setContentDescription("Открытые позиции " + terminal.name);
-        }
+        zone.setBackgroundResource(R.drawable.input_background);
+        zone.setOnClickListener(view -> openRobots(terminal, "Журнал", journalTab));
+        zone.setContentDescription((journalTab == 1 ? "Открытые позиции " : "Профит за день ") + terminal.name);
         TextView number = label(big, big.length() > 7 ? 18 : 26, color);
         number.setTypeface(null, android.graphics.Typeface.BOLD);
         number.setGravity(Gravity.CENTER);
@@ -209,12 +211,12 @@ public final class TerminalsActivity extends Activity {
         synchronized (stats) { value = stats.get(terminal.name); }
         String mode = DayProfit.mode(this);
         header.addView(statZone(value == null ? "—" : String.valueOf(value.open),
-            "открытых позиций", R.color.text_primary, true, terminal),
+            "открытых позиций", R.color.text_primary, 1, terminal),
             new LinearLayout.LayoutParams(0, dp(78), 1));
         int profitColor = value == null || Math.abs(value.profit) < 0.005 ? R.color.text_primary
             : value.profit > 0 ? R.color.connected : R.color.loss;
         header.addView(statZone(value == null ? "—" : DayProfit.format(value.profit, mode),
-            "за день · " + DayProfit.label(mode).toLowerCase(Locale.ROOT), profitColor, false, terminal),
+            "за день · " + DayProfit.label(mode).toLowerCase(Locale.ROOT), profitColor, 0, terminal),
             new LinearLayout.LayoutParams(0, dp(78), 1.25f));
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
@@ -383,6 +385,18 @@ public final class TerminalsActivity extends Activity {
 
     private static String percent(double value) {
         return Double.isNaN(value) ? "—" : String.format(Locale.US, "%.1f%%", value);
+    }
+
+    private static String coresText(int cores) {
+        int tail = cores % 100;
+        String word = tail >= 11 && tail <= 14 ? "ядер" : cores % 10 == 1 ? "ядро"
+            : cores % 10 >= 2 && cores % 10 <= 4 ? "ядра" : "ядер";
+        return cores + " " + word;
+    }
+
+    private static String gigabytes(long bytes) {
+        double gb = bytes / 1_073_741_824.0;
+        return gb >= 100 ? String.format(Locale.US, "%.0f ГБ", gb) : String.format(Locale.US, "%.1f ГБ", gb);
     }
 
     private static String memory(long bytes) {

@@ -55,6 +55,7 @@ final class VpsSnapshotReader {
                 if (parts.length >= 2) {
                     long size = number(parts[0]);
                     if (size > 0) result.diskPercent = 100.0 * number(parts[1]) / size;
+                    result.diskTotal = size;
                 }
             } else if (line.startsWith("CORES|")) {
                 cores = (int) number(line.substring(6).trim());
@@ -76,6 +77,7 @@ final class VpsSnapshotReader {
         previousTotal = total;
         previousIdle = idle;
 
+        result.cores = cores;
         result.ramTotal = memTotal;
         result.ramUsed = Math.max(0, memTotal - memAvailable);
         if (memTotal > 0) result.ramPercent = clamp(100.0 * result.ramUsed / memTotal);

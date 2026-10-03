@@ -17,5 +17,7 @@ final class VpsSnapshot {
     double ramPercent = Double.NaN;
     double diskPercent = Double.NaN;
     long ramTotal;
+    long diskTotal;
+    int cores;
     long ramUsed;
 }
