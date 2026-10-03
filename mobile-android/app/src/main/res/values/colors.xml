@@ -8,6 +8,7 @@
     <color name="text_secondary">#A7A8AA</color>
     <color name="brand_strip">#FCEE21</color>
     <color name="connected">#399D36</color>
+    <color name="loss">#FE5400</color>
     <color name="server_connected">#3CB371</color>
     <color name="compare_error">#FF0000</color>
 </resources>

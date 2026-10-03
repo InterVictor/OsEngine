@@ -141,6 +141,11 @@ public final class RobotsActivity extends Activity {
         findViewById(R.id.add_robot).setOnClickListener(view -> addBot());
         try { bridge = new McpBridge(this); }
         catch (Exception error) { status.setText(error.getMessage()); }
+        String startPage = getIntent().getStringExtra("start_page");
+        if (startPage != null) {
+            page = startPage;
+            if ("Журнал".equals(startPage)) journalPage.selectTab(getIntent().getIntExtra("journal_tab", 0));
+        }
         render();
     }
 
@@ -450,11 +455,12 @@ public final class RobotsActivity extends Activity {
             return;
         }
         journalLoading = true;
+        final String requestedTool = journalPage.selectedTool();
         worker.execute(() -> {
             Map<String, Object> result = null;
             String error = null;
             try {
-                String selectedTool = journalPage.selectedTool();
+                String selectedTool = requestedTool;
                 if ("bot_journal_get_equity".equals(selectedTool))
                     result = bridge.callBatch(terminal,
                         McpBridge.call("bot_journal_get_summary", null),
@@ -475,7 +481,9 @@ public final class RobotsActivity extends Activity {
                 if (!visible || isDestroyed() || !"Журнал".equals(page)) return;
                 if (finalError == null) journalPage.showData(next);
                 else journalPage.showError("Не удалось загрузить журнал: " + finalError);
-                handler.postDelayed(journalPolling, 15_000);
+                // the tab was switched while this request ran: fetch the new one at once
+                if (!requestedTool.equals(journalPage.selectedTool())) handler.post(journalPolling);
+                else handler.postDelayed(journalPolling, 15_000);
             });
         });
     }

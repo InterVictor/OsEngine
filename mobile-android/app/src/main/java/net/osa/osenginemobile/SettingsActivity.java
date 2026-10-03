@@ -77,6 +77,13 @@ public final class SettingsActivity extends Activity {
         autoConnect.setChecked(profile.autoConnect());
         autoConnect.setOnCheckedChangeListener((button, checked) -> profile.setAutoConnect(checked));
         ((TextView) findViewById(R.id.about_info)).setText(aboutText());
+        android.widget.RadioGroup profitGroup = findViewById(R.id.day_profit_group);
+        String profitMode = DayProfit.mode(this);
+        profitGroup.check(DayProfit.PER_CONTRACT.equals(profitMode) ? R.id.day_profit_contract
+            : DayProfit.DEPOSIT.equals(profitMode) ? R.id.day_profit_deposit : R.id.day_profit_abs);
+        profitGroup.setOnCheckedChangeListener((group, id) -> DayProfit.setMode(this,
+            id == R.id.day_profit_contract ? DayProfit.PER_CONTRACT
+            : id == R.id.day_profit_deposit ? DayProfit.DEPOSIT : DayProfit.ABSOLUTE));
 
         String previewMode = getIntent().getStringExtra("preview_update");
         preview = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0 && previewMode != null;

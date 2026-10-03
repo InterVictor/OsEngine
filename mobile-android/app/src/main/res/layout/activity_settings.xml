@@ -160,6 +160,49 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
+            <!-- how the daily profit on the terminal tile is measured -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:text="Дневной профит на плитке терминала"
+                android:textColor="@color/orange"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <RadioGroup
+                android:id="@+id/day_profit_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/input_background"
+                android:orientation="vertical"
+                android:padding="12dp">
+                <RadioButton
+                    android:id="@+id/day_profit_abs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
+                    android:text="Абсолют"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+                <RadioButton
+                    android:id="@+id/day_profit_contract"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
+                    android:text="Процент на контракт"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+                <RadioButton
+                    android:id="@+id/day_profit_deposit"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="44dp"
+                    android:text="Процент от депозита"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp" />
+            </RadioGroup>
+
             <!-- about -->
             <TextView
                 android:layout_width="match_parent"

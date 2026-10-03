@@ -144,13 +144,10 @@ public final class ScreenerJournalActivity extends Activity {
                     for (int i = 0; i < open.length(); i++) rows.put(open.opt(i));
                     for (int i = 0; i < closed.length(); i++) rows.put(closed.opt(i));
                 } else {
-                    boolean ticker = security != null;
-                    String tool = requested == 1
-                        ? (ticker ? "bot_position_get_open" : "bot_journal_get_open_positions")
+                    // the journal answer carries side, result and times, unlike the short list of the tab
+                    String tool = requested == 1 ? "bot_journal_get_open_positions"
                         : "bot_journal_get_closed_positions";
-                    JSONObject args = requested == 1 && ticker
-                        ? new JSONObject().put("bot_id", botId).put("tab_name", tabName)
-                        : requested == 1 ? new JSONObject().put("bot_name", botId)
+                    JSONObject args = requested == 1 ? new JSONObject().put("bot_name", botId)
                         : new JSONObject().put("bot_name", botId).put("include_failed", true);
                     rows = responsePositions(bridge.callBatch(terminal,
                         McpBridge.call(tool, args)).get(tool));

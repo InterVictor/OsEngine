@@ -38,6 +38,10 @@ public final class TerminalsActivity extends Activity {
     private VpsSnapshot lastSnapshot;
     private final Set<String> restartingServices = new HashSet<>();
     private boolean unavailable;
+    /** Per terminal: open positions and the profit of today (absent until the first answer). */
+    private static final class Stats { int open; double profit; }
+    private final java.util.Map<String, Stats> stats = new java.util.HashMap<>();
+    private McpBridge bridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +97,7 @@ public final class TerminalsActivity extends Activity {
             String error = null;
             try { snapshot = reader.read(); }
             catch (Exception e) { error = e.getMessage(); }
+            if (snapshot != null) loadStats(snapshot);
             VpsSnapshot finalSnapshot = snapshot;
             String finalError = error;
             runOnUiThread(() -> {
@@ -105,6 +110,34 @@ public final class TerminalsActivity extends Activity {
                 handler.postDelayed(refresh, 10_000);
             });
         });
+    }
+
+    /** Open positions (sum over the robots) and today profit of every active terminal; failures keep old values. */
+    private void loadStats(VpsSnapshot snapshot) {
+        try { if (bridge == null) bridge = new McpBridge(this); }
+        catch (Exception e) { return; }
+        String mode = DayProfit.mode(this);
+        for (VpsSnapshot.Terminal terminal : snapshot.terminals) {
+            if (!"active".equals(terminal.state)) continue;
+            try {
+                java.util.Map<String, Object> result = bridge.callBatch(terminal.name,
+                    McpBridge.call("bot_get_list", null),
+                    McpBridge.call("bot_journal_get_equity", new org.json.JSONObject().put("chart_type", mode)));
+                Object list = result.get("bot_get_list");
+                Object equity = result.get("bot_journal_get_equity");
+                if (!(list instanceof org.json.JSONObject) || !(equity instanceof org.json.JSONObject)) continue;
+                org.json.JSONArray bots = ((org.json.JSONObject) list).optJSONArray("bots");
+                org.json.JSONArray points = ((org.json.JSONObject) equity).optJSONArray("points");
+                if (bots == null) continue;
+                Stats value = new Stats();
+                for (int i = 0; i < bots.length(); i++) {
+                    org.json.JSONObject bot = bots.optJSONObject(i);
+                    if (bot != null) value.open += bot.optInt("open_positions_count");
+                }
+                value.profit = points == null ? 0 : DayProfit.today(points);
+                synchronized (stats) { stats.put(terminal.name, value); }
+            } catch (Exception ignored) { /* keep the previous numbers */ }
+        }
     }
 
     private void showSnapshot(VpsSnapshot snapshot) {
@@ -133,6 +166,27 @@ public final class TerminalsActivity extends Activity {
         }
     }
 
+    private View statZone(String big, String caption, int color, boolean toOpenJournal,
+                          VpsSnapshot.Terminal terminal) {
+        LinearLayout zone = new LinearLayout(this);
+        zone.setOrientation(LinearLayout.VERTICAL);
+        zone.setGravity(Gravity.CENTER);
+        if (toOpenJournal) {
+            zone.setBackgroundResource(R.drawable.input_background);
+            zone.setOnClickListener(view -> openRobots(terminal, "Журнал", 1));
+            zone.setContentDescription("Открытые позиции " + terminal.name);
+        }
+        TextView number = label(big, big.length() > 7 ? 18 : 26, color);
+        number.setTypeface(null, android.graphics.Typeface.BOLD);
+        number.setGravity(Gravity.CENTER);
+        number.setSingleLine(true);
+        zone.addView(number, new LinearLayout.LayoutParams(-2, -2));
+        TextView text = label(caption, 11, R.color.text_secondary);
+        text.setGravity(Gravity.CENTER);
+        zone.addView(text, new LinearLayout.LayoutParams(-2, -2));
+        return zone;
+    }
+
     private View card(VpsSnapshot.Terminal terminal) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -141,16 +195,32 @@ public final class TerminalsActivity extends Activity {
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
         cardParams.bottomMargin = dp(10);
         card.setLayoutParams(cardParams);
+        TextView name = label(terminal.name, 20, R.color.text_primary);
+        name.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        // three zones under the name: open positions | profit of the day | open / restart
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(header, new LinearLayout.LayoutParams(-1, -2));
-        TextView name = label(terminal.name, 20, R.color.text_primary);
-        name.setTypeface(null, android.graphics.Typeface.BOLD);
-        header.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, -2);
+        headerParams.topMargin = dp(6);
+        card.addView(header, headerParams);
+        Stats value;
+        synchronized (stats) { value = stats.get(terminal.name); }
+        String mode = DayProfit.mode(this);
+        header.addView(statZone(value == null ? "—" : String.valueOf(value.open),
+            "открытых позиций", R.color.text_primary, true, terminal),
+            new LinearLayout.LayoutParams(0, dp(78), 1));
+        int profitColor = value == null || Math.abs(value.profit) < 0.005 ? R.color.text_primary
+            : value.profit > 0 ? R.color.connected : R.color.loss;
+        header.addView(statZone(value == null ? "—" : DayProfit.format(value.profit, mode),
+            "за день · " + DayProfit.label(mode).toLowerCase(Locale.ROOT), profitColor, false, terminal),
+            new LinearLayout.LayoutParams(0, dp(78), 1.25f));
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
-        header.addView(actions, new LinearLayout.LayoutParams(dp(96), -2));
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(dp(96), -2);
+        actionsParams.leftMargin = dp(8);
+        header.addView(actions, actionsParams);
         TextView open = label(getString(R.string.terminal_open_button), 14, R.color.text_primary);
         open.setGravity(Gravity.CENTER);
         open.setBackgroundResource(R.drawable.button_background);
@@ -216,9 +286,17 @@ public final class TerminalsActivity extends Activity {
     }
 
     private void openRobots(VpsSnapshot.Terminal terminal) {
+        openRobots(terminal, null, 0);
+    }
+
+    private void openRobots(VpsSnapshot.Terminal terminal, String startPage, int journalTab) {
         if (preview) return;
         Intent intent = new Intent(this, RobotsActivity.class);
         intent.putExtra("terminal_name", terminal.name);
+        if (startPage != null) {
+            intent.putExtra("start_page", startPage);
+            intent.putExtra("journal_tab", journalTab);
+        }
         startActivity(intent);
     }
 

@@ -48,6 +48,8 @@ final class JournalPage {
         this.onTabChanged = onTabChanged;
     }
 
+    void selectTab(int index) { selected = Math.max(0, Math.min(2, index)); }
+
     String selectedTool() {
         switch (selected) {
             case 0: return "bot_journal_get_equity";
@@ -172,6 +174,7 @@ final class JournalPage {
                 if ("Buy".equals(position.optString("side"))) longs = longs.add(change);
                 else if ("Sell".equals(position.optString("side"))) shorts = shorts.add(change);
                 points.put(new JSONObject().put("total", total.doubleValue()).put("change", change.doubleValue())
+                    .put("open", !"Done".equals(position.optString("state")))
                     .put("time", position.optString("time_create"))
                     .put("long", longs.doubleValue()).put("short", shorts.doubleValue()));
             } catch (Exception ignored) { /* Malformed position is skipped, never guessed. */ }
@@ -181,7 +184,11 @@ final class JournalPage {
 
     private void renderPositions(String tool) {
         JSONObject result = object(tool);
-        JSONArray positions = result == null ? null : result.optJSONArray("positions");
+        if (result == null) {
+            target.addView(text("Загрузка…", 15, R.color.text_secondary));
+            return;
+        }
+        JSONArray positions = result.optJSONArray("positions");
         if (positions == null || positions.length() == 0) {
             target.addView(text("Позиций нет", 15, R.color.text_secondary));
             return;
@@ -256,7 +263,11 @@ final class JournalPage {
     static void addBars(Activity activity, LinearLayout target, JSONArray points, boolean tablet) {
         float density = activity.getResources().getDisplayMetrics().density;
         TextView byPosition = new TextView(activity);
-        byPosition.setText("Прибыль по позициям");
+        android.text.SpannableString caption = new android.text.SpannableString("Прибыль по позициям   ■ открытые");
+        int mark = caption.toString().indexOf('■');
+        caption.setSpan(new android.text.style.ForegroundColorSpan(0xFF8A2BE2), mark, caption.length(),
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        byPosition.setText(caption);
         byPosition.setTextSize(12);
         byPosition.setTextColor(activity.getColor(R.color.text_secondary));
         byPosition.setPadding(0, Math.round(10 * density), 0, 0);
@@ -264,7 +275,10 @@ final class JournalPage {
         double[] changes = new double[points.length()];
         for (int i = 0; i < changes.length; i++) changes[i] = points.optJSONObject(i) == null ? 0
             : points.optJSONObject(i).optDouble("change", 0);
-        target.addView(new BarGraph(activity, changes),
+        boolean[] open = new boolean[points.length()];
+        for (int i = 0; i < open.length; i++) open[i] = points.optJSONObject(i) != null
+            && points.optJSONObject(i).optBoolean("open");
+        target.addView(new BarGraph(activity, changes, open),
             new LinearLayout.LayoutParams(-1, Math.round((tablet ? 200 : 150) * density)));
         java.util.LinkedHashMap<String, Double> months = new java.util.LinkedHashMap<>();
         for (int i = 0; i < points.length(); i++) {
@@ -284,16 +298,18 @@ final class JournalPage {
         double[] sums = new double[months.size()];
         int index = 0;
         for (double value : months.values()) sums[index++] = value;
-        target.addView(new BarGraph(activity, sums),
+        target.addView(new BarGraph(activity, sums, null),
             new LinearLayout.LayoutParams(-1, Math.round((tablet ? 160 : 120) * density)));
     }
 
     static final class BarGraph extends View {
         private final double[] values;
+        private final boolean[] open;   // positions that are still open are drawn in violet (JournalBarZeroColor)
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        BarGraph(Activity activity, double[] values) {
+        BarGraph(Activity activity, double[] values, boolean[] open) {
             super(activity);
+            this.open = open;
             this.values = values;
             setBackgroundResource(R.drawable.input_background);
         }
@@ -314,7 +330,7 @@ final class JournalPage {
             for (int i = 0; i < values.length; i++) {
                 float x = left + slot * (i + .5f);
                 float height = (float) (Math.abs(values[i]) / max * (zero - top));
-                paint.setColor(values[i] >= 0 ? 0xFFDCDCDC : 0xFF8B0000);
+                paint.setColor(open != null && open[i] ? 0xFF8A2BE2 : values[i] >= 0 ? 0xFFDCDCDC : 0xFF8B0000);
                 if (values[i] >= 0) canvas.drawRect(x - width / 2, zero - height, x + width / 2, zero, paint);
                 else canvas.drawRect(x - width / 2, zero, x + width / 2, zero + height, paint);
             }
